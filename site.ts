@@ -1,28 +1,57 @@
 import { Yap } from "./yap.ts";
 import { gzip } from "https://deno.land/x/compress@v0.4.1/gzip/mod.ts";
+import { Handlebars, HandlebarsConfig } from 'https://deno.land/x/handlebars/mod.ts';
 
-const indexFile = await Deno.readTextFile("./pages/index.html");
-const encodedIndexFile = gzip(new TextEncoder().encode(indexFile));
+const githubOAuthClientId = "57fe061763bd02f2aa4c";
+
+const handle = new Handlebars({
+    baseDir: 'views',
+    extname: '.hbs',
+    layoutsDir: 'layouts/',
+    partialsDir: 'partials/',
+    cachePartials: true,
+    defaultLayout: 'main',
+    helpers: undefined,
+    compilerOptions: undefined,
+});
+
 async function handleIndexPage(
   requestEvent: Deno.RequestEvent,
 ) {
   try {
-    await requestEvent.respondWith(
-      new Response(encodedIndexFile, {
-        headers: [
-          ["Content-Type", "text/html; charset=utf-8"],
-          ["Content-Encoding", "gzip"],
-          ["Strict-Transport-Security", "max-age=63072000"],
-          ["X-Content-Type-Options", "nosniff"],
-          ["X-Frame-Options", "SAMEORIGIN"],
-          [
-            "Content-Security-Policy",
-            "default-src 'self'; style-src 'sha256-KUIKAXITQmBGjwh/7Q/ocN0EiOzL5nh0byBrVj8Z/xA='",
+    const path = new URL(requestEvent.request.url)
+    let code = path.searchParams.get("code")
+    if (code) {
+      const content: string = await handle.renderView('main', { clientId: githubOAuthClientId });
+      const encodedIndexFile = gzip(new TextEncoder().encode(content));
+      await requestEvent.respondWith(
+        new Response(encodedIndexFile, {
+          headers: [
+            ["Content-Type", "text/html; charset=utf-8"],
+            ["Content-Encoding", "gzip"],
+            ["Strict-Transport-Security", "max-age=63072000"],
+            ["X-Content-Type-Options", "nosniff"],
+            ["X-Frame-Options", "SAMEORIGIN"],
           ],
-        ],
-        status: 200,
-      }),
-    );
+          status: 200,
+        }),
+      );
+    } else {
+      const content: string = await handle.renderView('main', { clientId: githubOAuthClientId });
+      const encodedIndexFile = gzip(new TextEncoder().encode(content));
+      await requestEvent.respondWith(
+        new Response(encodedIndexFile, {
+          headers: [
+            ["Content-Type", "text/html; charset=utf-8"],
+            ["Content-Encoding", "gzip"],
+            ["Strict-Transport-Security", "max-age=63072000"],
+            ["X-Content-Type-Options", "nosniff"],
+            ["X-Frame-Options", "SAMEORIGIN"],
+          ],
+          status: 200,
+        }),
+      );
+    }
   } catch (error) {
     console.error(error);
   }
@@ -57,7 +86,7 @@ async function handleFile(
   }
 }
 
-const robotsFile = await Deno.readTextFile("./pages/robots.txt");
+const robotsFile = await Deno.readTextFile("./static/robots.txt");
 async function handleRobotsPage(
   requestEvent: Deno.RequestEvent,
 ) {
