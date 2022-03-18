@@ -15,6 +15,7 @@ const handle = new Handlebars({
     compilerOptions: undefined,
 });
 
+
 async function handleIndexPage(
   requestEvent: Deno.RequestEvent,
 ) {
