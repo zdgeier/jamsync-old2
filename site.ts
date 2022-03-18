@@ -1,20 +1,9 @@
 import { Yap } from "./yap.ts";
 import { gzip } from "https://deno.land/x/compress@v0.4.1/gzip/mod.ts";
-import { Handlebars, HandlebarsConfig } from 'https://deno.land/x/handlebars/mod.ts';
 
 const githubOAuthClientId = "57fe061763bd02f2aa4c";
 
-const handle = new Handlebars({
-    baseDir: 'views',
-    extname: '.hbs',
-    layoutsDir: 'layouts/',
-    partialsDir: 'partials/',
-    cachePartials: true,
-    defaultLayout: 'main',
-    helpers: undefined,
-    compilerOptions: undefined,
-});
-
+const indexFile = await Deno.readTextFile("./views/index.html");
 async function handleIndexPage(
   requestEvent: Deno.RequestEvent,
 ) {
@@ -22,7 +11,7 @@ async function handleIndexPage(
     const path = new URL(requestEvent.request.url)
     let code = path.searchParams.get("code")
     if (code) {
-      const content: string = await handle.renderView('main', { clientId: githubOAuthClientId });
+      const content: string = indexFile.replace("{{clientId}}", githubOAuthClientId).replace("{{loggedIn}}", "true")
       const encodedIndexFile = gzip(new TextEncoder().encode(content));
       await requestEvent.respondWith(
         new Response(encodedIndexFile, {
@@ -37,7 +26,7 @@ async function handleIndexPage(
         }),
       );
     } else {
-      const content: string = await handle.renderView('main', { clientId: githubOAuthClientId });
+      const content: string = indexFile.replace("{{clientId}}", githubOAuthClientId).replace("{{loggedIn}}", "false")
       const encodedIndexFile = gzip(new TextEncoder().encode(content));
       await requestEvent.respondWith(
         new Response(encodedIndexFile, {
