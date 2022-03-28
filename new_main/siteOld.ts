@@ -7,7 +7,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
+
+
 	"strconv"
 	"strings"
 
@@ -15,12 +16,16 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/cespare/xxhash/v2"
-	f "github.com/fauna/faunadb-go/v4/faunadb"
 	"github.com/fsnotify/fsnotify"
 )
 
+type DirectoryVersion struct {
+	hashToPaths map[uint64][]string
+	pathToHash  map[string]uint64
+}
+
 func (dv DirectoryVersion) hasHashAndPath(hash uint64, path string) bool {
-	for _, existingPath := range dv.hashToPaths[hash] {
+	for _, existingPasth := range dv.hashToPaths[hash] {
 		if existingPath == path {
 			return true
 		}
@@ -112,58 +117,16 @@ var (
 	))
 )
 
-// type DirectoryVersion struct {
-// 	hashToPaths map[uint64][]string
-// 	pathToHash  map[string]uint64
-// }
-type DirectoryVersion struct {
-	Name          string `fauna:"name"`
-	PathVersions  f.Obj  `fauna:"path_versions"`
-	UserDirectory f.RefV `fauna:"user_directory"`
-}
-
-type FaunaResult struct{}
-
 func main() {
 	fmt.Println("Starting!")
 	// The session the S3 Uploader will use
-
-	client := f.NewFaunaClient(
-		"fnAEis9V07ACUYR4UhhmybRX7C5ZR7jD-3QSfs-8",
-		f.Endpoint("https://db.fauna.com"),
-	)
-
-	current_version := f.Ref(f.Collection("UserDirectories"), "327301565008314961")
-
-	res, err := client.Query(f.Get(current_version))
-
-	//res, err := client.Query(f.Create(f.Collection("DirectoryVersions"), f.Obj{
-	//	"data": f.Obj{
-	//		"user_directory": f.Ref(f.Collection("UserDirectories"), "327301565008314961"),
-	//		"path_versions": f.Obj{
-	//			"siteOld.ts": "2454300075533300882",
-	//		},
-	//	},
-	//}))
-	//if err != nil {
-	//	panic(err)
-	//}
-	fmt.Println(res)
-
-	var directoryVersion DirectoryVersion
-	if err := res.At(f.ObjKey("data")).Get(&directoryVersion); err != nil {
-		panic(err)
-	}
-
-	fmt.Println("%+v", directoryVersion)
-	panic("stop")
 
 	// Create an uploader with the session and default options
 	uploader := s3manager.NewUploader(sess)
 
 	directoryVersion := ReadDirectoryVersionsFile()
 
-	err = filepath.Walk(".",
+	err := filepath.Walk(".",
 		func(path string, info os.FileInfo, err error) error {
 			if strings.Contains(path, ".git") || strings.Contains(path, ".jamsync") {
 				return nil
@@ -280,3 +243,9 @@ func watchDir(path string, fi os.FileInfo, err error) error {
 
 	return nil
 }
+
+
+
+	return nil
+}
+

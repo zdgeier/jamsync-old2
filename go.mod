@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/fauna/faunadb-go/v4 v4.2.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
