@@ -42,13 +42,13 @@ var (
 func main() {
 	log.Println("Starting Jamsync!")
 	client := f.NewFaunaClient(
-		"fnAEis9V07ACUYR4UhhmybRX7C5ZR7jD-3QSfs-8",
+		"fnAEiuuCnaACUM3cHYLv2OSo_BYtymUbRor_eIR5",
 		f.Endpoint("https://db.fauna.com"),
 	)
 	s3downloader := s3manager.NewDownloader(sess)
 	s3uploader := s3manager.NewUploader(sess)
 
-	currUserDirectoryRef := f.Ref(f.Collection("UserDirectories"), "327301565008314961")
+	currUserDirectoryRef := f.Ref(f.Collection("UserDirectories"), "327332730238927440")
 
 	// Get current user directory info
 	var userDirectory UserDirectory
@@ -67,7 +67,7 @@ func main() {
 	// Start stream to DirectoryVersion
 
 	var directoryVersion DirectoryVersion
-	directoryVersionRef := f.Ref(f.Collection("DirectoryVersions"), "327302175592022609")
+	directoryVersionRef := f.Ref(f.Collection("DirectoryVersions"), "327332851032785488")
 	subscription := client.Stream(directoryVersionRef)
 	err := subscription.Start()
 	if err != nil {
