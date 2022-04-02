@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -28,6 +31,7 @@ type DirectoryVersion struct {
 	Name          string            `fauna:"name"`
 	PathVersions  map[string]string `fauna:"path_versions"`
 	UserDirectory f.RefV            `fauna:"user_directory"`
+	mu            sync.Mutex
 }
 
 var (
@@ -73,119 +77,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	for event := range subscription.StreamEvents() {
-		log.Printf("Recieved event %+v\n", event.String())
-
-		switch event.Type() {
-		case f.StartEventT:
-			// Get current version info
-			{
-				res, err := client.Query(f.Get(directoryVersionRef))
-				if err != nil {
-					panic(err)
-				}
-				if err := res.At(f.ObjKey("data")).Get(&directoryVersion); err != nil {
-					panic(err)
-				}
-				log.Println("Using DirectoryVersion \"" + directoryVersion.Name + "\"")
-
-				// Initialize directory with version
-				syncDirectoryVersionLocally(s3downloader, directoryVersion)
-
-				go watchAndUpdateDirectoryVersion(&directoryVersion, s3uploader, client, directoryVersionRef)
-			}
-		case f.HistoryRewriteEventT:
-			// Do something with history rewrite events
-		case f.VersionEventT:
-			if versionEvent, ok := event.(f.VersionEvent); ok {
-				if err := versionEvent.Event().At(f.ObjKey("document", "data")).Get(&directoryVersion); err != nil {
-					panic(err)
-				}
-
-				syncDirectoryVersionLocally(s3downloader, directoryVersion)
-			} else {
-				panic("Could not type assert StartEvent")
-			}
-			// Do something with version events
-		case f.ErrorEventT:
-			// Handle stream errors
-			// In this case, we close the stream
-			log.Fatal(event)
-			subscription.Close()
-		}
-	}
-}
-
-// Given a complete directory verion, update all the files in the current directory
-// Does not download new files if hashes match
-func syncDirectoryVersionLocally(s3downloader *s3manager.Downloader, directoryVersion DirectoryVersion) {
-	for remotePath, remoteHash := range directoryVersion.PathVersions {
-		if _, err := os.Stat(remotePath); errors.Is(err, os.ErrNotExist) {
-			// Path does not exist, we can just download directly
-			log.Println("Path does not exist downloading", remotePath)
-			file, err := os.Create(remotePath)
-			if err != nil {
-				panic(err)
-			}
-			defer file.Close()
-
-			_, err = s3downloader.Download(file,
-				&s3.GetObjectInput{
-					Bucket: aws.String("s3uploader-s3uploadbucket-8nvbzesahivf"),
-					Key:    aws.String(fmt.Sprint(remoteHash)),
-				})
-			if err != nil {
-				panic(err)
-			}
-			log.Println("Downloaded new file", remotePath)
-		} else if err == nil {
-			// Otherwise, we need to read the file and update if the hash has changed
-			log.Println("An existing file is at the remote path", remotePath)
-			contents, err := os.ReadFile(remotePath)
-			if err != nil {
-				panic(err)
-			}
-			digest := xxhash.New()
-			digest.Write(contents)
-			localHash := fmt.Sprint(digest.Sum64())
-			fmt.Println(localHash, remoteHash, remotePath)
-
-			if remoteHash != localHash {
-				// Need to update local
-				log.Println("Local and remote hashes do not match. Updating", remotePath, remoteHash)
-				localFile, err := os.OpenFile(remotePath, os.O_WRONLY|os.O_CREATE, os.ModePerm)
-				if err != nil {
-					panic(err)
-				}
-				// close fi on exit and check for its returned error
-				defer func() {
-					if err := localFile.Close(); err != nil {
-						panic(err)
-					}
-				}()
-
-				_, err = s3downloader.Download(localFile,
-					&s3.GetObjectInput{
-						Bucket: aws.String("s3uploader-s3uploadbucket-8nvbzesahivf"),
-						Key:    aws.String(fmt.Sprint(remoteHash)),
-					})
-				if err != nil {
-					panic(err)
-				}
-				log.Println("Updated file", remotePath)
-			} else {
-				log.Println("Local and remote hashes match. Keeping the existing file.")
-			}
-		} else {
-			panic(err)
-		}
-	}
-}
-
-// Watches directory for changes.
-// Uploads changed files and updates directory version once complete
-func watchAndUpdateDirectoryVersion(directoryVersion *DirectoryVersion, s3uploader *s3manager.Uploader, client *f.FaunaClient, directoryVersionRef f.Expr) {
 	// creates a new file watcher
 	watcher, _ = fsnotify.NewWatcher()
 	defer watcher.Close()
@@ -204,12 +95,59 @@ func watchAndUpdateDirectoryVersion(directoryVersion *DirectoryVersion, s3upload
 
 	for {
 		select {
+		case event := <-subscription.StreamEvents():
+			log.Printf("Recieved event %+v\n", event.String())
+
+			switch event.Type() {
+			case f.StartEventT:
+				// Get current version info
+				{
+					res, err := client.Query(f.Get(directoryVersionRef))
+					if err != nil {
+						panic(err)
+					}
+					if err := res.At(f.ObjKey("data")).Get(&directoryVersion); err != nil {
+						panic(err)
+					}
+					log.Println("Using DirectoryVersion \"" + directoryVersion.Name + "\"")
+
+					// Initialize directory with version
+					syncDirectoryVersionLocally(s3downloader, &directoryVersion)
+				}
+			case f.HistoryRewriteEventT:
+				// Do something with history rewrite events
+			case f.VersionEventT:
+				if versionEvent, ok := event.(f.VersionEvent); ok {
+					if err := versionEvent.Event().At(f.ObjKey("document", "data")).Get(&directoryVersion); err != nil {
+						panic(err)
+					}
+
+					directoryVersion.mu.Lock()
+					syncDirectoryVersionLocally(s3downloader, &directoryVersion)
+					directoryVersion.mu.Unlock()
+				} else {
+					panic("Could not type assert StartEvent")
+				}
+				// Do something with version events
+			case f.ErrorEventT:
+				// Handle stream errors
+				log.Println(event)
+			}
 		case event := <-watcher.Events:
+			directoryVersion.mu.Lock()
 			log.Println("Directory watcher event", event)
+			log.Println("HACK: waiting a second to prevent race condition for editor writing to file")
+			time.Sleep(time.Second) // HACK: wait until file done being written to prevent race condition with editors
 			if event.Name == ".jamsync" {
 				continue
 			}
 			path := event.Name
+
+			if pathStat, err := os.Stat(path); err == nil {
+				fmt.Println(pathStat.Mode())
+			} else {
+				panic(err)
+			}
 
 			contents, err := ioutil.ReadFile(path)
 			if err != nil {
@@ -254,11 +192,72 @@ func watchAndUpdateDirectoryVersion(directoryVersion *DirectoryVersion, s3upload
 
 				log.Println("Updated directory version of", path)
 			}
-			//directoryVersion.setFileVersion(hash, path)
-
-			//directoryVersion.WriteDirectoryVersionsFile()
+			directoryVersion.mu.Unlock()
 		case err := <-watcher.Errors:
 			log.Println("ERROR", err)
+		}
+	}
+}
+
+// Given a complete directory verion, update all the files in the current directory
+// Does not download new files if hashes match
+func syncDirectoryVersionLocally(s3downloader *s3manager.Downloader, directoryVersion *DirectoryVersion) {
+	for remotePath, remoteHash := range directoryVersion.PathVersions {
+		if _, err := os.Stat(remotePath); errors.Is(err, os.ErrNotExist) {
+			// Path does not exist, we can just download directly
+			log.Println("Path does not exist downloading", remotePath)
+			file, err := os.Create(remotePath)
+			if err != nil {
+				panic(err)
+			}
+			defer file.Close()
+
+			_, err = s3downloader.Download(file,
+				&s3.GetObjectInput{
+					Bucket: aws.String("s3uploader-s3uploadbucket-8nvbzesahivf"),
+					Key:    aws.String(fmt.Sprint(remoteHash)),
+				})
+
+			if err != nil {
+				panic(err)
+			}
+			log.Println("Downloaded new file", remotePath)
+		} else if err == nil {
+			// Otherwise, we need to read the file and update if the hash has changed
+			log.Println("An existing file is at the remote path", remotePath)
+			contents, err := os.ReadFile(remotePath)
+			if err != nil {
+				panic(err)
+			}
+			digest := xxhash.New()
+			digest.Write(contents)
+			localHash := fmt.Sprint(digest.Sum64())
+			fmt.Println(localHash, remoteHash, remotePath)
+
+			if remoteHash != localHash {
+				// Need to update local
+				log.Println("Local and remote hashes do not match. Updating", remotePath, remoteHash)
+				var outByteArr []byte
+				var out *aws.WriteAtBuffer = aws.NewWriteAtBuffer(outByteArr)
+
+				_, err = s3downloader.Download(out,
+					&s3.GetObjectInput{
+						Bucket: aws.String("s3uploader-s3uploadbucket-8nvbzesahivf"),
+						Key:    aws.String(fmt.Sprint(remoteHash)),
+					})
+				if err != nil {
+					panic(err)
+				}
+				err = os.WriteFile(remotePath, out.Bytes(), fs.FileMode(os.O_WRONLY))
+				if err != nil {
+					panic(err)
+				}
+				log.Println("Updated file", remotePath)
+			} else {
+				log.Println("Local and remote hashes match. Keeping the existing file.")
+			}
+		} else {
+			panic(err)
 		}
 	}
 }
