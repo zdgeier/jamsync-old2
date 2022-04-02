@@ -149,6 +149,7 @@ func syncDirectoryVersionLocally(s3downloader *s3manager.Downloader, directoryVe
 			digest := xxhash.New()
 			digest.Write(contents)
 			localHash := fmt.Sprint(digest.Sum64())
+			fmt.Println(localHash, remoteHash, remotePath)
 
 			if remoteHash != localHash {
 				// Need to update local
@@ -173,6 +174,8 @@ func syncDirectoryVersionLocally(s3downloader *s3manager.Downloader, directoryVe
 					panic(err)
 				}
 				log.Println("Updated file", remotePath)
+			} else {
+				log.Println("Local and remote hashes match. Keeping the existing file.")
 			}
 		} else {
 			panic(err)
