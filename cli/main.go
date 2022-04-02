@@ -232,7 +232,6 @@ func syncDirectoryVersionLocally(s3downloader *s3manager.Downloader, directoryVe
 			digest := xxhash.New()
 			digest.Write(contents)
 			localHash := fmt.Sprint(digest.Sum64())
-			fmt.Println(localHash, remoteHash, remotePath)
 
 			if remoteHash != localHash {
 				// Need to update local
