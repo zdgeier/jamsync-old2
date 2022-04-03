@@ -206,6 +206,12 @@ func syncDirectoryVersionLocally(s3downloader *s3manager.Downloader, directoryVe
 		if _, err := os.Stat(remotePath); errors.Is(err, os.ErrNotExist) {
 			// Path does not exist, we can just download directly
 			log.Println("Path does not exist downloading", remotePath)
+
+			err := os.MkdirAll(filepath.Dir(remotePath), 0666)
+			if err != nil {
+				panic(err)
+			}
+
 			file, err := os.Create(remotePath)
 			if err != nil {
 				panic(err)
