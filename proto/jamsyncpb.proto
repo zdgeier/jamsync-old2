@@ -1,0 +1,75 @@
+syntax = "proto3";
+package jamsyncpb;
+
+option go_package = "github.com/zdgeier/jamsync/proto/jamsyncpb";
+
+service JamsyncAPI {
+    rpc AddUser(AddUserRequest) returns (AddUserResponse);
+    rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+    rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
+    rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+    rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+    rpc UpdateStream(stream UpdateStreamRequest) returns (stream UpdateStreamResponse);
+}
+
+message UpdateStreamRequest {
+    bytes data = 1;
+}
+
+message UpdateStreamResponse {
+    bytes data = 1;
+}
+  
+message AddUserRequest {
+    string username = 1;
+}
+
+message AddUserResponse {
+    int64 user_id = 1;
+}
+
+message GetUserRequest {
+    int64 user_id = 1;
+}
+
+message GetUserResponse {
+    string username = 1;
+}
+
+message ListUsersRequest {}
+message ListUsersResponse {
+    message User {
+        string username = 1;
+        int64 user_id = 2;
+    }
+    repeated User users = 1;
+}
+
+message AddProjectRequest {
+    string name = 1;
+    int64 owner = 2;
+}
+
+message AddProjectResponse {
+    int64 project_id = 1;
+}
+
+message GetProjectRequest {
+    int64 project_id = 1;
+}
+
+message GetProjectResponse {
+    string name = 1;
+    int64 owner = 2;
+}
+
+message ListProjectsRequest {}
+message ListProjectsResponse {
+    message Project {
+        string name = 1;
+        int64 id = 2;
+        int64 owner_user_id = 3;
+    }
+    repeated Project projects = 1;
+}
