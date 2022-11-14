@@ -9,15 +9,81 @@ service JamsyncAPI {
     rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+    rpc RegenFile(RegenFileRequest) returns (RegenFileResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+    rpc ListChanges(ListChangesRequest) returns (ListChangesResponse);
     rpc UpdateStream(stream UpdateStreamRequest) returns (stream UpdateStreamResponse);
+    rpc GetBlockHashes(GetBlockHashesRequest) returns (GetBlockHashesResponse);
+}
+
+message Manifest {
+    message Path {
+        uint64 path_id = 1;
+        string path = 2;
+        bool dir = 3;
+    }
+    repeated Path paths = 1;
+}
+
+enum OpType {
+    OpBlock = 0;
+    OpData = 1;
+    OpHash = 2;
+    OpBlockRange = 3;
+}
+
+message Operation {
+    OpType op_type = 1;
+    uint64 block_index = 2;
+    uint64 block_index_end = 3;
+    bytes data = 4;
+}
+
+message Change {
+    repeated Operation ops = 1;
+}
+
+message ListChangesRequest {
+    string branch_id = 1;
+}
+
+message ListChangesResponse {
+    repeated Change changes = 1;
 }
 
 message UpdateStreamRequest {
-    bytes data = 1;
+    Operation operation = 1;
+    uint64 user_id = 2;
+    uint64 project_id = 3;
+    uint64 branch_id = 4;
+    string path = 5;
 }
 
 message UpdateStreamResponse {
+    bytes data = 1;
+}
+
+message GetBlockHashesRequest {
+    uint64 project_id = 1;
+    uint64 branch_id = 2;
+    string path = 3;
+}
+
+message GetBlockHashesResponse {
+	message BlockHash {
+        uint64 index = 1;
+        bytes strong_hash = 2;
+        uint32 weak_hash = 3;
+    }
+    repeated BlockHash block_hashes = 2;
+}
+
+message RegenFileRequest {
+    uint64 project_id = 1;
+    uint64 branch_id = 2;
+    string path = 3;
+}
+message RegenFileResponse {
     bytes data = 1;
 }
   
@@ -26,11 +92,11 @@ message AddUserRequest {
 }
 
 message AddUserResponse {
-    int64 user_id = 1;
+    uint64 user_id = 1;
 }
 
 message GetUserRequest {
-    int64 user_id = 1;
+    uint64 user_id = 1;
 }
 
 message GetUserResponse {
@@ -41,35 +107,35 @@ message ListUsersRequest {}
 message ListUsersResponse {
     message User {
         string username = 1;
-        int64 user_id = 2;
+        uint64 user_id = 2;
     }
     repeated User users = 1;
 }
 
 message AddProjectRequest {
     string name = 1;
-    int64 owner = 2;
+    uint64 owner = 2;
 }
 
 message AddProjectResponse {
-    int64 project_id = 1;
+    uint64 project_id = 1;
 }
 
 message GetProjectRequest {
-    int64 project_id = 1;
+    uint64 project_id = 1;
 }
 
 message GetProjectResponse {
     string name = 1;
-    int64 owner = 2;
+    uint64 owner = 2;
 }
 
 message ListProjectsRequest {}
 message ListProjectsResponse {
     message Project {
         string name = 1;
-        int64 id = 2;
-        int64 owner_user_id = 3;
+        uint64 id = 2;
+        uint64 owner_user_id = 3;
     }
     repeated Project projects = 1;
 }

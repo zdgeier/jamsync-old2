@@ -17,7 +17,7 @@ import (
 )
 
 // If no BlockSize is specified in the RSync instance, this value is used.
-const DefaultBlockSize = 1024 * 6
+const DefaultBlockSize = 1024
 const DefaultMaxDataOp = DefaultBlockSize * 10
 
 // Internal constant used in rolling checksum.
@@ -181,6 +181,68 @@ func (r *RSync) ApplyDelta(alignedTarget io.Writer, target io.ReadSeeker, ops ch
 			if err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// Apply single the difference to the target.
+func (r *RSync) ApplySingleDelta(alignedTarget io.Writer, target io.ReadSeeker, op Operation) error {
+	if r.BlockSize <= 0 {
+		r.BlockSize = DefaultBlockSize
+	}
+	var err error
+	var n int
+	var block []byte
+
+	minBufferSize := r.BlockSize
+	if len(r.buffer) < minBufferSize {
+		r.buffer = make([]byte, minBufferSize)
+	}
+	buffer := r.buffer
+
+	writeBlock := func(op Operation) error {
+		target.Seek(int64(r.BlockSize*int(op.BlockIndex)), 0)
+		n, err = io.ReadAtLeast(target, buffer, r.BlockSize)
+		if err != nil {
+			if err != io.ErrUnexpectedEOF {
+				return err
+			}
+		}
+		block = buffer[:n]
+		_, err = alignedTarget.Write(block)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	switch op.Type {
+	case OpBlockRange:
+		for i := op.BlockIndex; i <= op.BlockIndexEnd; i++ {
+			err = writeBlock(Operation{
+				Type:       OpBlock,
+				BlockIndex: i,
+			})
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+		}
+	case OpBlock:
+		err = writeBlock(op)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+	case OpData:
+		_, err = alignedTarget.Write(op.Data)
+		if err != nil {
+			return err
 		}
 	}
 	return nil

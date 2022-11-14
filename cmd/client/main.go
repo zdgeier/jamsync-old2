@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
-	"io"
 	"io/fs"
 	"log"
 	"os"
@@ -14,6 +12,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
+	"github.com/zdgeier/jamsync/internal/rsync"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -28,45 +27,28 @@ func main() {
 	defer conn.Close()
 	client := jamsyncpb.NewJamsyncAPIClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	resp, err := client.AddUser(ctx, &jamsyncpb.AddUserRequest{Username: "zdgeier"})
-	if err != nil {
-		panic(err)
-	}
-	getResp, err := client.GetUser(ctx, &jamsyncpb.GetUserRequest{UserId: resp.GetUserId()})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Got", getResp.GetUsername())
-
-	stream, err := client.UpdateStream(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
-	waitc := make(chan struct{})
-	go func() {
-		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				// read done.
-				close(waitc)
-				return
-			}
-			if err != nil {
-				log.Fatalf("Failed to receive a note : %v", err)
-			}
-			log.Printf("Got message %s", in.Data)
-		}
-	}()
-
+	// waitc := make(chan struct{})
+	// go func() {
+	// 	for {
+	// 		in, err := stream.Recv()
+	// 		if err == io.EOF {
+	// 			// read done.
+	// 			close(waitc)
+	// 			return
+	// 		}
+	// 		if err != nil {
+	// 			log.Fatalf("Failed to receive a note : %v", err)
+	// 		}
+	// 		log.Printf("Got message %s", in.Data)
+	// 	}
+	// }()
+	// <-waitc
 	watcher, _ := fsnotify.NewWatcher()
 	defer watcher.Close()
 
 	// starting at the root of the project, walk each file/directory searching for
 	// directories
-	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
+	if err := filepath.WalkDir("cmd/client/test", func(path string, d fs.DirEntry, _ error) error {
 		log.Println("Watching", path)
 		return watcher.Add(path)
 	}); err != nil {
@@ -109,7 +91,94 @@ func main() {
 				}
 			}
 
-			stream.Send(&jamsyncpb.UpdateStreamRequest{Data: []byte("send it")})
+			stream, err := client.UpdateStream(context.Background())
+			if err != nil {
+				panic(err)
+			}
+
+			sourceBuffer, err := os.Open(path)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			blockHashesPb, err := client.GetBlockHashes(ctx, &jamsyncpb.GetBlockHashesRequest{
+				ProjectId: 1,
+				BranchId:  1,
+				Path:      "text.txt",
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			blockHashes := make([]rsync.BlockHash, len(blockHashesPb.GetBlockHashes()))
+			for i, block := range blockHashesPb.GetBlockHashes() {
+				blockHashes[i] = rsync.BlockHash{
+					Index:      block.GetIndex(),
+					StrongHash: block.GetStrongHash(),
+					WeakHash:   block.GetWeakHash(),
+				}
+			}
+
+			opsOut := make(chan rsync.Operation)
+			rsDelta := &rsync.RSync{}
+			go func() {
+				var blockCt, blockRangeCt, dataCt, bytes int
+				defer close(opsOut)
+				err := rsDelta.CreateDelta(sourceBuffer, blockHashes, func(op rsync.Operation) error {
+					switch op.Type {
+					case rsync.OpBlockRange:
+						blockRangeCt++
+					case rsync.OpBlock:
+						blockCt++
+					case rsync.OpData:
+						// Copy data buffer so it may be reused in internal buffer.
+						b := make([]byte, len(op.Data))
+						copy(b, op.Data)
+						op.Data = b
+						dataCt++
+						bytes += len(op.Data)
+					}
+					opsOut <- op
+					return nil
+				})
+				log.Printf("Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dKiB", blockRangeCt, blockCt, dataCt, bytes/1024)
+				if err != nil {
+					log.Fatalf("Failed to create delta: %s", err)
+				}
+			}()
+
+			for op := range opsOut {
+				var opPbType jamsyncpb.OpType
+				switch op.Type {
+				case rsync.OpBlock:
+					opPbType = jamsyncpb.OpType_OpBlock
+				case rsync.OpData:
+					opPbType = jamsyncpb.OpType_OpData
+				case rsync.OpHash:
+					opPbType = jamsyncpb.OpType_OpHash
+				case rsync.OpBlockRange:
+					opPbType = jamsyncpb.OpType_OpBlockRange
+				}
+
+				err := stream.Send(&jamsyncpb.UpdateStreamRequest{
+					Operation: &jamsyncpb.Operation{
+						OpType:        opPbType,
+						BlockIndex:    op.BlockIndex,
+						BlockIndexEnd: op.BlockIndexEnd,
+						Data:          op.Data,
+					},
+					UserId:    1,
+					ProjectId: 1,
+					BranchId:  1,
+					Path:      "text.txt",
+				})
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			err = stream.CloseSend()
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -120,7 +189,4 @@ func main() {
 			log.Println("error:", err)
 		}
 	}
-
-	stream.CloseSend()
-	<-waitc
 }
