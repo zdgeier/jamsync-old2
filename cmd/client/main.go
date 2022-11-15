@@ -8,13 +8,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 	"github.com/zdgeier/jamsync/internal/rsync"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var serverAddr = flag.String("addr", "localhost:14357", "The server address in the format of host:port")
@@ -26,6 +26,20 @@ func main() {
 	}
 	defer conn.Close()
 	client := jamsyncpb.NewJamsyncAPIClient(conn)
+
+	for {
+		f, err := os.OpenFile("test.txt",
+			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Println(err)
+		}
+		if _, err := f.WriteString("text to appentext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendd\n"); err != nil {
+			log.Println(err)
+		}
+
+		upload(client, "test.txt")
+		f.Close()
+	}
 
 	// waitc := make(chan struct{})
 	// go func() {
@@ -91,102 +105,106 @@ func main() {
 				}
 			}
 
-			stream, err := client.UpdateStream(context.Background())
-			if err != nil {
-				panic(err)
-			}
+			upload(client, path)
 
-			sourceBuffer, err := os.Open(path)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			blockHashesPb, err := client.GetBlockHashes(ctx, &jamsyncpb.GetBlockHashesRequest{
-				ProjectId: 1,
-				BranchId:  1,
-				Path:      "text.txt",
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			blockHashes := make([]rsync.BlockHash, len(blockHashesPb.GetBlockHashes()))
-			for i, block := range blockHashesPb.GetBlockHashes() {
-				blockHashes[i] = rsync.BlockHash{
-					Index:      block.GetIndex(),
-					StrongHash: block.GetStrongHash(),
-					WeakHash:   block.GetWeakHash(),
-				}
-			}
-
-			opsOut := make(chan rsync.Operation)
-			rsDelta := &rsync.RSync{}
-			go func() {
-				var blockCt, blockRangeCt, dataCt, bytes int
-				defer close(opsOut)
-				err := rsDelta.CreateDelta(sourceBuffer, blockHashes, func(op rsync.Operation) error {
-					switch op.Type {
-					case rsync.OpBlockRange:
-						blockRangeCt++
-					case rsync.OpBlock:
-						blockCt++
-					case rsync.OpData:
-						// Copy data buffer so it may be reused in internal buffer.
-						b := make([]byte, len(op.Data))
-						copy(b, op.Data)
-						op.Data = b
-						dataCt++
-						bytes += len(op.Data)
-					}
-					opsOut <- op
-					return nil
-				})
-				log.Printf("Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dKiB", blockRangeCt, blockCt, dataCt, bytes/1024)
-				if err != nil {
-					log.Fatalf("Failed to create delta: %s", err)
-				}
-			}()
-
-			for op := range opsOut {
-				var opPbType jamsyncpb.OpType
-				switch op.Type {
-				case rsync.OpBlock:
-					opPbType = jamsyncpb.OpType_OpBlock
-				case rsync.OpData:
-					opPbType = jamsyncpb.OpType_OpData
-				case rsync.OpHash:
-					opPbType = jamsyncpb.OpType_OpHash
-				case rsync.OpBlockRange:
-					opPbType = jamsyncpb.OpType_OpBlockRange
-				}
-
-				err := stream.Send(&jamsyncpb.UpdateStreamRequest{
-					Operation: &jamsyncpb.Operation{
-						OpType:        opPbType,
-						BlockIndex:    op.BlockIndex,
-						BlockIndexEnd: op.BlockIndexEnd,
-						Data:          op.Data,
-					},
-					UserId:    1,
-					ProjectId: 1,
-					BranchId:  1,
-					Path:      "text.txt",
-				})
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-			err = stream.CloseSend()
-			if err != nil {
-				log.Fatal(err)
-			}
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return
 			}
 			log.Println("error:", err)
 		}
+	}
+}
+
+func upload(client jamsyncpb.JamsyncAPIClient, path string) {
+	sourceBuffer, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	blockHashesPb, err := client.GetBlockHashes(context.Background(), &jamsyncpb.GetBlockHashesRequest{
+		ProjectId: 1,
+		BranchId:  1,
+		Path:      path,
+		Timestamp: timestamppb.Now(),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	blockHashes := make([]rsync.BlockHash, len(blockHashesPb.GetBlockHashes()))
+	for i, block := range blockHashesPb.GetBlockHashes() {
+		blockHashes[i] = rsync.BlockHash{
+			Index:      block.GetIndex(),
+			StrongHash: block.GetStrongHash(),
+			WeakHash:   block.GetWeakHash(),
+		}
+	}
+
+	opsOut := make(chan rsync.Operation)
+	rsDelta := &rsync.RSync{}
+	go func() {
+		var blockCt, blockRangeCt, dataCt, bytes int
+		defer close(opsOut)
+		err := rsDelta.CreateDelta(sourceBuffer, blockHashes, func(op rsync.Operation) error {
+			switch op.Type {
+			case rsync.OpBlockRange:
+				blockRangeCt++
+			case rsync.OpBlock:
+				blockCt++
+			case rsync.OpData:
+				// Copy data buffer so it may be reused in internal buffer.
+				b := make([]byte, len(op.Data))
+				copy(b, op.Data)
+				op.Data = b
+				dataCt++
+				bytes += len(op.Data)
+			}
+			opsOut <- op
+			return nil
+		})
+		log.Printf("Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dKiB", blockRangeCt, blockCt, dataCt, bytes/1024)
+		if err != nil {
+			log.Fatalf("Failed to create delta: %s", err)
+		}
+	}()
+
+	stream, err := client.UpdateStream(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	for op := range opsOut {
+		var opPbType jamsyncpb.OpType
+		switch op.Type {
+		case rsync.OpBlock:
+			opPbType = jamsyncpb.OpType_OpBlock
+		case rsync.OpData:
+			opPbType = jamsyncpb.OpType_OpData
+		case rsync.OpHash:
+			opPbType = jamsyncpb.OpType_OpHash
+		case rsync.OpBlockRange:
+			opPbType = jamsyncpb.OpType_OpBlockRange
+		}
+
+		err := stream.Send(&jamsyncpb.UpdateStreamRequest{
+			Operation: &jamsyncpb.Operation{
+				OpType:        opPbType,
+				BlockIndex:    op.BlockIndex,
+				BlockIndexEnd: op.BlockIndexEnd,
+				Data:          op.Data,
+			},
+			UserId:    1,
+			ProjectId: 1,
+			BranchId:  1,
+			Path:      path,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	err = stream.CloseSend()
+	if err != nil {
+		log.Fatal(err)
 	}
 }

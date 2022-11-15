@@ -15,6 +15,7 @@ import (
 	"github.com/zdgeier/jamsync/internal/db"
 	"github.com/zdgeier/jamsync/internal/rsync"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type JamsyncServer struct {
@@ -93,26 +94,24 @@ func (s JamsyncServer) UpdateStream(stream jamsyncpb.JamsyncAPI_UpdateStreamServ
 		change                      jamsyncpb.Change
 		err                         error
 	)
-	go func() {
-		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				log.Fatal(err)
-				break
-			}
-
-			// TODO: Find a better way to encode this information
-			projectId = in.GetProjectId()
-			branchId = in.GetBranchId()
-			userId = in.GetUserId()
-			path = in.GetPath()
-
-			change.Ops = append(change.Ops, in.Operation)
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			break
 		}
-	}()
+		if err != nil {
+			log.Fatal(err)
+			break
+		}
+
+		// TODO: Find a better way to encode this information
+		projectId = in.GetProjectId()
+		branchId = in.GetBranchId()
+		userId = in.GetUserId()
+		path = in.GetPath()
+
+		change.Ops = append(change.Ops, in.Operation)
+	}
 
 	var changeId uint64
 	if path == "" {
@@ -140,7 +139,7 @@ func (s JamsyncServer) UpdateStream(stream jamsyncpb.JamsyncAPI_UpdateStreamServ
 			return err
 		}
 	} else {
-		err = os.WriteFile(fmt.Sprintf("%s.%d.jb", base64.StdEncoding.EncodeToString([]byte(path)), changeId), data, 0644)
+		err = os.WriteFile(fmt.Sprintf("data/%s.%d.jb", base64.StdEncoding.EncodeToString([]byte(path)), changeId), data, 0644)
 		if err != nil {
 			return err
 		}
@@ -173,18 +172,10 @@ func pbOperationToRsync(op *jamsyncpb.Operation) rsync.Operation {
 func (s JamsyncServer) GetBlockHashes(ctx context.Context, in *jamsyncpb.GetBlockHashesRequest) (*jamsyncpb.GetBlockHashesResponse, error) {
 	rs := &rsync.RSync{}
 
-	ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	file, err := s.RegenFile(ctx2, &jamsyncpb.RegenFileRequest{
-		ProjectId: in.GetProjectId(),
-		BranchId:  in.GetProjectId(),
-		Path:      in.GetPath(),
-	})
+	targetBuffer, err := s.regenFile(in.GetPath(), in.GetBranchId(), in.GetProjectId(), in.GetTimestamp().AsTime())
 	if err != nil {
 		return nil, err
 	}
-	log.Println("test2")
-	targetBuffer := bytes.NewReader(file.GetData())
 
 	blockHashesPb := make([]*jamsyncpb.GetBlockHashesResponse_BlockHash, 0)
 	err = rs.CreateSignature(targetBuffer, func(bl rsync.BlockHash) error {
@@ -202,16 +193,14 @@ func (s JamsyncServer) GetBlockHashes(ctx context.Context, in *jamsyncpb.GetBloc
 	return &jamsyncpb.GetBlockHashesResponse{BlockHashes: blockHashesPb}, nil
 }
 
-func (s JamsyncServer) RegenFile(ctx context.Context, in *jamsyncpb.RegenFileRequest) (*jamsyncpb.RegenFileResponse, error) {
+func (s JamsyncServer) regenFile(path string, branchId uint64, projectId uint64, timestamp time.Time) (*bytes.Reader, error) {
 	changes := make([]*jamsyncpb.Change, 0)
-	fmt.Println("1")
-	if in.GetPath() == "" {
-		ids, err := db.ListManifestChanges(s.db, in.GetBranchId(), in.GetProjectId())
+	if path == "" {
+		ids, err := db.ListManifestChanges(s.db, branchId, projectId)
 		if err != nil {
 			return nil, err
 		}
 
-		fmt.Println("10")
 		for _, id := range ids {
 			file, err := os.ReadFile(fmt.Sprintf("%d.mjb", id))
 			if err != nil {
@@ -225,21 +214,16 @@ func (s JamsyncServer) RegenFile(ctx context.Context, in *jamsyncpb.RegenFileReq
 			changes = append(changes, change)
 		}
 	} else {
-		fmt.Println("101")
-		ids, err := db.ListChanges(s.db, in.GetBranchId(), in.GetProjectId())
+		ids, _, err := db.ListChanges(s.db, branchId, projectId, timestamp)
 		if err != nil {
-			fmt.Println("asdf2")
 			return nil, err
 		}
-		//ids := []uint64{}
 
-		fmt.Println("2")
 		for _, id := range ids {
-			file, err := os.ReadFile(fmt.Sprintf("%s.%d.jb", base64.StdEncoding.EncodeToString([]byte(in.GetPath())), id))
+			file, err := os.ReadFile(fmt.Sprintf("data/%s.%d.jb", base64.StdEncoding.EncodeToString([]byte(path)), id))
 			if err != nil {
 				return nil, err
 			}
-			fmt.Println("4")
 			change := &jamsyncpb.Change{}
 			err = proto.Unmarshal(file, change)
 			if err != nil {
@@ -247,9 +231,7 @@ func (s JamsyncServer) RegenFile(ctx context.Context, in *jamsyncpb.RegenFileReq
 			}
 			changes = append(changes, change)
 		}
-		fmt.Println("3")
 	}
-	fmt.Println(changes)
 
 	targetBuffer := &bytes.Reader{}
 	for _, change := range changes {
@@ -267,19 +249,48 @@ func (s JamsyncServer) RegenFile(ctx context.Context, in *jamsyncpb.RegenFileReq
 		if err != nil {
 			return nil, err
 		}
-		data, err := io.ReadAll(targetBuffer)
+		data, err := io.ReadAll(result)
 		if err != nil {
 			return nil, err
 		}
-		targetBuffer = bytes.NewReader([]byte(data))
+		targetBuffer = bytes.NewReader(data)
+	}
+
+	return targetBuffer, nil
+}
+
+func (s JamsyncServer) RegenFile(ctx context.Context, in *jamsyncpb.RegenFileRequest) (*jamsyncpb.RegenFileResponse, error) {
+	targetBuffer, err := s.regenFile(in.GetPath(), in.GetBranchId(), in.GetProjectId(), in.GetTimestamp().AsTime())
+	if err != nil {
+		return nil, err
 	}
 
 	data, err := io.ReadAll(targetBuffer)
 	if err != nil {
 		return nil, err
 	}
+
 	return &jamsyncpb.RegenFileResponse{
-		Data: data,
+		Data: string(data),
+	}, nil
+}
+
+func (s JamsyncServer) ListChanges(ctx context.Context, in *jamsyncpb.ListChangesRequest) (*jamsyncpb.ListChangesResponse, error) {
+	ids, times, err := db.ListChanges(s.db, in.GetBranchId(), in.GetProjectId(), in.GetTimestamp().AsTime())
+	if err != nil {
+		return nil, err
+	}
+
+	changeRows := make([]*jamsyncpb.ListChangesResponse_ChangeRow, 0)
+	for i := range ids {
+		changeRows = append(changeRows, &jamsyncpb.ListChangesResponse_ChangeRow{
+			Id:        ids[i],
+			Timestamp: timestamppb.New(times[i]),
+		})
+	}
+
+	return &jamsyncpb.ListChangesResponse{
+		ChangeRows: changeRows,
 	}, nil
 }
 

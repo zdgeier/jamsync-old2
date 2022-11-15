@@ -2,8 +2,7 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
-	"log"
+	"time"
 )
 
 func Setup(db *sql.DB) error {
@@ -132,27 +131,32 @@ func AddChange(db *sql.DB, branchId uint64, userId uint64, projectId uint64) (ui
 	return uint64(id), nil
 }
 
-func ListChanges(db *sql.DB, branchId uint64, projectId uint64) ([]uint64, error) {
-	fmt.Println("01")
-	rows, err := db.Query("SELECT rowid FROM changes WHERE branch_id = ? AND project_id = ?", branchId, projectId)
+func ListChanges(db *sql.DB, branchId uint64, projectId uint64, timestamp time.Time) ([]uint64, []time.Time, error) {
+	rows, err := db.Query("SELECT rowid, timestamp FROM changes WHERE branch_id = ? AND project_id = ? AND timestamp <= ?", branchId, projectId, timestamp)
 	if err != nil {
-		log.Fatal("asdf")
-		return nil, err
+		return nil, nil, err
+	}
+	if rows.Err() != nil {
+		return nil, nil, rows.Err()
 	}
 	defer rows.Close()
 
-	fmt.Println("11")
 	ids := make([]uint64, 0)
+	times := make([]time.Time, 0)
 	for rows.Next() {
+		if rows.Err() != nil {
+			return nil, nil, rows.Err()
+		}
 		var id uint64
-		err = rows.Scan(&id)
+		var time time.Time
+		err = rows.Scan(&id, &time)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		ids = append(ids, id)
+		times = append(times, time)
 	}
-	fmt.Println("12")
-	return ids, err
+	return ids, times, err
 }
 
 func AddManifestChange(db *sql.DB, branchId uint64, userId uint64, projectId uint64) (uint64, error) {

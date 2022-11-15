@@ -47,5 +47,8 @@ func main() {
 	jamsyncServer.GenTestData()
 
 	jamsyncpb.RegisterJamsyncAPIServer(grpcServer, jamsyncServer)
-	grpcServer.Serve(lis)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

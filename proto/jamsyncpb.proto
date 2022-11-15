@@ -1,6 +1,8 @@
 syntax = "proto3";
 package jamsyncpb;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/zdgeier/jamsync/proto/jamsyncpb";
 
 service JamsyncAPI {
@@ -44,11 +46,17 @@ message Change {
 }
 
 message ListChangesRequest {
-    string branch_id = 1;
+    uint64 project_id = 1;
+    uint64 branch_id = 2;
+    google.protobuf.Timestamp timestamp = 3;
 }
 
 message ListChangesResponse {
-    repeated Change changes = 1;
+    message ChangeRow {
+        uint64 id = 1;
+        google.protobuf.Timestamp timestamp = 2;
+    }
+    repeated ChangeRow change_rows = 1;
 }
 
 message UpdateStreamRequest {
@@ -67,6 +75,7 @@ message GetBlockHashesRequest {
     uint64 project_id = 1;
     uint64 branch_id = 2;
     string path = 3;
+    google.protobuf.Timestamp timestamp = 4;
 }
 
 message GetBlockHashesResponse {
@@ -82,9 +91,10 @@ message RegenFileRequest {
     uint64 project_id = 1;
     uint64 branch_id = 2;
     string path = 3;
+    google.protobuf.Timestamp timestamp = 4;
 }
 message RegenFileResponse {
-    bytes data = 1;
+    string data = 1;
 }
   
 message AddUserRequest {
