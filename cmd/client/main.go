@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
@@ -18,6 +20,7 @@ import (
 )
 
 var serverAddr = flag.String("addr", "localhost:14357", "The server address in the format of host:port")
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 func main() {
 	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -27,19 +30,30 @@ func main() {
 	defer conn.Close()
 	client := jamsyncpb.NewJamsyncAPIClient(conn)
 
-	for {
-		f, err := os.OpenFile("test.txt",
-			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Println(err)
-		}
+	fmt.Println("profiling")
+	p, err := os.Create("test.prof")
+	if err != nil {
+		log.Fatal(err)
+	}
+	pprof.StartCPUProfile(p)
+	defer pprof.StopCPUProfile()
+
+	f, err := os.OpenFile("test.txt",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Println(err)
+	}
+	for i := 0; i < 500; i++ {
 		if _, err := f.WriteString("text to appentext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendd\n"); err != nil {
 			log.Println(err)
 		}
 
+		fmt.Println(i)
 		upload(client, "test.txt")
-		f.Close()
 	}
+	f.Close()
+
+	return
 
 	// waitc := make(chan struct{})
 	// go func() {
@@ -174,6 +188,7 @@ func upload(client jamsyncpb.JamsyncAPIClient, path string) {
 		panic(err)
 	}
 
+	i := 0
 	for op := range opsOut {
 		var opPbType jamsyncpb.OpType
 		switch op.Type {
@@ -187,21 +202,43 @@ func upload(client jamsyncpb.JamsyncAPIClient, path string) {
 			opPbType = jamsyncpb.OpType_OpBlockRange
 		}
 
-		err := stream.Send(&jamsyncpb.UpdateStreamRequest{
-			Operation: &jamsyncpb.Operation{
-				OpType:        opPbType,
-				BlockIndex:    op.BlockIndex,
-				BlockIndexEnd: op.BlockIndexEnd,
-				Data:          op.Data,
-			},
-			UserId:    1,
-			ProjectId: 1,
-			BranchId:  1,
-			Path:      path,
-		})
-		if err != nil {
-			log.Fatal(err)
+		if i == 0 {
+			err := stream.Send(&jamsyncpb.UpdateStreamRequest{
+				Operation: &jamsyncpb.Operation{
+					OpType:        opPbType,
+					BlockIndex:    op.BlockIndex,
+					BlockIndexEnd: op.BlockIndexEnd,
+					Data:          op.Data,
+				},
+				UserId:    1,
+				ProjectId: 1,
+				BranchId:  1,
+				PathData: &jamsyncpb.UpdateStreamRequest_PathData{
+					Path: path,
+					Dir:  false,
+				},
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			err := stream.Send(&jamsyncpb.UpdateStreamRequest{
+				Operation: &jamsyncpb.Operation{
+					OpType:        opPbType,
+					BlockIndex:    op.BlockIndex,
+					BlockIndexEnd: op.BlockIndexEnd,
+					Data:          op.Data,
+				},
+				UserId:    1,
+				ProjectId: 1,
+				BranchId:  1,
+			})
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
+
+		i += 1
 	}
 	err = stream.CloseSend()
 	if err != nil {

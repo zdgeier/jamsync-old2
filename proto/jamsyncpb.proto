@@ -18,15 +18,6 @@ service JamsyncAPI {
     rpc GetBlockHashes(GetBlockHashesRequest) returns (GetBlockHashesResponse);
 }
 
-message Manifest {
-    message Path {
-        uint64 path_id = 1;
-        string path = 2;
-        bool dir = 3;
-    }
-    repeated Path paths = 1;
-}
-
 enum OpType {
     OpBlock = 0;
     OpData = 1;
@@ -43,6 +34,14 @@ message Operation {
 
 message Change {
     repeated Operation ops = 1;
+    message PathData {
+        string path = 1;
+        bool dir = 2;
+    }
+    uint64 project_id = 2;
+    uint64 branch_id = 3;
+    uint64 user_id = 4;
+    PathData path_data = 5;
 }
 
 message ListChangesRequest {
@@ -61,10 +60,14 @@ message ListChangesResponse {
 
 message UpdateStreamRequest {
     Operation operation = 1;
-    uint64 user_id = 2;
-    uint64 project_id = 3;
-    uint64 branch_id = 4;
-    string path = 5;
+    message PathData {
+        string path = 1;
+        bool dir = 2;
+    }
+    uint64 project_id = 2;
+    uint64 branch_id = 3;
+    uint64 user_id = 4;
+    PathData path_data = 5;
 }
 
 message UpdateStreamResponse {

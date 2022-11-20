@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -88,58 +89,53 @@ func (s JamsyncServer) ListUsers(ctx context.Context, in *jamsyncpb.ListUsersReq
 }
 
 func (s JamsyncServer) UpdateStream(stream jamsyncpb.JamsyncAPI_UpdateStreamServer) error {
-	var (
-		userId, branchId, projectId uint64
-		path                        string
-		change                      jamsyncpb.Change
-		err                         error
-	)
-	for {
-		in, err := stream.Recv()
-		if err == io.EOF {
-			break
+	var currChange *jamsyncpb.Change
+	changes := make(chan *jamsyncpb.Change)
+	go func() {
+		for {
+			in, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatal(err)
+				break
+			}
+
+			if in.GetPathData().GetPath() != "" {
+				if currChange != nil {
+					changes <- currChange
+				}
+
+				currChange = &jamsyncpb.Change{
+					ProjectId: in.GetProjectId(),
+					BranchId:  in.GetBranchId(),
+					UserId:    in.GetUserId(),
+					PathData: &jamsyncpb.Change_PathData{
+						Path: in.GetPathData().GetPath(),
+						Dir:  in.GetPathData().GetDir(),
+					},
+				}
+			}
+			currChange.Ops = append(currChange.Ops, in.Operation)
 		}
-		if err != nil {
-			log.Fatal(err)
-			break
-		}
+		changes <- currChange
+		close(changes)
+	}()
 
-		// TODO: Find a better way to encode this information
-		projectId = in.GetProjectId()
-		branchId = in.GetBranchId()
-		userId = in.GetUserId()
-		path = in.GetPath()
-
-		change.Ops = append(change.Ops, in.Operation)
-	}
-
-	var changeId uint64
-	if path == "" {
-		changeId, err = db.AddManifestChange(s.db, branchId, userId, projectId)
+	for change := range changes {
+		var changeId uint64
+		changeId, err := db.AddChange(s.db, change.GetBranchId(), change.GetUserId(), change.GetProjectId())
 		if err != nil {
 			log.Fatal(err)
 			return err
 		}
-	} else {
-		changeId, err = db.AddChange(s.db, branchId, userId, projectId)
-		if err != nil {
-			log.Fatal(err)
-			return err
-		}
-	}
 
-	data, err := proto.Marshal(&change)
-	if err != nil {
-		return err
-	}
-
-	if path == "" {
-		err = os.WriteFile(fmt.Sprintf("%d.mjb", changeId), data, 0644)
+		data, err := proto.Marshal(change)
 		if err != nil {
 			return err
 		}
-	} else {
-		err = os.WriteFile(fmt.Sprintf("data/%s.%d.jb", base64.StdEncoding.EncodeToString([]byte(path)), changeId), data, 0644)
+		err = os.WriteFile(fmt.Sprintf("data/%s.%d.jb", base64.StdEncoding.EncodeToString([]byte(change.GetPathData().GetPath())), changeId), data, 0644)
 		if err != nil {
 			return err
 		}
@@ -195,42 +191,25 @@ func (s JamsyncServer) GetBlockHashes(ctx context.Context, in *jamsyncpb.GetBloc
 
 func (s JamsyncServer) regenFile(path string, branchId uint64, projectId uint64, timestamp time.Time) (*bytes.Reader, error) {
 	changes := make([]*jamsyncpb.Change, 0)
-	if path == "" {
-		ids, err := db.ListManifestChanges(s.db, branchId, projectId)
+	ids, _, err := db.ListChanges(s.db, branchId, projectId, timestamp)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, id := range ids {
+		file, err := os.ReadFile(fmt.Sprintf("data/%s.%d.jb", base64.StdEncoding.EncodeToString([]byte(path)), id))
+		if errors.Is(err, os.ErrNotExist) {
+			return &bytes.Reader{}, nil
+		}
 		if err != nil {
 			return nil, err
 		}
-
-		for _, id := range ids {
-			file, err := os.ReadFile(fmt.Sprintf("%d.mjb", id))
-			if err != nil {
-				return nil, err
-			}
-			change := &jamsyncpb.Change{}
-			err = proto.Unmarshal(file, change)
-			if err != nil {
-				return nil, err
-			}
-			changes = append(changes, change)
-		}
-	} else {
-		ids, _, err := db.ListChanges(s.db, branchId, projectId, timestamp)
+		change := &jamsyncpb.Change{}
+		err = proto.Unmarshal(file, change)
 		if err != nil {
 			return nil, err
 		}
-
-		for _, id := range ids {
-			file, err := os.ReadFile(fmt.Sprintf("data/%s.%d.jb", base64.StdEncoding.EncodeToString([]byte(path)), id))
-			if err != nil {
-				return nil, err
-			}
-			change := &jamsyncpb.Change{}
-			err = proto.Unmarshal(file, change)
-			if err != nil {
-				return nil, err
-			}
-			changes = append(changes, change)
-		}
+		changes = append(changes, change)
 	}
 
 	targetBuffer := &bytes.Reader{}

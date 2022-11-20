@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
+	"runtime/pprof"
 	"syscall"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -32,6 +34,18 @@ func main() {
 	}
 	db.Setup(localDB)
 
+	errChan := make(chan error)
+	stopChan := make(chan os.Signal)
+
+	// bind OS events to the signal channel
+	signal.Notify(stopChan, syscall.SIGTERM, syscall.SIGINT)
+	fmt.Println("profiling")
+	p, err := os.Create("test.prof")
+	if err != nil {
+		log.Fatal(err)
+	}
+	pprof.StartCPUProfile(p)
+
 	flag.Parse()
 	address := fmt.Sprintf("localhost:%d", *port)
 	lis, err := net.Listen("tcp", address)
@@ -47,8 +61,24 @@ func main() {
 	jamsyncServer.GenTestData()
 
 	jamsyncpb.RegisterJamsyncAPIServer(grpcServer, jamsyncServer)
-	err = grpcServer.Serve(lis)
-	if err != nil {
-		log.Fatal(err)
+	go func() {
+		err = grpcServer.Serve(lis)
+		if err != nil {
+			log.Fatal(err)
+			errChan <- err
+		}
+	}()
+
+	// terminate your environment gracefully before leaving main function
+	defer func() {
+		grpcServer.GracefulStop()
+		pprof.StopCPUProfile()
+	}()
+
+	// block until either OS signal, or server fatal error
+	select {
+	case err := <-errChan:
+		log.Printf("Fatal error: %v\n", err)
+	case <-stopChan:
 	}
 }
