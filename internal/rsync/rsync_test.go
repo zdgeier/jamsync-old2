@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"math/rand"
 	"testing"
+
+	"github.com/cespare/xxhash/v2"
 )
 
 type RandReader struct {
@@ -110,8 +112,8 @@ func Test_GenData(t *testing.T) {
 			Description: "Source and target both smaller then a block size.",
 		},
 	}
-	rs := &RSync{}
-	rsDelta := &RSync{}
+	rs := &RSync{UniqueHasher: xxhash.New()}
+	rsDelta := &RSync{UniqueHasher: xxhash.New()}
 	for _, p := range pairs {
 		(&p.Source).Fill()
 		(&p.Target).Fill()

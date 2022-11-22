@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
+	"runtime/trace"
 	"syscall"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -27,7 +28,7 @@ func main() {
 		log.Println("Could not chroot current directory. Run with `sudo` to allow chroot.")
 	}
 
-	os.Remove("./jamsync.db")
+	//os.Remove("./jamsync.db")
 	localDB, err := sql.Open("sqlite3", "./jamsync.db")
 	if err != nil {
 		log.Fatal(err)
@@ -45,6 +46,7 @@ func main() {
 		log.Fatal(err)
 	}
 	pprof.StartCPUProfile(p)
+	//trace.Start(p)
 
 	flag.Parse()
 	address := fmt.Sprintf("localhost:%d", *port)
@@ -71,7 +73,8 @@ func main() {
 
 	// terminate your environment gracefully before leaving main function
 	defer func() {
-		grpcServer.GracefulStop()
+		trace.Stop()
+		//grpcServer.GracefulStop()
 		pprof.StopCPUProfile()
 	}()
 

@@ -1,16 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"runtime/pprof"
+	"runtime/trace"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 	"github.com/zdgeier/jamsync/internal/rsync"
@@ -35,10 +38,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	pprof.StartCPUProfile(p)
-	defer pprof.StopCPUProfile()
+	trace.Start(p)
+	defer trace.Stop()
 
-	f, err := os.OpenFile("test.txt",
+	f, err := os.OpenFile("mobydick.txt",
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println(err)
@@ -131,11 +134,17 @@ func main() {
 }
 
 func upload(client jamsyncpb.JamsyncAPIClient, path string) {
-	sourceBuffer, err := os.Open(path)
+	sourceFile, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	sourceBytes, err := ioutil.ReadAll(sourceFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("start")
 	blockHashesPb, err := client.GetBlockHashes(context.Background(), &jamsyncpb.GetBlockHashesRequest{
 		ProjectId: 1,
 		BranchId:  1,
@@ -145,6 +154,7 @@ func upload(client jamsyncpb.JamsyncAPIClient, path string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("end")
 
 	blockHashes := make([]rsync.BlockHash, len(blockHashesPb.GetBlockHashes()))
 	for i, block := range blockHashesPb.GetBlockHashes() {
@@ -156,8 +166,9 @@ func upload(client jamsyncpb.JamsyncAPIClient, path string) {
 	}
 
 	opsOut := make(chan rsync.Operation)
-	rsDelta := &rsync.RSync{}
+	rsDelta := &rsync.RSync{UniqueHasher: xxhash.New()}
 	go func() {
+		sourceBuffer := bytes.NewReader(sourceBytes)
 		var blockCt, blockRangeCt, dataCt, bytes int
 		defer close(opsOut)
 		err := rsDelta.CreateDelta(sourceBuffer, blockHashes, func(op rsync.Operation) error {

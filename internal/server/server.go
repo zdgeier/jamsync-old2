@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 	"github.com/zdgeier/jamsync/internal/db"
 	"github.com/zdgeier/jamsync/internal/rsync"
@@ -124,10 +125,13 @@ func (s JamsyncServer) UpdateStream(stream jamsyncpb.JamsyncAPI_UpdateStreamServ
 	}()
 
 	for change := range changes {
-		var changeId uint64
-		changeId, err := db.AddChange(s.db, change.GetBranchId(), change.GetUserId(), change.GetProjectId())
+		f, err := os.OpenFile(fmt.Sprintf("data/%s.jb", base64.StdEncoding.EncodeToString([]byte(change.GetPathData().GetPath()))), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			log.Fatal(err)
+			return err
+		}
+
+		info, err := f.Stat()
+		if err != nil {
 			return err
 		}
 
@@ -135,8 +139,16 @@ func (s JamsyncServer) UpdateStream(stream jamsyncpb.JamsyncAPI_UpdateStreamServ
 		if err != nil {
 			return err
 		}
-		err = os.WriteFile(fmt.Sprintf("data/%s.%d.jb", base64.StdEncoding.EncodeToString([]byte(change.GetPathData().GetPath())), changeId), data, 0644)
+
+		n, err := f.Write(data)
 		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+
+		_, err = db.AddChange(s.db, change.GetBranchId(), change.GetUserId(), change.GetProjectId(), info.Size(), int64(n))
+		if err != nil {
+			log.Fatal(err)
 			return err
 		}
 	}
@@ -166,7 +178,7 @@ func pbOperationToRsync(op *jamsyncpb.Operation) rsync.Operation {
 }
 
 func (s JamsyncServer) GetBlockHashes(ctx context.Context, in *jamsyncpb.GetBlockHashesRequest) (*jamsyncpb.GetBlockHashesResponse, error) {
-	rs := &rsync.RSync{}
+	rs := &rsync.RSync{UniqueHasher: xxhash.New()}
 
 	targetBuffer, err := s.regenFile(in.GetPath(), in.GetBranchId(), in.GetProjectId(), in.GetTimestamp().AsTime())
 	if err != nil {
@@ -191,50 +203,60 @@ func (s JamsyncServer) GetBlockHashes(ctx context.Context, in *jamsyncpb.GetBloc
 
 func (s JamsyncServer) regenFile(path string, branchId uint64, projectId uint64, timestamp time.Time) (*bytes.Reader, error) {
 	changes := make([]*jamsyncpb.Change, 0)
-	ids, _, err := db.ListChanges(s.db, branchId, projectId, timestamp)
+	_, _, offsets, lengths, err := db.ListChanges(s.db, branchId, projectId, timestamp.Add(24*time.Hour))
 	if err != nil {
 		return nil, err
 	}
 
-	for _, id := range ids {
-		file, err := os.ReadFile(fmt.Sprintf("data/%s.%d.jb", base64.StdEncoding.EncodeToString([]byte(path)), id))
-		if errors.Is(err, os.ErrNotExist) {
-			return &bytes.Reader{}, nil
-		}
+	f, err := os.Open(fmt.Sprintf("data/%s.jb", base64.StdEncoding.EncodeToString([]byte(path))))
+	if errors.Is(err, os.ErrNotExist) {
+		return &bytes.Reader{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	for i, _ := range lengths {
+		changeFile := make([]byte, lengths[i])
+		n, err := f.ReadAt(changeFile, int64(offsets[i]))
 		if err != nil {
 			return nil, err
 		}
+		if n != int(lengths[i]) {
+			return nil, errors.New("read length does not equal expected")
+		}
+
 		change := &jamsyncpb.Change{}
-		err = proto.Unmarshal(file, change)
+		err = proto.Unmarshal(changeFile, change)
 		if err != nil {
 			return nil, err
 		}
 		changes = append(changes, change)
 	}
 
-	targetBuffer := &bytes.Reader{}
+	changeOps := make([][]rsync.Operation, 0, len(changes))
 	for _, change := range changes {
-		opsOut := make(chan rsync.Operation)
-		go func() {
-			for _, op := range change.GetOps() {
-				opsOut <- pbOperationToRsync(op)
-			}
-			close(opsOut)
-		}()
+		opsOut := make([]rsync.Operation, 0, len(change.GetOps()))
 
-		result := new(bytes.Buffer)
-		rs := rsync.RSync{}
-		err := rs.ApplyDelta(result, targetBuffer, opsOut)
-		if err != nil {
-			return nil, err
+		for _, op := range change.GetOps() {
+			opsOut = append(opsOut, pbOperationToRsync(op))
 		}
-		data, err := io.ReadAll(result)
-		if err != nil {
-			return nil, err
-		}
-		targetBuffer = bytes.NewReader(data)
+		changeOps = append(changeOps, opsOut)
 	}
 
+	rs := rsync.RSync{UniqueHasher: xxhash.New()}
+	targetBuffer := bytes.NewReader([]byte{})
+	result := new(bytes.Buffer)
+	for _, ops := range changeOps {
+		err := rs.ApplyDeltaBatch(result, targetBuffer, ops)
+		if err != nil {
+			return nil, err
+		}
+		targetBuffer = bytes.NewReader(result.Bytes())
+		result.Reset()
+	}
+
+	fmt.Println(targetBuffer.Len())
 	return targetBuffer, nil
 }
 
@@ -255,7 +277,7 @@ func (s JamsyncServer) RegenFile(ctx context.Context, in *jamsyncpb.RegenFileReq
 }
 
 func (s JamsyncServer) ListChanges(ctx context.Context, in *jamsyncpb.ListChangesRequest) (*jamsyncpb.ListChangesResponse, error) {
-	ids, times, err := db.ListChanges(s.db, in.GetBranchId(), in.GetProjectId(), in.GetTimestamp().AsTime())
+	ids, times, _, _, err := db.ListChanges(s.db, in.GetBranchId(), in.GetProjectId(), in.GetTimestamp().AsTime())
 	if err != nil {
 		return nil, err
 	}

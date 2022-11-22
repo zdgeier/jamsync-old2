@@ -20,11 +20,11 @@ func TestUser(t *testing.T) {
 
 	i, err := AddUser(db, "zdgeier")
 	require.NoError(t, err)
-	require.Equal(t, i, int64(1))
+	require.Equal(t, i, uint64(1))
 
 	i, err = AddUser(db, "zdgeier2")
 	require.NoError(t, err)
-	require.Equal(t, i, int64(2))
+	require.Equal(t, i, uint64(2))
 }
 
 func TestProject(t *testing.T) {
@@ -35,11 +35,11 @@ func TestProject(t *testing.T) {
 
 	p1, err := AddProject(db, "testproject", userId)
 	require.NoError(t, err)
-	require.Equal(t, p1, int64(1))
+	require.Equal(t, p1, uint64(1))
 
 	p2, err := AddProject(db, "testproject2", userId)
 	require.NoError(t, err)
-	require.Equal(t, p2, int64(2))
+	require.Equal(t, p2, uint64(2))
 
 	name, ownerUserId, err := GetProject(db, p2)
 	require.NoError(t, err)
