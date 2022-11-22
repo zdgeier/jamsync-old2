@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime/trace"
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/fsnotify/fsnotify"
@@ -33,26 +32,26 @@ func main() {
 	defer conn.Close()
 	client := jamsyncpb.NewJamsyncAPIClient(conn)
 
-	fmt.Println("profiling")
-	p, err := os.Create("test.prof")
-	if err != nil {
-		log.Fatal(err)
-	}
-	trace.Start(p)
-	defer trace.Stop()
+	// fmt.Println("profiling")
+	// p, err := os.Create("test.prof")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// trace.Start(p)
+	// defer trace.Stop()
 
 	f, err := os.OpenFile("mobydick.txt",
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println(err)
 	}
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 100; i++ {
 		if _, err := f.WriteString("text to appentext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendtext to appendd\n"); err != nil {
 			log.Println(err)
 		}
 
 		fmt.Println(i)
-		upload(client, "test.txt")
+		upload(client, "mobydick.txt")
 	}
 	f.Close()
 
@@ -138,6 +137,7 @@ func upload(client jamsyncpb.JamsyncAPIClient, path string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer sourceFile.Close()
 
 	sourceBytes, err := ioutil.ReadAll(sourceFile)
 	if err != nil {
