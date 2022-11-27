@@ -8,9 +8,9 @@ import (
 func Setup(db *sql.DB) error {
 	sqlStmt := `
 	CREATE TABLE IF NOT EXISTS users (username TEXT);
-	CREATE TABLE IF NOT EXISTS projects (name TEXT, owner_user_id INTEGER);
+	CREATE TABLE IF NOT EXISTS projects (name TEXT);
 	CREATE TABLE IF NOT EXISTS branches (project_id INTEGER, name TEXT);
-	CREATE TABLE IF NOT EXISTS changes (branch_id INTEGER NOT NULL, user_id INTEGER, project_id INTEGER, offset INTEGER, length INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
+	CREATE TABLE IF NOT EXISTS changes (branch_id INTEGER NOT NULL, project_id INTEGER, offset INTEGER, length INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
 	`
 	_, err := db.Exec(sqlStmt)
 	return err
@@ -23,7 +23,7 @@ type Project struct {
 }
 
 func AddProject(db *sql.DB, projectName string, userId uint64) (uint64, error) {
-	res, err := db.Exec("INSERT INTO projects(name, owner_user_id) VALUES(?, ?)", projectName, userId)
+	res, err := db.Exec("INSERT INTO projects(name) VALUES(?, ?)", projectName, userId)
 	if err != nil {
 		return 0, err
 	}
@@ -37,7 +37,7 @@ func AddProject(db *sql.DB, projectName string, userId uint64) (uint64, error) {
 }
 
 func GetProject(db *sql.DB, projectId uint64) (string, uint64, error) {
-	row := db.QueryRow("SELECT name, owner_user_id FROM projects WHERE rowid = ?", projectId)
+	row := db.QueryRow("SELECT name FROM projects WHERE rowid = ?", projectId)
 	if row.Err() != nil {
 		return "", 0, row.Err()
 	}
@@ -49,7 +49,7 @@ func GetProject(db *sql.DB, projectId uint64) (string, uint64, error) {
 }
 
 func ListProjects(db *sql.DB) ([]Project, error) {
-	rows, err := db.Query("SELECT rowid, name, owner_user_id FROM projects")
+	rows, err := db.Query("SELECT rowid, name FROM projects")
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +116,8 @@ func ListUsers(db *sql.DB) ([]User, error) {
 	return data, err
 }
 
-func AddChange(db *sql.DB, branchId uint64, userId uint64, projectId uint64, offset int64, length int64) (uint64, error) {
-	res, err := db.Exec("INSERT INTO changes(branch_id, user_id, project_id, offset, length) VALUES(?, ?, ?, ?, ?)", branchId, userId, projectId, offset, length)
+func AddChange(db *sql.DB, branchId uint64, projectId uint64, offset int64, length int64) (uint64, error) {
+	res, err := db.Exec("INSERT INTO changes(branch_id, project_id, offset, length) VALUES(?, ?, ?, ?)", branchId, projectId, offset, length)
 	if err != nil {
 		return 0, err
 	}

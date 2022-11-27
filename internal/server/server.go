@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cespare/xxhash/v2"
+	"github.com/pierrec/lz4/v4"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 	"github.com/zdgeier/jamsync/internal/db"
 	"github.com/zdgeier/jamsync/internal/rsync"
@@ -51,42 +52,10 @@ func (s JamsyncServer) ListProjects(ctx context.Context, in *jamsyncpb.ListProje
 
 	projectsPb := make([]*jamsyncpb.ListProjectsResponse_Project, len(projects))
 	for i := range projectsPb {
-		projectsPb[i] = &jamsyncpb.ListProjectsResponse_Project{Name: projects[i].Name, OwnerUserId: projects[i].OwnerId, Id: projects[i].Id}
+		projectsPb[i] = &jamsyncpb.ListProjectsResponse_Project{Name: projects[i].Name, Id: projects[i].Id}
 	}
 
 	return &jamsyncpb.ListProjectsResponse{Projects: projectsPb}, nil
-}
-
-func (s JamsyncServer) AddUser(ctx context.Context, in *jamsyncpb.AddUserRequest) (*jamsyncpb.AddUserResponse, error) {
-	id, err := db.AddUser(s.db, in.Username)
-	if err != nil {
-		return nil, err
-	}
-
-	return &jamsyncpb.AddUserResponse{UserId: id}, nil
-}
-
-func (s JamsyncServer) GetUser(ctx context.Context, in *jamsyncpb.GetUserRequest) (*jamsyncpb.GetUserResponse, error) {
-	id, err := db.GetUser(s.db, in.GetUserId())
-	if err != nil {
-		return nil, err
-	}
-
-	return &jamsyncpb.GetUserResponse{Username: id}, nil
-}
-
-func (s JamsyncServer) ListUsers(ctx context.Context, in *jamsyncpb.ListUsersRequest) (*jamsyncpb.ListUsersResponse, error) {
-	users, err := db.ListUsers(s.db)
-	if err != nil {
-		return nil, err
-	}
-
-	usersPb := make([]*jamsyncpb.ListUsersResponse_User, len(users))
-	for i := range usersPb {
-		usersPb[i] = &jamsyncpb.ListUsersResponse_User{Username: users[i].Username, UserId: users[i].Id}
-	}
-
-	return &jamsyncpb.ListUsersResponse{Users: usersPb}, nil
 }
 
 func (s JamsyncServer) UpdateStream(stream jamsyncpb.JamsyncAPI_UpdateStreamServer) error {
@@ -99,8 +68,9 @@ func (s JamsyncServer) UpdateStream(stream jamsyncpb.JamsyncAPI_UpdateStreamServ
 				break
 			}
 			if err != nil {
-				log.Fatal(err)
-				break
+				// TODO: this triggers with context cancelled for some reason
+				log.Println(err)
+				return
 			}
 
 			if in.GetPathData().GetPath() != "" {
@@ -111,10 +81,9 @@ func (s JamsyncServer) UpdateStream(stream jamsyncpb.JamsyncAPI_UpdateStreamServ
 				currChange = &jamsyncpb.Change{
 					ProjectId: in.GetProjectId(),
 					BranchId:  in.GetBranchId(),
-					UserId:    in.GetUserId(),
-					PathData: &jamsyncpb.Change_PathData{
+					PathData: &jamsyncpb.PathData{
 						Path: in.GetPathData().GetPath(),
-						Dir:  in.GetPathData().GetDir(),
+						Hash: in.GetPathData().GetHash(),
 					},
 				}
 			}
@@ -142,13 +111,13 @@ func (s JamsyncServer) UpdateStream(stream jamsyncpb.JamsyncAPI_UpdateStreamServ
 
 		n, err := f.Write(data)
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 			return err
 		}
 
-		_, err = db.AddChange(s.db, change.GetBranchId(), change.GetUserId(), change.GetProjectId(), info.Size(), int64(n))
+		_, err = db.AddChange(s.db, change.GetBranchId(), change.GetProjectId(), info.Size(), int64(n))
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 			return err
 		}
 	}
@@ -169,11 +138,18 @@ func pbOperationToRsync(op *jamsyncpb.Operation) rsync.Operation {
 		opType = rsync.OpBlockRange
 	}
 
+	out := new(bytes.Buffer)
+	zr := lz4.NewReader(bytes.NewReader(op.GetData()))
+	_, err := io.Copy(out, zr)
+	if err != nil {
+		log.Panic(err)
+	}
+
 	return rsync.Operation{
 		Type:          opType,
 		BlockIndex:    op.GetBlockIndex(),
 		BlockIndexEnd: op.GetBlockIndexEnd(),
-		Data:          op.GetData(),
+		Data:          out.Bytes(),
 	}
 }
 
@@ -195,7 +171,7 @@ func (s JamsyncServer) GetBlockHashes(ctx context.Context, in *jamsyncpb.GetBloc
 		return nil
 	})
 	if err != nil {
-		log.Fatalf("Failed to create signature: %s", err)
+		log.Panicf("Failed to create signature: %s", err)
 	}
 
 	return &jamsyncpb.GetBlockHashesResponse{BlockHashes: blockHashesPb}, nil
@@ -216,7 +192,7 @@ func (s JamsyncServer) regenFile(path string, branchId uint64, projectId uint64,
 		return nil, err
 	}
 
-	for i, _ := range lengths {
+	for i := range lengths {
 		changeFile := make([]byte, lengths[i])
 		n, err := f.ReadAt(changeFile, int64(offsets[i]))
 		if err != nil {
