@@ -8,11 +8,15 @@ option go_package = "github.com/zdgeier/jamsync/proto/jamsyncpb";
 service JamsyncAPI {
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
-    rpc RegenFile(RegenFileRequest) returns (RegenFileResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+
+    rpc GetDestinationHashes(GetDestinationHashesRequest) returns (GetDestinationHashesResponse);
+    rpc ChangeStream(stream ChangeStreamRequest) returns (stream ChangeStreamResponse);
     rpc ListChanges(ListChangesRequest) returns (ListChangesResponse);
-    rpc UpdateStream(stream UpdateStreamRequest) returns (stream UpdateStreamResponse);
-    rpc GetBlockHashes(GetBlockHashesRequest) returns (GetBlockHashesResponse);
+
+    rpc RegenProject(RegenProjectRequest) returns (RegenProjectResponse); 
+    rpc RegenPathsData(RegenPathsDataRequest) returns (RegenPathsDataResponse);
+    rpc RegenFile(RegenFileRequest) returns (RegenFileResponse);
 }
 
 message PathData {
