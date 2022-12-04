@@ -1,128 +1,56 @@
 syntax = "proto3";
 package jamsyncpb;
 
-import "google/protobuf/timestamp.proto";
-
 option go_package = "github.com/zdgeier/jamsync/proto/jamsyncpb";
 
 service JamsyncAPI {
+    rpc GetFileList(GetFileListRequest) returns (GetFileListResponse);
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
-    rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
-    rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
-
-    rpc GetDestinationHashes(GetDestinationHashesRequest) returns (GetDestinationHashesResponse);
-    rpc ChangeStream(stream ChangeStreamRequest) returns (stream ChangeStreamResponse);
-    rpc ListChanges(ListChangesRequest) returns (ListChangesResponse);
-
-    rpc RegenProject(RegenProjectRequest) returns (RegenProjectResponse); 
-    rpc RegenPathsData(RegenPathsDataRequest) returns (RegenPathsDataResponse);
-    rpc RegenFile(RegenFileRequest) returns (RegenFileResponse);
-}
-
-message PathData {
-    string path = 1;
-    uint64 hash = 2;
-}
-
-message PathsMetadata {
-    repeated PathData paths = 1;
-}
-
-enum OpType {
-    OpBlock = 0;
-    OpData = 1;
-    OpHash = 2;
-    OpBlockRange = 3;
+    rpc GetFile(GetFileRequest) returns (GetFileResponse);
 }
 
 message Operation {
-    OpType op_type = 1;
+    enum Type {
+        OpBlock = 0;
+        OpData = 1;
+        OpHash = 2;
+        OpBlockRange = 3;
+    }
+    Type type = 1;
     uint64 block_index = 2;
     uint64 block_index_end = 3;
     bytes data = 4;
 }
 
-message Change {
+message ChangeData {
     repeated Operation ops = 1;
-    uint64 project_id = 2;
-    uint64 branch_id = 3;
-    PathData path_data = 5;
 }
 
-message ListChangesRequest {
-    uint64 project_id = 1;
-    uint64 branch_id = 2;
-    google.protobuf.Timestamp timestamp = 3;
+message File {
+    string path = 1;
+    bool dir = 2;
 }
 
-message ListChangesResponse {
-    message ChangeRow {
-        uint64 id = 1;
-        google.protobuf.Timestamp timestamp = 2;
-    }
-    repeated ChangeRow change_rows = 1;
+message GetFileRequest {
+    string project_name = 1;
+    string path = 2;
 }
-
-message UpdateStreamRequest {
-    Operation operation = 1;
-    uint64 project_id = 2;
-    uint64 branch_id = 3;
-    PathData path_data = 5;
-}
-
-message UpdateStreamResponse {
+message GetFileResponse {
     bytes data = 1;
 }
 
-message GetBlockHashesRequest {
-    uint64 project_id = 1;
-    uint64 branch_id = 2;
-    string path = 3;
-    google.protobuf.Timestamp timestamp = 4;
+message GetFileListRequest {
+    string project_name = 1;
 }
-
-message GetBlockHashesResponse {
-	message BlockHash {
-        uint64 index = 1;
-        bytes strong_hash = 2;
-        uint32 weak_hash = 3;
-    }
-    repeated BlockHash block_hashes = 2;
-}
-
-message RegenFileRequest {
-    uint64 project_id = 1;
-    uint64 branch_id = 2;
-    string path = 3;
-    google.protobuf.Timestamp timestamp = 4;
-}
-message RegenFileResponse {
-    string data = 1;
+message GetFileListResponse {
+    repeated File files = 1;
 }
 
 message AddProjectRequest {
-    string name = 1;
-    uint64 owner = 2;
+    string project_name = 1;
+    GetFileListResponse existing_files = 2;
+    repeated bytes existing_data = 3;
 }
-
 message AddProjectResponse {
     uint64 project_id = 1;
-}
-
-message GetProjectRequest {
-    uint64 project_id = 1;
-}
-
-message GetProjectResponse {
-    string name = 1;
-    uint64 owner = 2;
-}
-
-message ListProjectsRequest {}
-message ListProjectsResponse {
-    message Project {
-        string name = 1;
-        uint64 id = 2;
-    }
-    repeated Project projects = 1;
 }

@@ -9,7 +9,6 @@ package jamsyncpb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 )
@@ -21,24 +20,24 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type OpType int32
+type Operation_Type int32
 
 const (
-	OpType_OpBlock      OpType = 0
-	OpType_OpData       OpType = 1
-	OpType_OpHash       OpType = 2
-	OpType_OpBlockRange OpType = 3
+	Operation_OpBlock      Operation_Type = 0
+	Operation_OpData       Operation_Type = 1
+	Operation_OpHash       Operation_Type = 2
+	Operation_OpBlockRange Operation_Type = 3
 )
 
-// Enum value maps for OpType.
+// Enum value maps for Operation_Type.
 var (
-	OpType_name = map[int32]string{
+	Operation_Type_name = map[int32]string{
 		0: "OpBlock",
 		1: "OpData",
 		2: "OpHash",
 		3: "OpBlockRange",
 	}
-	OpType_value = map[string]int32{
+	Operation_Type_value = map[string]int32{
 		"OpBlock":      0,
 		"OpData":       1,
 		"OpHash":       2,
@@ -46,133 +45,31 @@ var (
 	}
 )
 
-func (x OpType) Enum() *OpType {
-	p := new(OpType)
+func (x Operation_Type) Enum() *Operation_Type {
+	p := new(Operation_Type)
 	*p = x
 	return p
 }
 
-func (x OpType) String() string {
+func (x Operation_Type) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (OpType) Descriptor() protoreflect.EnumDescriptor {
+func (Operation_Type) Descriptor() protoreflect.EnumDescriptor {
 	return file_jamsyncpb_proto_enumTypes[0].Descriptor()
 }
 
-func (OpType) Type() protoreflect.EnumType {
+func (Operation_Type) Type() protoreflect.EnumType {
 	return &file_jamsyncpb_proto_enumTypes[0]
 }
 
-func (x OpType) Number() protoreflect.EnumNumber {
+func (x Operation_Type) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use OpType.Descriptor instead.
-func (OpType) EnumDescriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{0}
-}
-
-type PathData struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Hash uint64 `protobuf:"varint,2,opt,name=hash,proto3" json:"hash,omitempty"`
-}
-
-func (x *PathData) Reset() {
-	*x = PathData{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[0]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *PathData) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PathData) ProtoMessage() {}
-
-func (x *PathData) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[0]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PathData.ProtoReflect.Descriptor instead.
-func (*PathData) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *PathData) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-func (x *PathData) GetHash() uint64 {
-	if x != nil {
-		return x.Hash
-	}
-	return 0
-}
-
-type PathsMetadata struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Paths []*PathData `protobuf:"bytes,1,rep,name=paths,proto3" json:"paths,omitempty"`
-}
-
-func (x *PathsMetadata) Reset() {
-	*x = PathsMetadata{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[1]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *PathsMetadata) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PathsMetadata) ProtoMessage() {}
-
-func (x *PathsMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[1]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PathsMetadata.ProtoReflect.Descriptor instead.
-func (*PathsMetadata) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *PathsMetadata) GetPaths() []*PathData {
-	if x != nil {
-		return x.Paths
-	}
-	return nil
+// Deprecated: Use Operation_Type.Descriptor instead.
+func (Operation_Type) EnumDescriptor() ([]byte, []int) {
+	return file_jamsyncpb_proto_rawDescGZIP(), []int{0, 0}
 }
 
 type Operation struct {
@@ -180,16 +77,16 @@ type Operation struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	OpType        OpType `protobuf:"varint,1,opt,name=op_type,json=opType,proto3,enum=jamsyncpb.OpType" json:"op_type,omitempty"`
-	BlockIndex    uint64 `protobuf:"varint,2,opt,name=block_index,json=blockIndex,proto3" json:"block_index,omitempty"`
-	BlockIndexEnd uint64 `protobuf:"varint,3,opt,name=block_index_end,json=blockIndexEnd,proto3" json:"block_index_end,omitempty"`
-	Data          []byte `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
+	Type          Operation_Type `protobuf:"varint,1,opt,name=type,proto3,enum=jamsyncpb.Operation_Type" json:"type,omitempty"`
+	BlockIndex    uint64         `protobuf:"varint,2,opt,name=block_index,json=blockIndex,proto3" json:"block_index,omitempty"`
+	BlockIndexEnd uint64         `protobuf:"varint,3,opt,name=block_index_end,json=blockIndexEnd,proto3" json:"block_index_end,omitempty"`
+	Data          []byte         `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
 }
 
 func (x *Operation) Reset() {
 	*x = Operation{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[2]
+		mi := &file_jamsyncpb_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -202,7 +99,7 @@ func (x *Operation) String() string {
 func (*Operation) ProtoMessage() {}
 
 func (x *Operation) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[2]
+	mi := &file_jamsyncpb_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -215,14 +112,14 @@ func (x *Operation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Operation.ProtoReflect.Descriptor instead.
 func (*Operation) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{2}
+	return file_jamsyncpb_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Operation) GetOpType() OpType {
+func (x *Operation) GetType() Operation_Type {
 	if x != nil {
-		return x.OpType
+		return x.Type
 	}
-	return OpType_OpBlock
+	return Operation_OpBlock
 }
 
 func (x *Operation) GetBlockIndex() uint64 {
@@ -246,19 +143,119 @@ func (x *Operation) GetData() []byte {
 	return nil
 }
 
-type Change struct {
+type ChangeData struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ops       []*Operation `protobuf:"bytes,1,rep,name=ops,proto3" json:"ops,omitempty"`
-	ProjectId uint64       `protobuf:"varint,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	BranchId  uint64       `protobuf:"varint,3,opt,name=branch_id,json=branchId,proto3" json:"branch_id,omitempty"`
-	PathData  *PathData    `protobuf:"bytes,5,opt,name=path_data,json=pathData,proto3" json:"path_data,omitempty"`
+	Ops []*Operation `protobuf:"bytes,1,rep,name=ops,proto3" json:"ops,omitempty"`
 }
 
-func (x *Change) Reset() {
-	*x = Change{}
+func (x *ChangeData) Reset() {
+	*x = ChangeData{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_jamsyncpb_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ChangeData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangeData) ProtoMessage() {}
+
+func (x *ChangeData) ProtoReflect() protoreflect.Message {
+	mi := &file_jamsyncpb_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangeData.ProtoReflect.Descriptor instead.
+func (*ChangeData) Descriptor() ([]byte, []int) {
+	return file_jamsyncpb_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ChangeData) GetOps() []*Operation {
+	if x != nil {
+		return x.Ops
+	}
+	return nil
+}
+
+type File struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Dir  bool   `protobuf:"varint,2,opt,name=dir,proto3" json:"dir,omitempty"`
+}
+
+func (x *File) Reset() {
+	*x = File{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_jamsyncpb_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *File) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*File) ProtoMessage() {}
+
+func (x *File) ProtoReflect() protoreflect.Message {
+	mi := &file_jamsyncpb_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use File.ProtoReflect.Descriptor instead.
+func (*File) Descriptor() ([]byte, []int) {
+	return file_jamsyncpb_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *File) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *File) GetDir() bool {
+	if x != nil {
+		return x.Dir
+	}
+	return false
+}
+
+type GetFileRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ProjectName string `protobuf:"bytes,1,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
+	Path        string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+}
+
+func (x *GetFileRequest) Reset() {
+	*x = GetFileRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_jamsyncpb_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -266,13 +263,13 @@ func (x *Change) Reset() {
 	}
 }
 
-func (x *Change) String() string {
+func (x *GetFileRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Change) ProtoMessage() {}
+func (*GetFileRequest) ProtoMessage() {}
 
-func (x *Change) ProtoReflect() protoreflect.Message {
+func (x *GetFileRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_jamsyncpb_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -284,51 +281,35 @@ func (x *Change) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Change.ProtoReflect.Descriptor instead.
-func (*Change) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetFileRequest.ProtoReflect.Descriptor instead.
+func (*GetFileRequest) Descriptor() ([]byte, []int) {
 	return file_jamsyncpb_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *Change) GetOps() []*Operation {
+func (x *GetFileRequest) GetProjectName() string {
 	if x != nil {
-		return x.Ops
+		return x.ProjectName
 	}
-	return nil
+	return ""
 }
 
-func (x *Change) GetProjectId() uint64 {
+func (x *GetFileRequest) GetPath() string {
 	if x != nil {
-		return x.ProjectId
+		return x.Path
 	}
-	return 0
+	return ""
 }
 
-func (x *Change) GetBranchId() uint64 {
-	if x != nil {
-		return x.BranchId
-	}
-	return 0
-}
-
-func (x *Change) GetPathData() *PathData {
-	if x != nil {
-		return x.PathData
-	}
-	return nil
-}
-
-type ListChangesRequest struct {
+type GetFileResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ProjectId uint64                 `protobuf:"varint,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	BranchId  uint64                 `protobuf:"varint,2,opt,name=branch_id,json=branchId,proto3" json:"branch_id,omitempty"`
-	Timestamp *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
-func (x *ListChangesRequest) Reset() {
-	*x = ListChangesRequest{}
+func (x *GetFileResponse) Reset() {
+	*x = GetFileResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_jamsyncpb_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -336,13 +317,13 @@ func (x *ListChangesRequest) Reset() {
 	}
 }
 
-func (x *ListChangesRequest) String() string {
+func (x *GetFileResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListChangesRequest) ProtoMessage() {}
+func (*GetFileResponse) ProtoMessage() {}
 
-func (x *ListChangesRequest) ProtoReflect() protoreflect.Message {
+func (x *GetFileResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_jamsyncpb_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -354,42 +335,28 @@ func (x *ListChangesRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListChangesRequest.ProtoReflect.Descriptor instead.
-func (*ListChangesRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetFileResponse.ProtoReflect.Descriptor instead.
+func (*GetFileResponse) Descriptor() ([]byte, []int) {
 	return file_jamsyncpb_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ListChangesRequest) GetProjectId() uint64 {
+func (x *GetFileResponse) GetData() []byte {
 	if x != nil {
-		return x.ProjectId
-	}
-	return 0
-}
-
-func (x *ListChangesRequest) GetBranchId() uint64 {
-	if x != nil {
-		return x.BranchId
-	}
-	return 0
-}
-
-func (x *ListChangesRequest) GetTimestamp() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Timestamp
+		return x.Data
 	}
 	return nil
 }
 
-type ListChangesResponse struct {
+type GetFileListRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ChangeRows []*ListChangesResponse_ChangeRow `protobuf:"bytes,1,rep,name=change_rows,json=changeRows,proto3" json:"change_rows,omitempty"`
+	ProjectName string `protobuf:"bytes,1,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
 }
 
-func (x *ListChangesResponse) Reset() {
-	*x = ListChangesResponse{}
+func (x *GetFileListRequest) Reset() {
+	*x = GetFileListRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_jamsyncpb_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -397,13 +364,13 @@ func (x *ListChangesResponse) Reset() {
 	}
 }
 
-func (x *ListChangesResponse) String() string {
+func (x *GetFileListRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListChangesResponse) ProtoMessage() {}
+func (*GetFileListRequest) ProtoMessage() {}
 
-func (x *ListChangesResponse) ProtoReflect() protoreflect.Message {
+func (x *GetFileListRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_jamsyncpb_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -415,31 +382,28 @@ func (x *ListChangesResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListChangesResponse.ProtoReflect.Descriptor instead.
-func (*ListChangesResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetFileListRequest.ProtoReflect.Descriptor instead.
+func (*GetFileListRequest) Descriptor() ([]byte, []int) {
 	return file_jamsyncpb_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *ListChangesResponse) GetChangeRows() []*ListChangesResponse_ChangeRow {
+func (x *GetFileListRequest) GetProjectName() string {
 	if x != nil {
-		return x.ChangeRows
+		return x.ProjectName
 	}
-	return nil
+	return ""
 }
 
-type UpdateStreamRequest struct {
+type GetFileListResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Operation *Operation `protobuf:"bytes,1,opt,name=operation,proto3" json:"operation,omitempty"`
-	ProjectId uint64     `protobuf:"varint,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	BranchId  uint64     `protobuf:"varint,3,opt,name=branch_id,json=branchId,proto3" json:"branch_id,omitempty"`
-	PathData  *PathData  `protobuf:"bytes,5,opt,name=path_data,json=pathData,proto3" json:"path_data,omitempty"`
+	Files []*File `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
 }
 
-func (x *UpdateStreamRequest) Reset() {
-	*x = UpdateStreamRequest{}
+func (x *GetFileListResponse) Reset() {
+	*x = GetFileListResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_jamsyncpb_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -447,13 +411,13 @@ func (x *UpdateStreamRequest) Reset() {
 	}
 }
 
-func (x *UpdateStreamRequest) String() string {
+func (x *GetFileListResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpdateStreamRequest) ProtoMessage() {}
+func (*GetFileListResponse) ProtoMessage() {}
 
-func (x *UpdateStreamRequest) ProtoReflect() protoreflect.Message {
+func (x *GetFileListResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_jamsyncpb_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -465,320 +429,16 @@ func (x *UpdateStreamRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpdateStreamRequest.ProtoReflect.Descriptor instead.
-func (*UpdateStreamRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetFileListResponse.ProtoReflect.Descriptor instead.
+func (*GetFileListResponse) Descriptor() ([]byte, []int) {
 	return file_jamsyncpb_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *UpdateStreamRequest) GetOperation() *Operation {
+func (x *GetFileListResponse) GetFiles() []*File {
 	if x != nil {
-		return x.Operation
+		return x.Files
 	}
 	return nil
-}
-
-func (x *UpdateStreamRequest) GetProjectId() uint64 {
-	if x != nil {
-		return x.ProjectId
-	}
-	return 0
-}
-
-func (x *UpdateStreamRequest) GetBranchId() uint64 {
-	if x != nil {
-		return x.BranchId
-	}
-	return 0
-}
-
-func (x *UpdateStreamRequest) GetPathData() *PathData {
-	if x != nil {
-		return x.PathData
-	}
-	return nil
-}
-
-type UpdateStreamResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
-}
-
-func (x *UpdateStreamResponse) Reset() {
-	*x = UpdateStreamResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[7]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *UpdateStreamResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateStreamResponse) ProtoMessage() {}
-
-func (x *UpdateStreamResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[7]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateStreamResponse.ProtoReflect.Descriptor instead.
-func (*UpdateStreamResponse) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *UpdateStreamResponse) GetData() []byte {
-	if x != nil {
-		return x.Data
-	}
-	return nil
-}
-
-type GetBlockHashesRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	ProjectId uint64                 `protobuf:"varint,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	BranchId  uint64                 `protobuf:"varint,2,opt,name=branch_id,json=branchId,proto3" json:"branch_id,omitempty"`
-	Path      string                 `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	Timestamp *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-}
-
-func (x *GetBlockHashesRequest) Reset() {
-	*x = GetBlockHashesRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[8]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *GetBlockHashesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetBlockHashesRequest) ProtoMessage() {}
-
-func (x *GetBlockHashesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[8]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetBlockHashesRequest.ProtoReflect.Descriptor instead.
-func (*GetBlockHashesRequest) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *GetBlockHashesRequest) GetProjectId() uint64 {
-	if x != nil {
-		return x.ProjectId
-	}
-	return 0
-}
-
-func (x *GetBlockHashesRequest) GetBranchId() uint64 {
-	if x != nil {
-		return x.BranchId
-	}
-	return 0
-}
-
-func (x *GetBlockHashesRequest) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-func (x *GetBlockHashesRequest) GetTimestamp() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Timestamp
-	}
-	return nil
-}
-
-type GetBlockHashesResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	BlockHashes []*GetBlockHashesResponse_BlockHash `protobuf:"bytes,2,rep,name=block_hashes,json=blockHashes,proto3" json:"block_hashes,omitempty"`
-}
-
-func (x *GetBlockHashesResponse) Reset() {
-	*x = GetBlockHashesResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[9]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *GetBlockHashesResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetBlockHashesResponse) ProtoMessage() {}
-
-func (x *GetBlockHashesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[9]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetBlockHashesResponse.ProtoReflect.Descriptor instead.
-func (*GetBlockHashesResponse) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *GetBlockHashesResponse) GetBlockHashes() []*GetBlockHashesResponse_BlockHash {
-	if x != nil {
-		return x.BlockHashes
-	}
-	return nil
-}
-
-type RegenFileRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	ProjectId uint64                 `protobuf:"varint,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-	BranchId  uint64                 `protobuf:"varint,2,opt,name=branch_id,json=branchId,proto3" json:"branch_id,omitempty"`
-	Path      string                 `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	Timestamp *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-}
-
-func (x *RegenFileRequest) Reset() {
-	*x = RegenFileRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[10]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *RegenFileRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RegenFileRequest) ProtoMessage() {}
-
-func (x *RegenFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[10]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RegenFileRequest.ProtoReflect.Descriptor instead.
-func (*RegenFileRequest) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *RegenFileRequest) GetProjectId() uint64 {
-	if x != nil {
-		return x.ProjectId
-	}
-	return 0
-}
-
-func (x *RegenFileRequest) GetBranchId() uint64 {
-	if x != nil {
-		return x.BranchId
-	}
-	return 0
-}
-
-func (x *RegenFileRequest) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-func (x *RegenFileRequest) GetTimestamp() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Timestamp
-	}
-	return nil
-}
-
-type RegenFileResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Data string `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
-}
-
-func (x *RegenFileResponse) Reset() {
-	*x = RegenFileResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[11]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *RegenFileResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RegenFileResponse) ProtoMessage() {}
-
-func (x *RegenFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[11]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RegenFileResponse.ProtoReflect.Descriptor instead.
-func (*RegenFileResponse) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *RegenFileResponse) GetData() string {
-	if x != nil {
-		return x.Data
-	}
-	return ""
 }
 
 type AddProjectRequest struct {
@@ -786,14 +446,15 @@ type AddProjectRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name  string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Owner uint64 `protobuf:"varint,2,opt,name=owner,proto3" json:"owner,omitempty"`
+	ProjectName   string               `protobuf:"bytes,1,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
+	ExistingFiles *GetFileListResponse `protobuf:"bytes,2,opt,name=existing_files,json=existingFiles,proto3" json:"existing_files,omitempty"`
+	ExistingData  [][]byte             `protobuf:"bytes,3,rep,name=existing_data,json=existingData,proto3" json:"existing_data,omitempty"`
 }
 
 func (x *AddProjectRequest) Reset() {
 	*x = AddProjectRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[12]
+		mi := &file_jamsyncpb_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -806,7 +467,7 @@ func (x *AddProjectRequest) String() string {
 func (*AddProjectRequest) ProtoMessage() {}
 
 func (x *AddProjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[12]
+	mi := &file_jamsyncpb_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -819,21 +480,28 @@ func (x *AddProjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddProjectRequest.ProtoReflect.Descriptor instead.
 func (*AddProjectRequest) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{12}
+	return file_jamsyncpb_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *AddProjectRequest) GetName() string {
+func (x *AddProjectRequest) GetProjectName() string {
 	if x != nil {
-		return x.Name
+		return x.ProjectName
 	}
 	return ""
 }
 
-func (x *AddProjectRequest) GetOwner() uint64 {
+func (x *AddProjectRequest) GetExistingFiles() *GetFileListResponse {
 	if x != nil {
-		return x.Owner
+		return x.ExistingFiles
 	}
-	return 0
+	return nil
+}
+
+func (x *AddProjectRequest) GetExistingData() [][]byte {
+	if x != nil {
+		return x.ExistingData
+	}
+	return nil
 }
 
 type AddProjectResponse struct {
@@ -847,7 +515,7 @@ type AddProjectResponse struct {
 func (x *AddProjectResponse) Reset() {
 	*x = AddProjectResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[13]
+		mi := &file_jamsyncpb_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -860,7 +528,7 @@ func (x *AddProjectResponse) String() string {
 func (*AddProjectResponse) ProtoMessage() {}
 
 func (x *AddProjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[13]
+	mi := &file_jamsyncpb_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -873,7 +541,7 @@ func (x *AddProjectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddProjectResponse.ProtoReflect.Descriptor instead.
 func (*AddProjectResponse) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{13}
+	return file_jamsyncpb_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *AddProjectResponse) GetProjectId() uint64 {
@@ -883,538 +551,77 @@ func (x *AddProjectResponse) GetProjectId() uint64 {
 	return 0
 }
 
-type GetProjectRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	ProjectId uint64 `protobuf:"varint,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
-}
-
-func (x *GetProjectRequest) Reset() {
-	*x = GetProjectRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[14]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *GetProjectRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetProjectRequest) ProtoMessage() {}
-
-func (x *GetProjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[14]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetProjectRequest.ProtoReflect.Descriptor instead.
-func (*GetProjectRequest) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{14}
-}
-
-func (x *GetProjectRequest) GetProjectId() uint64 {
-	if x != nil {
-		return x.ProjectId
-	}
-	return 0
-}
-
-type GetProjectResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Name  string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Owner uint64 `protobuf:"varint,2,opt,name=owner,proto3" json:"owner,omitempty"`
-}
-
-func (x *GetProjectResponse) Reset() {
-	*x = GetProjectResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[15]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *GetProjectResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetProjectResponse) ProtoMessage() {}
-
-func (x *GetProjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[15]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetProjectResponse.ProtoReflect.Descriptor instead.
-func (*GetProjectResponse) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{15}
-}
-
-func (x *GetProjectResponse) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *GetProjectResponse) GetOwner() uint64 {
-	if x != nil {
-		return x.Owner
-	}
-	return 0
-}
-
-type ListProjectsRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *ListProjectsRequest) Reset() {
-	*x = ListProjectsRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[16]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ListProjectsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListProjectsRequest) ProtoMessage() {}
-
-func (x *ListProjectsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[16]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListProjectsRequest.ProtoReflect.Descriptor instead.
-func (*ListProjectsRequest) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{16}
-}
-
-type ListProjectsResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Projects []*ListProjectsResponse_Project `protobuf:"bytes,1,rep,name=projects,proto3" json:"projects,omitempty"`
-}
-
-func (x *ListProjectsResponse) Reset() {
-	*x = ListProjectsResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[17]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ListProjectsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListProjectsResponse) ProtoMessage() {}
-
-func (x *ListProjectsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[17]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListProjectsResponse.ProtoReflect.Descriptor instead.
-func (*ListProjectsResponse) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{17}
-}
-
-func (x *ListProjectsResponse) GetProjects() []*ListProjectsResponse_Project {
-	if x != nil {
-		return x.Projects
-	}
-	return nil
-}
-
-type ListChangesResponse_ChangeRow struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Id        uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Timestamp *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-}
-
-func (x *ListChangesResponse_ChangeRow) Reset() {
-	*x = ListChangesResponse_ChangeRow{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[18]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ListChangesResponse_ChangeRow) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListChangesResponse_ChangeRow) ProtoMessage() {}
-
-func (x *ListChangesResponse_ChangeRow) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[18]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListChangesResponse_ChangeRow.ProtoReflect.Descriptor instead.
-func (*ListChangesResponse_ChangeRow) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{5, 0}
-}
-
-func (x *ListChangesResponse_ChangeRow) GetId() uint64 {
-	if x != nil {
-		return x.Id
-	}
-	return 0
-}
-
-func (x *ListChangesResponse_ChangeRow) GetTimestamp() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Timestamp
-	}
-	return nil
-}
-
-type GetBlockHashesResponse_BlockHash struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Index      uint64 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
-	StrongHash []byte `protobuf:"bytes,2,opt,name=strong_hash,json=strongHash,proto3" json:"strong_hash,omitempty"`
-	WeakHash   uint32 `protobuf:"varint,3,opt,name=weak_hash,json=weakHash,proto3" json:"weak_hash,omitempty"`
-}
-
-func (x *GetBlockHashesResponse_BlockHash) Reset() {
-	*x = GetBlockHashesResponse_BlockHash{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[19]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *GetBlockHashesResponse_BlockHash) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetBlockHashesResponse_BlockHash) ProtoMessage() {}
-
-func (x *GetBlockHashesResponse_BlockHash) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[19]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetBlockHashesResponse_BlockHash.ProtoReflect.Descriptor instead.
-func (*GetBlockHashesResponse_BlockHash) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{9, 0}
-}
-
-func (x *GetBlockHashesResponse_BlockHash) GetIndex() uint64 {
-	if x != nil {
-		return x.Index
-	}
-	return 0
-}
-
-func (x *GetBlockHashesResponse_BlockHash) GetStrongHash() []byte {
-	if x != nil {
-		return x.StrongHash
-	}
-	return nil
-}
-
-func (x *GetBlockHashesResponse_BlockHash) GetWeakHash() uint32 {
-	if x != nil {
-		return x.WeakHash
-	}
-	return 0
-}
-
-type ListProjectsResponse_Project struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Id   uint64 `protobuf:"varint,2,opt,name=id,proto3" json:"id,omitempty"`
-}
-
-func (x *ListProjectsResponse_Project) Reset() {
-	*x = ListProjectsResponse_Project{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_jamsyncpb_proto_msgTypes[20]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ListProjectsResponse_Project) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListProjectsResponse_Project) ProtoMessage() {}
-
-func (x *ListProjectsResponse_Project) ProtoReflect() protoreflect.Message {
-	mi := &file_jamsyncpb_proto_msgTypes[20]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListProjectsResponse_Project.ProtoReflect.Descriptor instead.
-func (*ListProjectsResponse_Project) Descriptor() ([]byte, []int) {
-	return file_jamsyncpb_proto_rawDescGZIP(), []int{17, 0}
-}
-
-func (x *ListProjectsResponse_Project) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *ListProjectsResponse_Project) GetId() uint64 {
-	if x != nil {
-		return x.Id
-	}
-	return 0
-}
-
 var File_jamsyncpb_proto protoreflect.FileDescriptor
 
 var file_jamsyncpb_proto_rawDesc = []byte{
 	0x0a, 0x0f, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x12, 0x09, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x1a, 0x1f, 0x67, 0x6f,
-	0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x74, 0x69,
-	0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x32, 0x0a,
-	0x08, 0x50, 0x61, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61, 0x12, 0x12, 0x0a, 0x04, 0x70, 0x61, 0x74,
-	0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x70, 0x61, 0x74, 0x68, 0x12, 0x12, 0x0a,
-	0x04, 0x68, 0x61, 0x73, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x04, 0x68, 0x61, 0x73,
-	0x68, 0x22, 0x3a, 0x0a, 0x0d, 0x50, 0x61, 0x74, 0x68, 0x73, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61,
-	0x74, 0x61, 0x12, 0x29, 0x0a, 0x05, 0x70, 0x61, 0x74, 0x68, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
-	0x0b, 0x32, 0x13, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x50, 0x61,
-	0x74, 0x68, 0x44, 0x61, 0x74, 0x61, 0x52, 0x05, 0x70, 0x61, 0x74, 0x68, 0x73, 0x22, 0x94, 0x01,
-	0x0a, 0x09, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x2a, 0x0a, 0x07, 0x6f,
-	0x70, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x11, 0x2e, 0x6a,
-	0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x4f, 0x70, 0x54, 0x79, 0x70, 0x65, 0x52,
-	0x06, 0x6f, 0x70, 0x54, 0x79, 0x70, 0x65, 0x12, 0x1f, 0x0a, 0x0b, 0x62, 0x6c, 0x6f, 0x63, 0x6b,
-	0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0a, 0x62, 0x6c,
-	0x6f, 0x63, 0x6b, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x26, 0x0a, 0x0f, 0x62, 0x6c, 0x6f, 0x63,
-	0x6b, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x5f, 0x65, 0x6e, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28,
-	0x04, 0x52, 0x0d, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x45, 0x6e, 0x64,
-	0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04,
-	0x64, 0x61, 0x74, 0x61, 0x22, 0x9e, 0x01, 0x0a, 0x06, 0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x12,
-	0x26, 0x0a, 0x03, 0x6f, 0x70, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x6a,
-	0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69,
-	0x6f, 0x6e, 0x52, 0x03, 0x6f, 0x70, 0x73, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a, 0x65,
-	0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x70, 0x72, 0x6f,
-	0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x62, 0x72, 0x61, 0x6e, 0x63, 0x68,
-	0x5f, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x62, 0x72, 0x61, 0x6e, 0x63,
-	0x68, 0x49, 0x64, 0x12, 0x30, 0x0a, 0x09, 0x70, 0x61, 0x74, 0x68, 0x5f, 0x64, 0x61, 0x74, 0x61,
-	0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63,
-	0x70, 0x62, 0x2e, 0x50, 0x61, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61, 0x52, 0x08, 0x70, 0x61, 0x74,
-	0x68, 0x44, 0x61, 0x74, 0x61, 0x22, 0x8a, 0x01, 0x0a, 0x12, 0x4c, 0x69, 0x73, 0x74, 0x43, 0x68,
-	0x61, 0x6e, 0x67, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a,
-	0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04,
-	0x52, 0x09, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x62,
-	0x72, 0x61, 0x6e, 0x63, 0x68, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08,
-	0x62, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x49, 0x64, 0x12, 0x38, 0x0a, 0x09, 0x74, 0x69, 0x6d, 0x65,
-	0x73, 0x74, 0x61, 0x6d, 0x70, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f,
-	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69,
-	0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x09, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61,
-	0x6d, 0x70, 0x22, 0xb7, 0x01, 0x0a, 0x13, 0x4c, 0x69, 0x73, 0x74, 0x43, 0x68, 0x61, 0x6e, 0x67,
-	0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x49, 0x0a, 0x0b, 0x63, 0x68,
-	0x61, 0x6e, 0x67, 0x65, 0x5f, 0x72, 0x6f, 0x77, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32,
-	0x28, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x4c, 0x69, 0x73, 0x74,
-	0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e,
-	0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x6f, 0x77, 0x52, 0x0a, 0x63, 0x68, 0x61, 0x6e, 0x67,
-	0x65, 0x52, 0x6f, 0x77, 0x73, 0x1a, 0x55, 0x0a, 0x09, 0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x52,
-	0x6f, 0x77, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x02,
-	0x69, 0x64, 0x12, 0x38, 0x0a, 0x09, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d,
-	0x70, 0x52, 0x09, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x22, 0xb7, 0x01, 0x0a,
-	0x13, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x12, 0x32, 0x0a, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f,
-	0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e,
-	0x63, 0x70, 0x62, 0x2e, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x09, 0x6f,
-	0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a,
-	0x65, 0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x70, 0x72,
-	0x6f, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x62, 0x72, 0x61, 0x6e, 0x63,
-	0x68, 0x5f, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x62, 0x72, 0x61, 0x6e,
-	0x63, 0x68, 0x49, 0x64, 0x12, 0x30, 0x0a, 0x09, 0x70, 0x61, 0x74, 0x68, 0x5f, 0x64, 0x61, 0x74,
-	0x61, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e,
-	0x63, 0x70, 0x62, 0x2e, 0x50, 0x61, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61, 0x52, 0x08, 0x70, 0x61,
-	0x74, 0x68, 0x44, 0x61, 0x74, 0x61, 0x22, 0x2a, 0x0a, 0x14, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65,
-	0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x12,
-	0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61,
-	0x74, 0x61, 0x22, 0xa1, 0x01, 0x0a, 0x15, 0x47, 0x65, 0x74, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x48,
-	0x61, 0x73, 0x68, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a,
-	0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04,
-	0x52, 0x09, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x62,
-	0x72, 0x61, 0x6e, 0x63, 0x68, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08,
-	0x62, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x49, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x70, 0x61, 0x74, 0x68,
-	0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x70, 0x61, 0x74, 0x68, 0x12, 0x38, 0x0a, 0x09,
-	0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75,
-	0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x09, 0x74, 0x69, 0x6d,
-	0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x22, 0xc9, 0x01, 0x0a, 0x16, 0x47, 0x65, 0x74, 0x42, 0x6c,
-	0x6f, 0x63, 0x6b, 0x48, 0x61, 0x73, 0x68, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x12, 0x4e, 0x0a, 0x0c, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x65,
-	0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x2b, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e,
-	0x63, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x48, 0x61, 0x73, 0x68,
-	0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x42, 0x6c, 0x6f, 0x63, 0x6b,
-	0x48, 0x61, 0x73, 0x68, 0x52, 0x0b, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x48, 0x61, 0x73, 0x68, 0x65,
-	0x73, 0x1a, 0x5f, 0x0a, 0x09, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x48, 0x61, 0x73, 0x68, 0x12, 0x14,
-	0x0a, 0x05, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x69,
-	0x6e, 0x64, 0x65, 0x78, 0x12, 0x1f, 0x0a, 0x0b, 0x73, 0x74, 0x72, 0x6f, 0x6e, 0x67, 0x5f, 0x68,
-	0x61, 0x73, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0a, 0x73, 0x74, 0x72, 0x6f, 0x6e,
-	0x67, 0x48, 0x61, 0x73, 0x68, 0x12, 0x1b, 0x0a, 0x09, 0x77, 0x65, 0x61, 0x6b, 0x5f, 0x68, 0x61,
-	0x73, 0x68, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x08, 0x77, 0x65, 0x61, 0x6b, 0x48, 0x61,
-	0x73, 0x68, 0x22, 0x9c, 0x01, 0x0a, 0x10, 0x52, 0x65, 0x67, 0x65, 0x6e, 0x46, 0x69, 0x6c, 0x65,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a, 0x65,
-	0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x70, 0x72, 0x6f,
-	0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x62, 0x72, 0x61, 0x6e, 0x63, 0x68,
-	0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x62, 0x72, 0x61, 0x6e, 0x63,
-	0x68, 0x49, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x70, 0x61, 0x74, 0x68, 0x18, 0x03, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x04, 0x70, 0x61, 0x74, 0x68, 0x12, 0x38, 0x0a, 0x09, 0x74, 0x69, 0x6d, 0x65, 0x73,
-	0x74, 0x61, 0x6d, 0x70, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f,
-	0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d,
-	0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x09, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d,
-	0x70, 0x22, 0x27, 0x0a, 0x11, 0x52, 0x65, 0x67, 0x65, 0x6e, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x3d, 0x0a, 0x11, 0x41, 0x64,
-	0x64, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
-	0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e,
-	0x61, 0x6d, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x04, 0x52, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x72, 0x22, 0x33, 0x0a, 0x12, 0x41, 0x64, 0x64,
-	0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x04, 0x52, 0x09, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x22, 0x32,
-	0x0a, 0x11, 0x47, 0x65, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x69,
-	0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74,
-	0x49, 0x64, 0x22, 0x3e, 0x0a, 0x12, 0x47, 0x65, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x14, 0x0a, 0x05,
-	0x6f, 0x77, 0x6e, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x6f, 0x77, 0x6e,
-	0x65, 0x72, 0x22, 0x15, 0x0a, 0x13, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63,
-	0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x8a, 0x01, 0x0a, 0x14, 0x4c, 0x69,
-	0x73, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x43, 0x0a, 0x08, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x18, 0x01,
-	0x20, 0x03, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62,
-	0x2e, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x52, 0x08, 0x70,
-	0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x1a, 0x2d, 0x0a, 0x07, 0x50, 0x72, 0x6f, 0x6a, 0x65,
-	0x63, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x04, 0x52, 0x02, 0x69, 0x64, 0x2a, 0x3f, 0x0a, 0x06, 0x4f, 0x70, 0x54, 0x79, 0x70, 0x65,
-	0x12, 0x0b, 0x0a, 0x07, 0x4f, 0x70, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x10, 0x00, 0x12, 0x0a, 0x0a,
-	0x06, 0x4f, 0x70, 0x44, 0x61, 0x74, 0x61, 0x10, 0x01, 0x12, 0x0a, 0x0a, 0x06, 0x4f, 0x70, 0x48,
-	0x61, 0x73, 0x68, 0x10, 0x02, 0x12, 0x10, 0x0a, 0x0c, 0x4f, 0x70, 0x42, 0x6c, 0x6f, 0x63, 0x6b,
-	0x52, 0x61, 0x6e, 0x67, 0x65, 0x10, 0x03, 0x32, 0xb5, 0x04, 0x0a, 0x0a, 0x4a, 0x61, 0x6d, 0x73,
-	0x79, 0x6e, 0x63, 0x41, 0x50, 0x49, 0x12, 0x49, 0x0a, 0x0a, 0x41, 0x64, 0x64, 0x50, 0x72, 0x6f,
-	0x6a, 0x65, 0x63, 0x74, 0x12, 0x1c, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62,
-	0x2e, 0x41, 0x64, 0x64, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x41,
-	0x64, 0x64, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x12, 0x49, 0x0a, 0x0a, 0x47, 0x65, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x12,
-	0x1c, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x50,
-	0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e,
-	0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x50, 0x72, 0x6f,
-	0x6a, 0x65, 0x63, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x46, 0x0a, 0x09,
-	0x52, 0x65, 0x67, 0x65, 0x6e, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x1b, 0x2e, 0x6a, 0x61, 0x6d, 0x73,
-	0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x52, 0x65, 0x67, 0x65, 0x6e, 0x46, 0x69, 0x6c, 0x65, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63,
-	0x70, 0x62, 0x2e, 0x52, 0x65, 0x67, 0x65, 0x6e, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4f, 0x0a, 0x0c, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x72, 0x6f, 0x6a,
-	0x65, 0x63, 0x74, 0x73, 0x12, 0x1e, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62,
-	0x2e, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62,
-	0x2e, 0x4c, 0x69, 0x73, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x4c, 0x0a, 0x0b, 0x4c, 0x69, 0x73, 0x74, 0x43, 0x68, 0x61,
-	0x6e, 0x67, 0x65, 0x73, 0x12, 0x1d, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62,
-	0x2e, 0x4c, 0x69, 0x73, 0x74, 0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e,
-	0x4c, 0x69, 0x73, 0x74, 0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x12, 0x53, 0x0a, 0x0c, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x53, 0x74, 0x72,
-	0x65, 0x61, 0x6d, 0x12, 0x1e, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e,
-	0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e,
-	0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x28, 0x01, 0x30, 0x01, 0x12, 0x55, 0x0a, 0x0e, 0x47, 0x65, 0x74, 0x42,
-	0x6c, 0x6f, 0x63, 0x6b, 0x48, 0x61, 0x73, 0x68, 0x65, 0x73, 0x12, 0x20, 0x2e, 0x6a, 0x61, 0x6d,
-	0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x48,
-	0x61, 0x73, 0x68, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x6a,
-	0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x42, 0x6c, 0x6f, 0x63,
-	0x6b, 0x48, 0x61, 0x73, 0x68, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42,
-	0x2c, 0x5a, 0x2a, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x7a, 0x64,
-	0x67, 0x65, 0x69, 0x65, 0x72, 0x2f, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x2f, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x2f, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6f, 0x12, 0x09, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x22, 0xd6, 0x01, 0x0a,
+	0x09, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x2d, 0x0a, 0x04, 0x74, 0x79,
+	0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x19, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79,
+	0x6e, 0x63, 0x70, 0x62, 0x2e, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x2e, 0x54,
+	0x79, 0x70, 0x65, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x1f, 0x0a, 0x0b, 0x62, 0x6c, 0x6f,
+	0x63, 0x6b, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0a,
+	0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x26, 0x0a, 0x0f, 0x62, 0x6c,
+	0x6f, 0x63, 0x6b, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x5f, 0x65, 0x6e, 0x64, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x04, 0x52, 0x0d, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x45,
+	0x6e, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c,
+	0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x3d, 0x0a, 0x04, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0b,
+	0x0a, 0x07, 0x4f, 0x70, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x4f,
+	0x70, 0x44, 0x61, 0x74, 0x61, 0x10, 0x01, 0x12, 0x0a, 0x0a, 0x06, 0x4f, 0x70, 0x48, 0x61, 0x73,
+	0x68, 0x10, 0x02, 0x12, 0x10, 0x0a, 0x0c, 0x4f, 0x70, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x52, 0x61,
+	0x6e, 0x67, 0x65, 0x10, 0x03, 0x22, 0x34, 0x0a, 0x0a, 0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x44,
+	0x61, 0x74, 0x61, 0x12, 0x26, 0x0a, 0x03, 0x6f, 0x70, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b,
+	0x32, 0x14, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x4f, 0x70, 0x65,
+	0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x03, 0x6f, 0x70, 0x73, 0x22, 0x2c, 0x0a, 0x04, 0x46,
+	0x69, 0x6c, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x70, 0x61, 0x74, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x04, 0x70, 0x61, 0x74, 0x68, 0x12, 0x10, 0x0a, 0x03, 0x64, 0x69, 0x72, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x03, 0x64, 0x69, 0x72, 0x22, 0x47, 0x0a, 0x0e, 0x47, 0x65, 0x74,
+	0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x21, 0x0a, 0x0c, 0x70,
+	0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x0b, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x12,
+	0x0a, 0x04, 0x70, 0x61, 0x74, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x70, 0x61,
+	0x74, 0x68, 0x22, 0x25, 0x0a, 0x0f, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x37, 0x0a, 0x12, 0x47, 0x65, 0x74,
+	0x46, 0x69, 0x6c, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
+	0x21, 0x0a, 0x0c, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x4e, 0x61,
+	0x6d, 0x65, 0x22, 0x3c, 0x0a, 0x13, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x4c, 0x69, 0x73,
+	0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x25, 0x0a, 0x05, 0x66, 0x69, 0x6c,
+	0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79,
+	0x6e, 0x63, 0x70, 0x62, 0x2e, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x05, 0x66, 0x69, 0x6c, 0x65, 0x73,
+	0x22, 0xa2, 0x01, 0x0a, 0x11, 0x41, 0x64, 0x64, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x21, 0x0a, 0x0c, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63,
+	0x74, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x70, 0x72,
+	0x6f, 0x6a, 0x65, 0x63, 0x74, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x45, 0x0a, 0x0e, 0x65, 0x78, 0x69,
+	0x73, 0x74, 0x69, 0x6e, 0x67, 0x5f, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x1e, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x47, 0x65,
+	0x74, 0x46, 0x69, 0x6c, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x52, 0x0d, 0x65, 0x78, 0x69, 0x73, 0x74, 0x69, 0x6e, 0x67, 0x46, 0x69, 0x6c, 0x65, 0x73,
+	0x12, 0x23, 0x0a, 0x0d, 0x65, 0x78, 0x69, 0x73, 0x74, 0x69, 0x6e, 0x67, 0x5f, 0x64, 0x61, 0x74,
+	0x61, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0c, 0x52, 0x0c, 0x65, 0x78, 0x69, 0x73, 0x74, 0x69, 0x6e,
+	0x67, 0x44, 0x61, 0x74, 0x61, 0x22, 0x33, 0x0a, 0x12, 0x41, 0x64, 0x64, 0x50, 0x72, 0x6f, 0x6a,
+	0x65, 0x63, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1d, 0x0a, 0x0a, 0x70,
+	0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52,
+	0x09, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x32, 0xe7, 0x01, 0x0a, 0x0a, 0x4a,
+	0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x41, 0x50, 0x49, 0x12, 0x4c, 0x0a, 0x0b, 0x47, 0x65, 0x74,
+	0x46, 0x69, 0x6c, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x1d, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79,
+	0x6e, 0x63, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x4c, 0x69, 0x73, 0x74,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e,
+	0x63, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x49, 0x0a, 0x0a, 0x41, 0x64, 0x64, 0x50, 0x72,
+	0x6f, 0x6a, 0x65, 0x63, 0x74, 0x12, 0x1c, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70,
+	0x62, 0x2e, 0x41, 0x64, 0x64, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e,
+	0x41, 0x64, 0x64, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x40, 0x0a, 0x07, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x19, 0x2e,
+	0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c,
+	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1a, 0x2e, 0x6a, 0x61, 0x6d, 0x73, 0x79,
+	0x6e, 0x63, 0x70, 0x62, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x42, 0x2c, 0x5a, 0x2a, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
+	0x6f, 0x6d, 0x2f, 0x7a, 0x64, 0x67, 0x65, 0x69, 0x65, 0x72, 0x2f, 0x6a, 0x61, 0x6d, 0x73, 0x79,
+	0x6e, 0x63, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x6a, 0x61, 0x6d, 0x73, 0x79, 0x6e, 0x63,
+	0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1430,65 +637,35 @@ func file_jamsyncpb_proto_rawDescGZIP() []byte {
 }
 
 var file_jamsyncpb_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_jamsyncpb_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_jamsyncpb_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_jamsyncpb_proto_goTypes = []interface{}{
-	(OpType)(0),                              // 0: jamsyncpb.OpType
-	(*PathData)(nil),                         // 1: jamsyncpb.PathData
-	(*PathsMetadata)(nil),                    // 2: jamsyncpb.PathsMetadata
-	(*Operation)(nil),                        // 3: jamsyncpb.Operation
-	(*Change)(nil),                           // 4: jamsyncpb.Change
-	(*ListChangesRequest)(nil),               // 5: jamsyncpb.ListChangesRequest
-	(*ListChangesResponse)(nil),              // 6: jamsyncpb.ListChangesResponse
-	(*UpdateStreamRequest)(nil),              // 7: jamsyncpb.UpdateStreamRequest
-	(*UpdateStreamResponse)(nil),             // 8: jamsyncpb.UpdateStreamResponse
-	(*GetBlockHashesRequest)(nil),            // 9: jamsyncpb.GetBlockHashesRequest
-	(*GetBlockHashesResponse)(nil),           // 10: jamsyncpb.GetBlockHashesResponse
-	(*RegenFileRequest)(nil),                 // 11: jamsyncpb.RegenFileRequest
-	(*RegenFileResponse)(nil),                // 12: jamsyncpb.RegenFileResponse
-	(*AddProjectRequest)(nil),                // 13: jamsyncpb.AddProjectRequest
-	(*AddProjectResponse)(nil),               // 14: jamsyncpb.AddProjectResponse
-	(*GetProjectRequest)(nil),                // 15: jamsyncpb.GetProjectRequest
-	(*GetProjectResponse)(nil),               // 16: jamsyncpb.GetProjectResponse
-	(*ListProjectsRequest)(nil),              // 17: jamsyncpb.ListProjectsRequest
-	(*ListProjectsResponse)(nil),             // 18: jamsyncpb.ListProjectsResponse
-	(*ListChangesResponse_ChangeRow)(nil),    // 19: jamsyncpb.ListChangesResponse.ChangeRow
-	(*GetBlockHashesResponse_BlockHash)(nil), // 20: jamsyncpb.GetBlockHashesResponse.BlockHash
-	(*ListProjectsResponse_Project)(nil),     // 21: jamsyncpb.ListProjectsResponse.Project
-	(*timestamppb.Timestamp)(nil),            // 22: google.protobuf.Timestamp
+	(Operation_Type)(0),         // 0: jamsyncpb.Operation.Type
+	(*Operation)(nil),           // 1: jamsyncpb.Operation
+	(*ChangeData)(nil),          // 2: jamsyncpb.ChangeData
+	(*File)(nil),                // 3: jamsyncpb.File
+	(*GetFileRequest)(nil),      // 4: jamsyncpb.GetFileRequest
+	(*GetFileResponse)(nil),     // 5: jamsyncpb.GetFileResponse
+	(*GetFileListRequest)(nil),  // 6: jamsyncpb.GetFileListRequest
+	(*GetFileListResponse)(nil), // 7: jamsyncpb.GetFileListResponse
+	(*AddProjectRequest)(nil),   // 8: jamsyncpb.AddProjectRequest
+	(*AddProjectResponse)(nil),  // 9: jamsyncpb.AddProjectResponse
 }
 var file_jamsyncpb_proto_depIdxs = []int32{
-	1,  // 0: jamsyncpb.PathsMetadata.paths:type_name -> jamsyncpb.PathData
-	0,  // 1: jamsyncpb.Operation.op_type:type_name -> jamsyncpb.OpType
-	3,  // 2: jamsyncpb.Change.ops:type_name -> jamsyncpb.Operation
-	1,  // 3: jamsyncpb.Change.path_data:type_name -> jamsyncpb.PathData
-	22, // 4: jamsyncpb.ListChangesRequest.timestamp:type_name -> google.protobuf.Timestamp
-	19, // 5: jamsyncpb.ListChangesResponse.change_rows:type_name -> jamsyncpb.ListChangesResponse.ChangeRow
-	3,  // 6: jamsyncpb.UpdateStreamRequest.operation:type_name -> jamsyncpb.Operation
-	1,  // 7: jamsyncpb.UpdateStreamRequest.path_data:type_name -> jamsyncpb.PathData
-	22, // 8: jamsyncpb.GetBlockHashesRequest.timestamp:type_name -> google.protobuf.Timestamp
-	20, // 9: jamsyncpb.GetBlockHashesResponse.block_hashes:type_name -> jamsyncpb.GetBlockHashesResponse.BlockHash
-	22, // 10: jamsyncpb.RegenFileRequest.timestamp:type_name -> google.protobuf.Timestamp
-	21, // 11: jamsyncpb.ListProjectsResponse.projects:type_name -> jamsyncpb.ListProjectsResponse.Project
-	22, // 12: jamsyncpb.ListChangesResponse.ChangeRow.timestamp:type_name -> google.protobuf.Timestamp
-	13, // 13: jamsyncpb.JamsyncAPI.AddProject:input_type -> jamsyncpb.AddProjectRequest
-	15, // 14: jamsyncpb.JamsyncAPI.GetProject:input_type -> jamsyncpb.GetProjectRequest
-	11, // 15: jamsyncpb.JamsyncAPI.RegenFile:input_type -> jamsyncpb.RegenFileRequest
-	17, // 16: jamsyncpb.JamsyncAPI.ListProjects:input_type -> jamsyncpb.ListProjectsRequest
-	5,  // 17: jamsyncpb.JamsyncAPI.ListChanges:input_type -> jamsyncpb.ListChangesRequest
-	7,  // 18: jamsyncpb.JamsyncAPI.UpdateStream:input_type -> jamsyncpb.UpdateStreamRequest
-	9,  // 19: jamsyncpb.JamsyncAPI.GetBlockHashes:input_type -> jamsyncpb.GetBlockHashesRequest
-	14, // 20: jamsyncpb.JamsyncAPI.AddProject:output_type -> jamsyncpb.AddProjectResponse
-	16, // 21: jamsyncpb.JamsyncAPI.GetProject:output_type -> jamsyncpb.GetProjectResponse
-	12, // 22: jamsyncpb.JamsyncAPI.RegenFile:output_type -> jamsyncpb.RegenFileResponse
-	18, // 23: jamsyncpb.JamsyncAPI.ListProjects:output_type -> jamsyncpb.ListProjectsResponse
-	6,  // 24: jamsyncpb.JamsyncAPI.ListChanges:output_type -> jamsyncpb.ListChangesResponse
-	8,  // 25: jamsyncpb.JamsyncAPI.UpdateStream:output_type -> jamsyncpb.UpdateStreamResponse
-	10, // 26: jamsyncpb.JamsyncAPI.GetBlockHashes:output_type -> jamsyncpb.GetBlockHashesResponse
-	20, // [20:27] is the sub-list for method output_type
-	13, // [13:20] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	0, // 0: jamsyncpb.Operation.type:type_name -> jamsyncpb.Operation.Type
+	1, // 1: jamsyncpb.ChangeData.ops:type_name -> jamsyncpb.Operation
+	3, // 2: jamsyncpb.GetFileListResponse.files:type_name -> jamsyncpb.File
+	7, // 3: jamsyncpb.AddProjectRequest.existing_files:type_name -> jamsyncpb.GetFileListResponse
+	6, // 4: jamsyncpb.JamsyncAPI.GetFileList:input_type -> jamsyncpb.GetFileListRequest
+	8, // 5: jamsyncpb.JamsyncAPI.AddProject:input_type -> jamsyncpb.AddProjectRequest
+	4, // 6: jamsyncpb.JamsyncAPI.GetFile:input_type -> jamsyncpb.GetFileRequest
+	7, // 7: jamsyncpb.JamsyncAPI.GetFileList:output_type -> jamsyncpb.GetFileListResponse
+	9, // 8: jamsyncpb.JamsyncAPI.AddProject:output_type -> jamsyncpb.AddProjectResponse
+	5, // 9: jamsyncpb.JamsyncAPI.GetFile:output_type -> jamsyncpb.GetFileResponse
+	7, // [7:10] is the sub-list for method output_type
+	4, // [4:7] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_jamsyncpb_proto_init() }
@@ -1498,30 +675,6 @@ func file_jamsyncpb_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_jamsyncpb_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PathData); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PathsMetadata); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Operation); i {
 			case 0:
 				return &v.state
@@ -1533,8 +686,32 @@ func file_jamsyncpb_proto_init() {
 				return nil
 			}
 		}
+		file_jamsyncpb_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ChangeData); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_jamsyncpb_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*File); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 		file_jamsyncpb_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Change); i {
+			switch v := v.(*GetFileRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1546,7 +723,7 @@ func file_jamsyncpb_proto_init() {
 			}
 		}
 		file_jamsyncpb_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListChangesRequest); i {
+			switch v := v.(*GetFileResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1558,7 +735,7 @@ func file_jamsyncpb_proto_init() {
 			}
 		}
 		file_jamsyncpb_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListChangesResponse); i {
+			switch v := v.(*GetFileListRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1570,7 +747,7 @@ func file_jamsyncpb_proto_init() {
 			}
 		}
 		file_jamsyncpb_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateStreamRequest); i {
+			switch v := v.(*GetFileListResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1582,66 +759,6 @@ func file_jamsyncpb_proto_init() {
 			}
 		}
 		file_jamsyncpb_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateStreamResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetBlockHashesRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetBlockHashesResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RegenFileRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RegenFileResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*AddProjectRequest); i {
 			case 0:
 				return &v.state
@@ -1653,92 +770,8 @@ func file_jamsyncpb_proto_init() {
 				return nil
 			}
 		}
-		file_jamsyncpb_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+		file_jamsyncpb_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*AddProjectResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetProjectRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetProjectResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListProjectsRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListProjectsResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListChangesResponse_ChangeRow); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetBlockHashesResponse_BlockHash); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_jamsyncpb_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListProjectsResponse_Project); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1756,7 +789,7 @@ func file_jamsyncpb_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_jamsyncpb_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   21,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

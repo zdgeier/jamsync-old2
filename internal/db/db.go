@@ -9,8 +9,8 @@ func Setup(db *sql.DB) error {
 	sqlStmt := `
 	CREATE TABLE IF NOT EXISTS users (username TEXT);
 	CREATE TABLE IF NOT EXISTS projects (name TEXT);
-	CREATE TABLE IF NOT EXISTS branches (project_id INTEGER, name TEXT);
-	CREATE TABLE IF NOT EXISTS changes (branch_id INTEGER NOT NULL, project_id INTEGER, offset INTEGER, length INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
+	CREATE TABLE IF NOT EXISTS changes (project_id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
+	CREATE TABLE IF NOT EXISTS change_data (change_id INTEGER, path TEXT, offset INTEGER, length INTEGER);
 	`
 	_, err := db.Exec(sqlStmt)
 	return err
@@ -22,8 +22,8 @@ type Project struct {
 	Id      uint64
 }
 
-func AddProject(db *sql.DB, projectName string, userId uint64) (uint64, error) {
-	res, err := db.Exec("INSERT INTO projects(name) VALUES(?, ?)", projectName, userId)
+func AddProject(db *sql.DB, projectName string) (uint64, error) {
+	res, err := db.Exec("INSERT INTO projects(name) VALUES(?)", projectName)
 	if err != nil {
 		return 0, err
 	}
@@ -36,8 +36,8 @@ func AddProject(db *sql.DB, projectName string, userId uint64) (uint64, error) {
 	return uint64(id), nil
 }
 
-func GetProject(db *sql.DB, projectId uint64) (string, uint64, error) {
-	row := db.QueryRow("SELECT name FROM projects WHERE rowid = ?", projectId)
+func GetProject(db *sql.DB, projectName string) (string, uint64, error) {
+	row := db.QueryRow("SELECT name FROM projects WHERE name = ?", projectName)
 	if row.Err() != nil {
 		return "", 0, row.Err()
 	}
@@ -67,8 +67,8 @@ func ListProjects(db *sql.DB) ([]Project, error) {
 	return data, err
 }
 
-func AddUser(db *sql.DB, username string) (uint64, error) {
-	res, err := db.Exec("INSERT INTO users(username) VALUES(?)", username)
+func AddChangeData(db *sql.DB, changeId uint64, path string, offset int64, length int) (uint64, error) {
+	res, err := db.Exec("INSERT INTO change_data(change_id, path, offset, length) VALUES(?, ?, ?)", changeId, path, offset, length)
 	if err != nil {
 		return 0, err
 	}
@@ -81,43 +81,8 @@ func AddUser(db *sql.DB, username string) (uint64, error) {
 	return uint64(id), nil
 }
 
-type User struct {
-	Id       uint64
-	Username string
-}
-
-func GetUser(db *sql.DB, userId uint64) (string, error) {
-	row := db.QueryRow("SELECT username FROM users WHERE rowid = ?", userId)
-	if row.Err() != nil {
-		return "", row.Err()
-	}
-
-	var username string
-	err := row.Scan(&username)
-	return username, err
-}
-
-func ListUsers(db *sql.DB) ([]User, error) {
-	rows, err := db.Query("SELECT rowid, username FROM users")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	data := make([]User, 0)
-	for rows.Next() {
-		u := User{}
-		err = rows.Scan(&u.Id, &u.Username)
-		if err != nil {
-			return nil, err
-		}
-		data = append(data, u)
-	}
-	return data, err
-}
-
-func AddChange(db *sql.DB, branchId uint64, projectId uint64, offset int64, length int64) (uint64, error) {
-	res, err := db.Exec("INSERT INTO changes(branch_id, project_id, offset, length) VALUES(?, ?, ?, ?)", branchId, projectId, offset, length)
+func AddChange(db *sql.DB, projectName string) (uint64, error) {
+	res, err := db.Exec("INSERT INTO changes(project_id) SELECT project_id FROM projects WHERE project_name = ?", projectName)
 	if err != nil {
 		return 0, err
 	}
@@ -130,8 +95,8 @@ func AddChange(db *sql.DB, branchId uint64, projectId uint64, offset int64, leng
 	return uint64(id), nil
 }
 
-func ListChanges(db *sql.DB, branchId uint64, projectId uint64, timestamp time.Time) ([]uint64, []time.Time, []uint64, []uint64, error) {
-	rows, err := db.Query("SELECT rowid, timestamp, offset, length FROM changes WHERE branch_id = ? AND project_id = ? AND timestamp <= ?", branchId, projectId, timestamp)
+func ListChanges(db *sql.DB, projectName string, timestamp time.Time) ([]uint64, []time.Time, []uint64, []uint64, error) {
+	rows, err := db.Query("SELECT rowid, timestamp, offset, length FROM changes WHERE project_id = (SELECT rowid FROM projects WHERE project_name = ?) AND timestamp <= ?", projectName, timestamp)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

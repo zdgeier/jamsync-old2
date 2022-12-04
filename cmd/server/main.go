@@ -56,7 +56,6 @@ func main() {
 	reflection.Register(grpcServer)
 
 	jamsyncServer := server.NewServer(localDB)
-	jamsyncServer.GenTestData()
 
 	jamsyncpb.RegisterJamsyncAPIServer(grpcServer, jamsyncServer)
 	go func() {

@@ -12,13 +12,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/cespare/xxhash/v2"
-	"github.com/pierrec/lz4/v4"
+	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 	"github.com/zdgeier/jamsync/internal/db"
 	"github.com/zdgeier/jamsync/internal/rsync"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type JamsyncServer struct {
@@ -26,163 +24,200 @@ type JamsyncServer struct {
 	jamsyncpb.UnimplementedJamsyncAPIServer
 }
 
+func NewServer(db *sql.DB) JamsyncServer {
+	server := JamsyncServer{
+		db: db,
+	}
+
+	return server
+}
+
 func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectRequest) (*jamsyncpb.AddProjectResponse, error) {
-	res, err := db.AddProject(s.db, in.GetName(), in.GetOwner())
+	log.Println("AddProject", in.String())
+
+	res, err := db.AddProject(s.db, in.GetProjectName())
 	if err != nil {
 		return nil, err
+	}
+
+	changeId, err := db.AddChange(s.db, in.GetProjectName())
+	if err != nil {
+		return nil, err
+	}
+
+	fileListData, err := proto.Marshal(in.ExistingFiles)
+	if err != nil {
+		return nil, err
+	}
+
+	offset, length, err := writeDataToFile(changeId, "jamsyncfilelist", fileListData)
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.AddChangeData(s.db, changeId, "jamsyncfilelist", offset, length)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range in.GetExistingFiles().Files {
+		if !file.Dir {
+			offset, length, err := writeDataToFile(changeId, "jamsyncfilelist", fileListData)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = db.AddChangeData(s.db, changeId, file.GetPath(), offset, length)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return &jamsyncpb.AddProjectResponse{ProjectId: res}, nil
 }
 
-func (s JamsyncServer) GetProject(ctx context.Context, in *jamsyncpb.GetProjectRequest) (*jamsyncpb.GetProjectResponse, error) {
-	name, res, err := db.GetProject(s.db, in.GetProjectId())
+func writeDataToFile(changeId uint64, path string, data []byte) (int64, int, error) {
+	ops := generateRsyncOpsForNewFile(data)
+
+	opsPb := make([]*jamsyncpb.Operation, 0)
+	for _, op := range ops {
+		opPb := rsyncOperationToPb(&op)
+		opsPb = append(opsPb, &opPb)
+	}
+
+	return writeChangeDataToFile(changeId, path, &jamsyncpb.ChangeData{
+		Ops: opsPb,
+	})
+}
+
+func writeChangeDataToFile(changeId uint64, path string, changeData *jamsyncpb.ChangeData) (int64, int, error) {
+	dataFilePath := fmt.Sprintf("data/%s.jb", base64.StdEncoding.EncodeToString([]byte(path)))
+	f, err := os.OpenFile(dataFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	info, err := f.Stat()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	bytes, err := proto.Marshal(changeData)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	n, err := f.Write(bytes)
+	if err != nil {
+		log.Fatal(err)
+		return 0, 0, err
+	}
+
+	log.Println("Wrote data file", dataFilePath, info.Size(), n)
+	return info.Size(), n, nil
+}
+
+func generateRsyncOpsForNewFile(data []byte) []rsync.Operation {
+	rsDelta := &rsync.RSync{UniqueHasher: xxhash.New()}
+
+	sourceBuffer := bytes.NewReader(data)
+
+	opsOut := make([]rsync.Operation, 0)
+	var blockCt, blockRangeCt, dataCt, bytes int
+	err := rsDelta.CreateDelta(sourceBuffer, []rsync.BlockHash{}, func(op rsync.Operation) error {
+		switch op.Type {
+		case rsync.OpBlockRange:
+			blockRangeCt++
+		case rsync.OpBlock:
+			blockCt++
+		case rsync.OpData:
+			// Copy data buffer so it may be reused in internal buffer.
+			b := make([]byte, len(op.Data))
+			copy(b, op.Data)
+			op.Data = b
+			dataCt++
+			bytes += len(op.Data)
+		}
+		opsOut = append(opsOut, op)
+		return nil
+	})
+	if err != nil {
+		log.Fatalf("Failed to create delta: %s", err)
+	}
+
+	log.Printf("Generated Ops Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dKiB", blockRangeCt, blockCt, dataCt, bytes/1024)
+	return opsOut
+}
+
+func (s JamsyncServer) GetFileList(ctx context.Context, in *jamsyncpb.GetFileListRequest) (*jamsyncpb.GetFileListResponse, error) {
+	log.Println("GetFileList", in.String())
+	targetBuffer, err := s.regenFile(in.GetProjectName(), "jamsyncfilelist", time.Now())
 	if err != nil {
 		return nil, err
 	}
 
-	return &jamsyncpb.GetProjectResponse{Name: name, Owner: res}, nil
-}
-
-func (s JamsyncServer) ListProjects(ctx context.Context, in *jamsyncpb.ListProjectsRequest) (*jamsyncpb.ListProjectsResponse, error) {
-	projects, err := db.ListProjects(s.db)
+	data, err := io.ReadAll(targetBuffer)
 	if err != nil {
 		return nil, err
 	}
 
-	projectsPb := make([]*jamsyncpb.ListProjectsResponse_Project, len(projects))
-	for i := range projectsPb {
-		projectsPb[i] = &jamsyncpb.ListProjectsResponse_Project{Name: projects[i].Name, Id: projects[i].Id}
+	var files *jamsyncpb.GetFileListResponse
+	err = proto.Unmarshal(data, files)
+	if err != nil {
+		return nil, err
 	}
 
-	return &jamsyncpb.ListProjectsResponse{Projects: projectsPb}, nil
+	return files, nil
 }
 
-func (s JamsyncServer) UpdateStream(stream jamsyncpb.JamsyncAPI_UpdateStreamServer) error {
-	var currChange *jamsyncpb.Change
-	changes := make(chan *jamsyncpb.Change)
-	go func() {
-		for {
-			in, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				// TODO: this triggers with context cancelled for some reason
-				log.Println(err)
-				return
-			}
-
-			if in.GetPathData().GetPath() != "" {
-				if currChange != nil {
-					changes <- currChange
-				}
-
-				currChange = &jamsyncpb.Change{
-					ProjectId: in.GetProjectId(),
-					BranchId:  in.GetBranchId(),
-					PathData: &jamsyncpb.PathData{
-						Path: in.GetPathData().GetPath(),
-						Hash: in.GetPathData().GetHash(),
-					},
-				}
-			}
-			currChange.Ops = append(currChange.Ops, in.Operation)
-		}
-		changes <- currChange
-		close(changes)
-	}()
-
-	for change := range changes {
-		f, err := os.OpenFile(fmt.Sprintf("data/%s.jb", base64.StdEncoding.EncodeToString([]byte(change.GetPathData().GetPath()))), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-
-		info, err := f.Stat()
-		if err != nil {
-			return err
-		}
-
-		data, err := proto.Marshal(change)
-		if err != nil {
-			return err
-		}
-
-		n, err := f.Write(data)
-		if err != nil {
-			log.Panic(err)
-			return err
-		}
-
-		_, err = db.AddChange(s.db, change.GetBranchId(), change.GetProjectId(), info.Size(), int64(n))
-		if err != nil {
-			log.Panic(err)
-			return err
-		}
+func rsyncOperationToPb(op *rsync.Operation) jamsyncpb.Operation {
+	var opPbType jamsyncpb.Operation_Type
+	switch op.Type {
+	case rsync.OpBlock:
+		opPbType = jamsyncpb.Operation_OpBlock
+	case rsync.OpData:
+		opPbType = jamsyncpb.Operation_OpData
+	case rsync.OpHash:
+		opPbType = jamsyncpb.Operation_OpHash
+	case rsync.OpBlockRange:
+		opPbType = jamsyncpb.Operation_OpBlockRange
 	}
 
-	return nil
+	return jamsyncpb.Operation{
+		Type:          opPbType,
+		BlockIndex:    op.BlockIndex,
+		BlockIndexEnd: op.BlockIndexEnd,
+		Data:          op.Data,
+	}
 }
 
 func pbOperationToRsync(op *jamsyncpb.Operation) rsync.Operation {
 	var opType rsync.OpType
-	switch op.OpType {
-	case jamsyncpb.OpType_OpBlock:
+	switch op.Type {
+	case jamsyncpb.Operation_OpBlock:
 		opType = rsync.OpBlock
-	case jamsyncpb.OpType_OpData:
+	case jamsyncpb.Operation_OpData:
 		opType = rsync.OpData
-	case jamsyncpb.OpType_OpHash:
+	case jamsyncpb.Operation_OpHash:
 		opType = rsync.OpHash
-	case jamsyncpb.OpType_OpBlockRange:
+	case jamsyncpb.Operation_OpBlockRange:
 		opType = rsync.OpBlockRange
-	}
-
-	out := new(bytes.Buffer)
-	zr := lz4.NewReader(bytes.NewReader(op.GetData()))
-	_, err := io.Copy(out, zr)
-	if err != nil {
-		log.Panic(err)
 	}
 
 	return rsync.Operation{
 		Type:          opType,
 		BlockIndex:    op.GetBlockIndex(),
 		BlockIndexEnd: op.GetBlockIndexEnd(),
-		Data:          out.Bytes(),
+		Data:          op.GetData(),
 	}
 }
 
-func (s JamsyncServer) GetBlockHashes(ctx context.Context, in *jamsyncpb.GetBlockHashesRequest) (*jamsyncpb.GetBlockHashesResponse, error) {
-	rs := &rsync.RSync{UniqueHasher: xxhash.New()}
-
-	targetBuffer, err := s.regenFile(in.GetPath(), in.GetBranchId(), in.GetProjectId(), in.GetTimestamp().AsTime())
+func (s JamsyncServer) regenFile(projectName string, path string, timestamp time.Time) (*bytes.Reader, error) {
+	_, _, offsets, lengths, err := db.ListChanges(s.db, projectName, timestamp.Add(24*time.Hour))
 	if err != nil {
 		return nil, err
 	}
-
-	blockHashesPb := make([]*jamsyncpb.GetBlockHashesResponse_BlockHash, 0)
-	err = rs.CreateSignature(targetBuffer, func(bl rsync.BlockHash) error {
-		blockHashesPb = append(blockHashesPb, &jamsyncpb.GetBlockHashesResponse_BlockHash{
-			Index:      bl.Index,
-			StrongHash: bl.StrongHash,
-			WeakHash:   bl.WeakHash,
-		})
-		return nil
-	})
-	if err != nil {
-		log.Panicf("Failed to create signature: %s", err)
-	}
-
-	return &jamsyncpb.GetBlockHashesResponse{BlockHashes: blockHashesPb}, nil
-}
-
-func (s JamsyncServer) regenFile(path string, branchId uint64, projectId uint64, timestamp time.Time) (*bytes.Reader, error) {
-	changes := make([]*jamsyncpb.Change, 0)
-	_, _, offsets, lengths, err := db.ListChanges(s.db, branchId, projectId, timestamp.Add(24*time.Hour))
-	if err != nil {
-		return nil, err
-	}
+	log.Printf("Got %d changes for %s", len(offsets), path)
 
 	f, err := os.Open(fmt.Sprintf("data/%s.jb", base64.StdEncoding.EncodeToString([]byte(path))))
 	if errors.Is(err, os.ErrNotExist) {
@@ -192,6 +227,7 @@ func (s JamsyncServer) regenFile(path string, branchId uint64, projectId uint64,
 		return nil, err
 	}
 
+	changeDatas := make([]*jamsyncpb.ChangeData, 0)
 	for i := range lengths {
 		changeFile := make([]byte, lengths[i])
 		n, err := f.ReadAt(changeFile, int64(offsets[i]))
@@ -202,16 +238,16 @@ func (s JamsyncServer) regenFile(path string, branchId uint64, projectId uint64,
 			return nil, errors.New("read length does not equal expected")
 		}
 
-		change := &jamsyncpb.Change{}
+		change := &jamsyncpb.ChangeData{}
 		err = proto.Unmarshal(changeFile, change)
 		if err != nil {
 			return nil, err
 		}
-		changes = append(changes, change)
+		changeDatas = append(changeDatas, change)
 	}
 
-	changeOps := make([][]rsync.Operation, 0, len(changes))
-	for _, change := range changes {
+	changeOps := make([][]rsync.Operation, 0, len(changeDatas))
+	for _, change := range changeDatas {
 		opsOut := make([]rsync.Operation, 0, len(change.GetOps()))
 
 		for _, op := range change.GetOps() {
@@ -236,8 +272,9 @@ func (s JamsyncServer) regenFile(path string, branchId uint64, projectId uint64,
 	return targetBuffer, nil
 }
 
-func (s JamsyncServer) RegenFile(ctx context.Context, in *jamsyncpb.RegenFileRequest) (*jamsyncpb.RegenFileResponse, error) {
-	targetBuffer, err := s.regenFile(in.GetPath(), in.GetBranchId(), in.GetProjectId(), in.GetTimestamp().AsTime())
+func (s JamsyncServer) GetFile(ctx context.Context, in *jamsyncpb.GetFileRequest) (*jamsyncpb.GetFileResponse, error) {
+	log.Println("GetFile", in.String())
+	targetBuffer, err := s.regenFile(in.GetProjectName(), in.GetPath(), time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -247,45 +284,7 @@ func (s JamsyncServer) RegenFile(ctx context.Context, in *jamsyncpb.RegenFileReq
 		return nil, err
 	}
 
-	return &jamsyncpb.RegenFileResponse{
-		Data: string(data),
+	return &jamsyncpb.GetFileResponse{
+		Data: data,
 	}, nil
-}
-
-func (s JamsyncServer) ListChanges(ctx context.Context, in *jamsyncpb.ListChangesRequest) (*jamsyncpb.ListChangesResponse, error) {
-	ids, times, _, _, err := db.ListChanges(s.db, in.GetBranchId(), in.GetProjectId(), in.GetTimestamp().AsTime())
-	if err != nil {
-		return nil, err
-	}
-
-	changeRows := make([]*jamsyncpb.ListChangesResponse_ChangeRow, 0)
-	for i := range ids {
-		changeRows = append(changeRows, &jamsyncpb.ListChangesResponse_ChangeRow{
-			Id:        ids[i],
-			Timestamp: timestamppb.New(times[i]),
-		})
-	}
-
-	return &jamsyncpb.ListChangesResponse{
-		ChangeRows: changeRows,
-	}, nil
-}
-
-func NewServer(db *sql.DB) JamsyncServer {
-	server := JamsyncServer{
-		db: db,
-	}
-
-	return server
-}
-
-func (s JamsyncServer) GenTestData() {
-	id, _ := db.AddUser(s.db, "zdgeier")
-	db.AddUser(s.db, "testuser1")
-	db.AddUser(s.db, "testuser2")
-	db.AddUser(s.db, "testuser3")
-	db.AddUser(s.db, "testuser4")
-	db.AddProject(s.db, "TestProject", id)
-	db.AddProject(s.db, "Jamsync", id)
-	db.AddProject(s.db, "JamsyncOpen", id)
 }
