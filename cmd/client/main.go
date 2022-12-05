@@ -38,10 +38,15 @@ func main() {
 		log.Panic(err)
 	}
 
+	log.Println(jamsyncFile)
 	if jamsyncFile == "" {
-		initializeJamsyncFile(client)
+		err := initializeJamsyncFile(client)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 
+	log.Println("DONE")
 }
 
 func searchForJamsyncFile() (string, error) {
@@ -170,9 +175,10 @@ func initializeJamsyncFile(client jamsyncpb.JamsyncAPIClient) error {
 			}
 			return nil
 		}); err != nil {
-			log.Panic("could not walk directory tree", err)
+			log.Println("WARN: could not walk directory tree", err)
 		}
 
+		log.Println("Adding project...")
 		_, err := client.AddProject(context.Background(), &jamsyncpb.AddProjectRequest{
 			ProjectName: projectName,
 			ExistingFiles: &jamsyncpb.GetFileListResponse{

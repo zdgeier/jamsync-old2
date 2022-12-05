@@ -2,7 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"time"
 )
 
 func Setup(db *sql.DB) error {
@@ -17,9 +16,8 @@ func Setup(db *sql.DB) error {
 }
 
 type Project struct {
-	Name    string
-	OwnerId uint64
-	Id      uint64
+	Name string
+	Id   uint64
 }
 
 func AddProject(db *sql.DB, projectName string) (uint64, error) {
@@ -36,16 +34,15 @@ func AddProject(db *sql.DB, projectName string) (uint64, error) {
 	return uint64(id), nil
 }
 
-func GetProject(db *sql.DB, projectName string) (string, uint64, error) {
-	row := db.QueryRow("SELECT name FROM projects WHERE name = ?", projectName)
+func GetProjectId(db *sql.DB, projectName string) (uint64, error) {
+	row := db.QueryRow("SELECT rowid FROM projects WHERE name = ?", projectName)
 	if row.Err() != nil {
-		return "", 0, row.Err()
+		return 0, row.Err()
 	}
 
-	var name string
-	var ownerUserId uint64
-	err := row.Scan(&name, &ownerUserId)
-	return name, uint64(ownerUserId), err
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
 }
 
 func ListProjects(db *sql.DB) ([]Project, error) {
@@ -58,7 +55,7 @@ func ListProjects(db *sql.DB) ([]Project, error) {
 	data := make([]Project, 0)
 	for rows.Next() {
 		u := Project{}
-		err = rows.Scan(&u.Id, &u.Name, &u.OwnerId)
+		err = rows.Scan(&u.Id, &u.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -68,7 +65,7 @@ func ListProjects(db *sql.DB) ([]Project, error) {
 }
 
 func AddChangeData(db *sql.DB, changeId uint64, path string, offset int64, length int) (uint64, error) {
-	res, err := db.Exec("INSERT INTO change_data(change_id, path, offset, length) VALUES(?, ?, ?)", changeId, path, offset, length)
+	res, err := db.Exec("INSERT INTO change_data(change_id, path, offset, length) VALUES(?, ?, ?, ?)", changeId, path, offset, length)
 	if err != nil {
 		return 0, err
 	}
@@ -82,7 +79,7 @@ func AddChangeData(db *sql.DB, changeId uint64, path string, offset int64, lengt
 }
 
 func AddChange(db *sql.DB, projectName string) (uint64, error) {
-	res, err := db.Exec("INSERT INTO changes(project_id) SELECT project_id FROM projects WHERE project_name = ?", projectName)
+	res, err := db.Exec("INSERT INTO changes(project_id) SELECT rowid FROM projects WHERE name = ?", projectName)
 	if err != nil {
 		return 0, err
 	}
@@ -95,36 +92,58 @@ func AddChange(db *sql.DB, projectName string) (uint64, error) {
 	return uint64(id), nil
 }
 
-func ListChanges(db *sql.DB, projectName string, timestamp time.Time) ([]uint64, []time.Time, []uint64, []uint64, error) {
-	rows, err := db.Query("SELECT rowid, timestamp, offset, length FROM changes WHERE project_id = (SELECT rowid FROM projects WHERE project_name = ?) AND timestamp <= ?", projectName, timestamp)
+// func ListChanges(db *sql.DB, projectName string, timestamp time.Time) ([]uint64, []time.Time, error) {
+// 	rows, err := db.Query("SELECT rowid, timestamp FROM changes AS c INNER JOIN projects AS p WHERE p.project_name = ? AND c.timestamp <= ?", projectName, timestamp)
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+// 	if rows.Err() != nil {
+// 		return nil, nil, rows.Err()
+// 	}
+// 	defer rows.Close()
+//
+// 	ids := make([]uint64, 0)
+// 	times := make([]time.Time, 0)
+// 	for rows.Next() {
+// 		if rows.Err() != nil {
+// 			return nil, nil, rows.Err()
+// 		}
+// 		var id uint64
+// 		var time time.Time
+// 		err = rows.Scan(&id, &time)
+// 		if err != nil {
+// 			return nil, nil, err
+// 		}
+// 		ids = append(ids, id)
+// 		times = append(times, time)
+// 	}
+// 	return ids, times, err
+// }
+
+func ListChangeDataForPath(db *sql.DB, projectName string, path string) ([]uint64, []uint64, error) {
+	rows, err := db.Query("SELECT offset, length FROM change_data INNER JOIN projects AS p INNER JOIN changes AS c WHERE p.name = ? AND p.rowid = c.project_id AND change_id = c.rowid AND path = ?", projectName, path)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 	if rows.Err() != nil {
-		return nil, nil, nil, nil, rows.Err()
+		return nil, nil, rows.Err()
 	}
 	defer rows.Close()
 
-	ids := make([]uint64, 0)
-	times := make([]time.Time, 0)
 	offsets := make([]uint64, 0)
 	lengths := make([]uint64, 0)
 	for rows.Next() {
 		if rows.Err() != nil {
-			return nil, nil, nil, nil, rows.Err()
+			return nil, nil, rows.Err()
 		}
-		var id uint64
-		var time time.Time
 		var offset uint64
 		var length uint64
-		err = rows.Scan(&id, &time, &offset, &length)
+		err = rows.Scan(&offset, &length)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, err
 		}
-		ids = append(ids, id)
-		times = append(times, time)
 		offsets = append(offsets, offset)
 		lengths = append(lengths, length)
 	}
-	return ids, times, offsets, lengths, err
+	return offsets, lengths, nil
 }

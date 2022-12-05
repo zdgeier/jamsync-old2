@@ -33,9 +33,9 @@ func NewServer(db *sql.DB) JamsyncServer {
 }
 
 func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectRequest) (*jamsyncpb.AddProjectResponse, error) {
-	log.Println("AddProject", in.String())
+	log.Println("AddProject", len(in.ExistingFiles.Files))
 
-	res, err := db.AddProject(s.db, in.GetProjectName())
+	projectId, err := db.AddProject(s.db, in.GetProjectName())
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectR
 		return nil, err
 	}
 
-	offset, length, err := writeDataToFile(changeId, "jamsyncfilelist", fileListData)
+	offset, length, err := writeDataToFile(projectId, changeId, "jamsyncfilelist", fileListData)
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +59,9 @@ func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectR
 		return nil, err
 	}
 
-	for _, file := range in.GetExistingFiles().Files {
+	for i, file := range in.GetExistingFiles().Files {
 		if !file.Dir {
-			offset, length, err := writeDataToFile(changeId, "jamsyncfilelist", fileListData)
+			offset, length, err := writeDataToFile(projectId, changeId, file.GetPath(), in.GetExistingData()[i])
 			if err != nil {
 				return nil, err
 			}
@@ -73,10 +73,10 @@ func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectR
 		}
 	}
 
-	return &jamsyncpb.AddProjectResponse{ProjectId: res}, nil
+	return &jamsyncpb.AddProjectResponse{ProjectId: projectId}, nil
 }
 
-func writeDataToFile(changeId uint64, path string, data []byte) (int64, int, error) {
+func writeDataToFile(projectId uint64, changeId uint64, path string, data []byte) (int64, int, error) {
 	ops := generateRsyncOpsForNewFile(data)
 
 	opsPb := make([]*jamsyncpb.Operation, 0)
@@ -85,13 +85,19 @@ func writeDataToFile(changeId uint64, path string, data []byte) (int64, int, err
 		opsPb = append(opsPb, &opPb)
 	}
 
-	return writeChangeDataToFile(changeId, path, &jamsyncpb.ChangeData{
+	return writeChangeDataToFile(projectId, changeId, path, &jamsyncpb.ChangeData{
 		Ops: opsPb,
 	})
 }
 
-func writeChangeDataToFile(changeId uint64, path string, changeData *jamsyncpb.ChangeData) (int64, int, error) {
-	dataFilePath := fmt.Sprintf("data/%s.jb", base64.StdEncoding.EncodeToString([]byte(path)))
+func writeChangeDataToFile(changeId uint64, projectId uint64, path string, changeData *jamsyncpb.ChangeData) (int64, int, error) {
+	dataDirectory := fmt.Sprintf("pd%d", projectId)
+	err := os.MkdirAll(dataDirectory, os.ModePerm)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	dataFilePath := fmt.Sprintf("%s/%s.jb", dataDirectory, base64.StdEncoding.EncodeToString([]byte(path)))
 	f, err := os.OpenFile(dataFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return 0, 0, err
@@ -145,7 +151,7 @@ func generateRsyncOpsForNewFile(data []byte) []rsync.Operation {
 		log.Fatalf("Failed to create delta: %s", err)
 	}
 
-	log.Printf("Generated Ops Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dKiB", blockRangeCt, blockCt, dataCt, bytes/1024)
+	//log.Printf("Generated Ops Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dKiB", blockRangeCt, blockCt, dataCt, bytes/1024)
 	return opsOut
 }
 
@@ -161,7 +167,7 @@ func (s JamsyncServer) GetFileList(ctx context.Context, in *jamsyncpb.GetFileLis
 		return nil, err
 	}
 
-	var files *jamsyncpb.GetFileListResponse
+	files := &jamsyncpb.GetFileListResponse{}
 	err = proto.Unmarshal(data, files)
 	if err != nil {
 		return nil, err
@@ -213,13 +219,17 @@ func pbOperationToRsync(op *jamsyncpb.Operation) rsync.Operation {
 }
 
 func (s JamsyncServer) regenFile(projectName string, path string, timestamp time.Time) (*bytes.Reader, error) {
-	_, _, offsets, lengths, err := db.ListChanges(s.db, projectName, timestamp.Add(24*time.Hour))
+	offsets, lengths, err := db.ListChangeDataForPath(s.db, projectName, path)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Got %d changes for %s", len(offsets), path)
 
-	f, err := os.Open(fmt.Sprintf("data/%s.jb", base64.StdEncoding.EncodeToString([]byte(path))))
+	projectId, err := db.GetProjectId(s.db, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := os.Open(fmt.Sprintf("pd%d/%s.jb", projectId, base64.StdEncoding.EncodeToString([]byte(path))))
 	if errors.Is(err, os.ErrNotExist) {
 		return &bytes.Reader{}, nil
 	}
@@ -256,6 +266,7 @@ func (s JamsyncServer) regenFile(projectName string, path string, timestamp time
 		changeOps = append(changeOps, opsOut)
 	}
 
+	log.Printf("Applying %d ops\n", len(changeOps))
 	rs := rsync.RSync{UniqueHasher: xxhash.New()}
 	targetBuffer := bytes.NewReader([]byte{})
 	result := new(bytes.Buffer)
@@ -268,7 +279,6 @@ func (s JamsyncServer) regenFile(projectName string, path string, timestamp time
 		result.Reset()
 	}
 
-	fmt.Println(targetBuffer.Len())
 	return targetBuffer, nil
 }
 
@@ -287,4 +297,18 @@ func (s JamsyncServer) GetFile(ctx context.Context, in *jamsyncpb.GetFileRequest
 	return &jamsyncpb.GetFileResponse{
 		Data: data,
 	}, nil
+}
+
+func (s JamsyncServer) ListProjects(ctx context.Context, in *jamsyncpb.ListProjectsRequest) (*jamsyncpb.ListProjectsResponse, error) {
+	projects, err := db.ListProjects(s.db)
+	if err != nil {
+		return nil, err
+	}
+
+	projectsPb := make([]*jamsyncpb.ListProjectsResponse_Project, len(projects))
+	for i := range projectsPb {
+		projectsPb[i] = &jamsyncpb.ListProjectsResponse_Project{Name: projects[i].Name, Id: projects[i].Id}
+	}
+
+	return &jamsyncpb.ListProjectsResponse{Projects: projectsPb}, nil
 }

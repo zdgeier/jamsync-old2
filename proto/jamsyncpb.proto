@@ -4,9 +4,10 @@ package jamsyncpb;
 option go_package = "github.com/zdgeier/jamsync/proto/jamsyncpb";
 
 service JamsyncAPI {
+    rpc GetFile(GetFileRequest) returns (GetFileResponse);
     rpc GetFileList(GetFileListRequest) returns (GetFileListResponse);
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
-    rpc GetFile(GetFileRequest) returns (GetFileResponse);
+    rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
 }
 
 message Operation {
@@ -53,4 +54,13 @@ message AddProjectRequest {
 }
 message AddProjectResponse {
     uint64 project_id = 1;
+}
+
+message ListProjectsRequest {}
+message ListProjectsResponse {
+    message Project {
+        string name = 1;
+        uint64 id = 2;
+    }
+    repeated Project projects = 1;
 }

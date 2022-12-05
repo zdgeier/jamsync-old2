@@ -22,9 +22,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type JamsyncAPIClient interface {
+	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*GetFileResponse, error)
 	GetFileList(ctx context.Context, in *GetFileListRequest, opts ...grpc.CallOption) (*GetFileListResponse, error)
 	AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error)
-	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*GetFileResponse, error)
+	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
 }
 
 type jamsyncAPIClient struct {
@@ -33,6 +34,15 @@ type jamsyncAPIClient struct {
 
 func NewJamsyncAPIClient(cc grpc.ClientConnInterface) JamsyncAPIClient {
 	return &jamsyncAPIClient{cc}
+}
+
+func (c *jamsyncAPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*GetFileResponse, error) {
+	out := new(GetFileResponse)
+	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/GetFile", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *jamsyncAPIClient) GetFileList(ctx context.Context, in *GetFileListRequest, opts ...grpc.CallOption) (*GetFileListResponse, error) {
@@ -53,9 +63,9 @@ func (c *jamsyncAPIClient) AddProject(ctx context.Context, in *AddProjectRequest
 	return out, nil
 }
 
-func (c *jamsyncAPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*GetFileResponse, error) {
-	out := new(GetFileResponse)
-	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/GetFile", in, out, opts...)
+func (c *jamsyncAPIClient) ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error) {
+	out := new(ListProjectsResponse)
+	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/ListProjects", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -66,9 +76,10 @@ func (c *jamsyncAPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts
 // All implementations must embed UnimplementedJamsyncAPIServer
 // for forward compatibility
 type JamsyncAPIServer interface {
+	GetFile(context.Context, *GetFileRequest) (*GetFileResponse, error)
 	GetFileList(context.Context, *GetFileListRequest) (*GetFileListResponse, error)
 	AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error)
-	GetFile(context.Context, *GetFileRequest) (*GetFileResponse, error)
+	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
 	mustEmbedUnimplementedJamsyncAPIServer()
 }
 
@@ -76,14 +87,17 @@ type JamsyncAPIServer interface {
 type UnimplementedJamsyncAPIServer struct {
 }
 
+func (UnimplementedJamsyncAPIServer) GetFile(context.Context, *GetFileRequest) (*GetFileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFile not implemented")
+}
 func (UnimplementedJamsyncAPIServer) GetFileList(context.Context, *GetFileListRequest) (*GetFileListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetFileList not implemented")
 }
 func (UnimplementedJamsyncAPIServer) AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddProject not implemented")
 }
-func (UnimplementedJamsyncAPIServer) GetFile(context.Context, *GetFileRequest) (*GetFileResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetFile not implemented")
+func (UnimplementedJamsyncAPIServer) ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListProjects not implemented")
 }
 func (UnimplementedJamsyncAPIServer) mustEmbedUnimplementedJamsyncAPIServer() {}
 
@@ -96,6 +110,24 @@ type UnsafeJamsyncAPIServer interface {
 
 func RegisterJamsyncAPIServer(s grpc.ServiceRegistrar, srv JamsyncAPIServer) {
 	s.RegisterService(&JamsyncAPI_ServiceDesc, srv)
+}
+
+func _JamsyncAPI_GetFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JamsyncAPIServer).GetFile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/jamsyncpb.JamsyncAPI/GetFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JamsyncAPIServer).GetFile(ctx, req.(*GetFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _JamsyncAPI_GetFileList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -134,20 +166,20 @@ func _JamsyncAPI_AddProject_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _JamsyncAPI_GetFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetFileRequest)
+func _JamsyncAPI_ListProjects_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListProjectsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(JamsyncAPIServer).GetFile(ctx, in)
+		return srv.(JamsyncAPIServer).ListProjects(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/jamsyncpb.JamsyncAPI/GetFile",
+		FullMethod: "/jamsyncpb.JamsyncAPI/ListProjects",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(JamsyncAPIServer).GetFile(ctx, req.(*GetFileRequest))
+		return srv.(JamsyncAPIServer).ListProjects(ctx, req.(*ListProjectsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -160,6 +192,10 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*JamsyncAPIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "GetFile",
+			Handler:    _JamsyncAPI_GetFile_Handler,
+		},
+		{
 			MethodName: "GetFileList",
 			Handler:    _JamsyncAPI_GetFileList_Handler,
 		},
@@ -168,8 +204,8 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _JamsyncAPI_AddProject_Handler,
 		},
 		{
-			MethodName: "GetFile",
-			Handler:    _JamsyncAPI_GetFile_Handler,
+			MethodName: "ListProjects",
+			Handler:    _JamsyncAPI_ListProjects_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

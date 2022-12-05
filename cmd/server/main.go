@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"os"
 
@@ -24,7 +25,7 @@ func main() {
 	// 	log.Println("Could not chroot current directory. Run with `sudo` to allow chroot.")
 	// }
 
-	os.Remove("./jamsync.db")
+	//os.Remove("./jamsync.db")
 	localDB, err := sql.Open("sqlite3", "./jamsync.db")
 	if err != nil {
 		log.Panic(err)
@@ -51,7 +52,7 @@ func main() {
 		log.Panicf("failed to listen: %v", err)
 	}
 	fmt.Println("Starting to listen on", address)
-	var opts []grpc.ServerOption
+	opts := []grpc.ServerOption{grpc.MaxRecvMsgSize(math.MaxInt32)}
 	grpcServer := grpc.NewServer(opts...)
 	reflection.Register(grpcServer)
 
