@@ -35,16 +35,6 @@ func main() {
 	errChan := make(chan error)
 	stopChan := make(chan os.Signal)
 
-	// bind OS events to the signal channel
-	// signal.Notify(stopChan, syscall.SIGTERM, syscall.SIGINT)
-	// fmt.Println("profiling")
-	// p, err := os.Create("test.prof")
-	// if err != nil {
-	// 	log.Panic(err)
-	// }
-	// pprof.StartCPUProfile(p)
-	//trace.Start(p)
-
 	flag.Parse()
 	address := fmt.Sprintf("localhost:%d", *port)
 	lis, err := net.Listen("tcp", address)
@@ -65,13 +55,6 @@ func main() {
 			log.Panic("stopping", err)
 			errChan <- err
 		}
-	}()
-
-	// terminate your environment gracefully before leaving main function
-	defer func() {
-		// trace.Stop()
-		// grpcServer.GracefulStop()
-		// pprof.StopCPUProfile()
 	}()
 
 	// block until either OS signal, or server fatal error
