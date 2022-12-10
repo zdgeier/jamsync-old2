@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/cespare/xxhash"
@@ -311,4 +312,51 @@ func (s JamsyncServer) ListProjects(ctx context.Context, in *jamsyncpb.ListProje
 	}
 
 	return &jamsyncpb.ListProjectsResponse{Projects: projectsPb}, nil
+}
+
+func (s JamsyncServer) CreateUser(ctx context.Context, in *jamsyncpb.CreateUserRequest) (*jamsyncpb.CreateUserResponse, error) {
+	_, err := db.CreateUser(s.db, in.GetUsername())
+	if err != nil {
+		return nil, err
+	}
+	return &jamsyncpb.CreateUserResponse{}, nil
+}
+
+func (s JamsyncServer) BrowseProject(ctx context.Context, in *jamsyncpb.BrowseProjectRequest) (*jamsyncpb.BrowseProjectResponse, error) {
+	log.Println("BrowseProject", in.String())
+	targetBuffer, err := s.regenFile(in.GetProjectName(), "jamsyncfilelist", time.Now())
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(targetBuffer)
+	if err != nil {
+		return nil, err
+	}
+
+	files := &jamsyncpb.GetFileListResponse{}
+	err = proto.Unmarshal(data, files)
+	if err != nil {
+		return nil, err
+	}
+
+	directoryNames := make([]string, 0, len(files.GetFiles()))
+	fileNames := make([]string, 0, len(files.GetFiles()))
+	requestPath := filepath.Clean(in.GetPath())
+	for _, file := range files.GetFiles() {
+		pathDir := filepath.Dir(file.GetPath())
+		if (in.GetPath() == "" && pathDir == ".") || pathDir == requestPath {
+			fmt.Println("ADDING", in.GetPath(), requestPath, pathDir)
+			if file.Dir {
+				directoryNames = append(directoryNames, filepath.Base(file.GetPath()))
+			} else {
+				fileNames = append(fileNames, filepath.Base(file.GetPath()))
+			}
+		}
+	}
+
+	return &jamsyncpb.BrowseProjectResponse{
+		Directories: directoryNames,
+		Files:       fileNames,
+	}, nil
 }

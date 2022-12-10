@@ -13,13 +13,15 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
-	api "github.com/zdgeier/jamsync/internal/web/api/projects"
+	"github.com/zdgeier/jamsync/internal/web/api"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 	"github.com/zdgeier/jamsync/internal/web/callback"
+	"github.com/zdgeier/jamsync/internal/web/file"
+	"github.com/zdgeier/jamsync/internal/web/files"
 	"github.com/zdgeier/jamsync/internal/web/login"
 	"github.com/zdgeier/jamsync/internal/web/logout"
 	"github.com/zdgeier/jamsync/internal/web/middleware"
-	"github.com/zdgeier/jamsync/internal/web/user"
+	"github.com/zdgeier/jamsync/internal/web/userprojects"
 )
 
 var serverAddr = flag.String("addr", "localhost:14357", "The server address in the format of host:port")
@@ -49,19 +51,25 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 		ctx.Header("Content-Type", "text/plain")
 		ctx.File("static/robots.txt")
 	})
-	router.GET("/login", login.Handler(auth))
-	router.GET("/callback", callback.Handler(auth))
-	router.GET("/logout", logout.Handler)
-	router.GET("/user", middleware.IsAuthenticated, user.Handler)
 
 	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Panicf("could not connect to jamsync server: %s", err)
 	}
-
 	client := jamsyncpb.NewJamsyncAPIClient(conn)
 
-	router.GET("/api/projects", middleware.IsAuthenticated, api.ProjectsHandler(client))
+	router.GET("/login", login.Handler(auth))
+	router.GET("/callback", callback.Handler(auth, client))
+	router.GET("/logout", logout.Handler)
 
+	router.GET("/api/projects", middleware.IsAuthenticated, api.UserProjectsHandler(client))
+	router.GET("/api/projects/:projectName", middleware.IsAuthenticated, api.ProjectBrowseHandler(client))
+	router.GET("/api/projects/:projectName/files/*path", middleware.IsAuthenticated, api.ProjectBrowseHandler(client))
+	router.GET("/api/projects/:projectName/file/*path", middleware.IsAuthenticated, api.GetFileHandler(client))
+
+	router.GET("/:username", middleware.IsAuthenticated, userprojects.Handler)
+	router.GET("/:username/:project/file/*path", middleware.IsAuthenticated, file.Handler)
+	router.GET("/:username/:project/files/*path", middleware.IsAuthenticated, files.Handler)
+	router.GET("/:username/:project", middleware.IsAuthenticated, files.Handler)
 	return router
 }

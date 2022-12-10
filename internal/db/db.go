@@ -147,3 +147,17 @@ func ListChangeDataForPath(db *sql.DB, projectName string, path string) ([]uint6
 	}
 	return offsets, lengths, nil
 }
+
+func CreateUser(db *sql.DB, username string) (uint64, error) {
+	res, err := db.Exec("INSERT INTO users(username) VALUES (?)", username)
+	if err != nil {
+		return 0, err
+	}
+
+	var id int64
+	if id, err = res.LastInsertId(); err != nil {
+		return 0, err
+	}
+
+	return uint64(id), nil
+}

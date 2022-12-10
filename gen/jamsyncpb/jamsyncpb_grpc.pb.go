@@ -26,6 +26,9 @@ type JamsyncAPIClient interface {
 	GetFileList(ctx context.Context, in *GetFileListRequest, opts ...grpc.CallOption) (*GetFileListResponse, error)
 	AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error)
 	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
+	BrowseProject(ctx context.Context, in *BrowseProjectRequest, opts ...grpc.CallOption) (*BrowseProjectResponse, error)
+	UserInfo(ctx context.Context, in *UserInfoRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
+	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error)
 }
 
 type jamsyncAPIClient struct {
@@ -72,6 +75,33 @@ func (c *jamsyncAPIClient) ListProjects(ctx context.Context, in *ListProjectsReq
 	return out, nil
 }
 
+func (c *jamsyncAPIClient) BrowseProject(ctx context.Context, in *BrowseProjectRequest, opts ...grpc.CallOption) (*BrowseProjectResponse, error) {
+	out := new(BrowseProjectResponse)
+	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/BrowseProject", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jamsyncAPIClient) UserInfo(ctx context.Context, in *UserInfoRequest, opts ...grpc.CallOption) (*UserInfoResponse, error) {
+	out := new(UserInfoResponse)
+	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/UserInfo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jamsyncAPIClient) CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error) {
+	out := new(CreateUserResponse)
+	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/CreateUser", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // JamsyncAPIServer is the server API for JamsyncAPI service.
 // All implementations must embed UnimplementedJamsyncAPIServer
 // for forward compatibility
@@ -80,6 +110,9 @@ type JamsyncAPIServer interface {
 	GetFileList(context.Context, *GetFileListRequest) (*GetFileListResponse, error)
 	AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error)
 	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
+	BrowseProject(context.Context, *BrowseProjectRequest) (*BrowseProjectResponse, error)
+	UserInfo(context.Context, *UserInfoRequest) (*UserInfoResponse, error)
+	CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error)
 	mustEmbedUnimplementedJamsyncAPIServer()
 }
 
@@ -98,6 +131,15 @@ func (UnimplementedJamsyncAPIServer) AddProject(context.Context, *AddProjectRequ
 }
 func (UnimplementedJamsyncAPIServer) ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListProjects not implemented")
+}
+func (UnimplementedJamsyncAPIServer) BrowseProject(context.Context, *BrowseProjectRequest) (*BrowseProjectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BrowseProject not implemented")
+}
+func (UnimplementedJamsyncAPIServer) UserInfo(context.Context, *UserInfoRequest) (*UserInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UserInfo not implemented")
+}
+func (UnimplementedJamsyncAPIServer) CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateUser not implemented")
 }
 func (UnimplementedJamsyncAPIServer) mustEmbedUnimplementedJamsyncAPIServer() {}
 
@@ -184,6 +226,60 @@ func _JamsyncAPI_ListProjects_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _JamsyncAPI_BrowseProject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BrowseProjectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JamsyncAPIServer).BrowseProject(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/jamsyncpb.JamsyncAPI/BrowseProject",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JamsyncAPIServer).BrowseProject(ctx, req.(*BrowseProjectRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _JamsyncAPI_UserInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JamsyncAPIServer).UserInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/jamsyncpb.JamsyncAPI/UserInfo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JamsyncAPIServer).UserInfo(ctx, req.(*UserInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _JamsyncAPI_CreateUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JamsyncAPIServer).CreateUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/jamsyncpb.JamsyncAPI/CreateUser",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JamsyncAPIServer).CreateUser(ctx, req.(*CreateUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // JamsyncAPI_ServiceDesc is the grpc.ServiceDesc for JamsyncAPI service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -206,6 +302,18 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListProjects",
 			Handler:    _JamsyncAPI_ListProjects_Handler,
+		},
+		{
+			MethodName: "BrowseProject",
+			Handler:    _JamsyncAPI_BrowseProject_Handler,
+		},
+		{
+			MethodName: "UserInfo",
+			Handler:    _JamsyncAPI_UserInfo_Handler,
+		},
+		{
+			MethodName: "CreateUser",
+			Handler:    _JamsyncAPI_CreateUser_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

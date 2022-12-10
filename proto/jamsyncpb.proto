@@ -8,6 +8,9 @@ service JamsyncAPI {
     rpc GetFileList(GetFileListRequest) returns (GetFileListResponse);
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+    rpc BrowseProject(BrowseProjectRequest) returns (BrowseProjectResponse);
+    rpc UserInfo(UserInfoRequest) returns (UserInfoResponse);
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
 }
 
 message Operation {
@@ -63,4 +66,27 @@ message ListProjectsResponse {
         uint64 id = 2;
     }
     repeated Project projects = 1;
+}
+
+message UserInfoRequest {
+    string username = 1;
+}
+
+message UserInfoResponse {
+    string username = 1;
+}
+
+message CreateUserRequest {
+    string username = 1;
+}
+message CreateUserResponse {}
+
+message BrowseProjectRequest {
+    string project_name = 1;
+    string path = 2;
+}
+
+message BrowseProjectResponse {
+    repeated string directories = 1;
+    repeated string files = 2;
 }

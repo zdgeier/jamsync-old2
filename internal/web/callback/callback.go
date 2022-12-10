@@ -7,11 +7,12 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 )
 
 // Handler for our callback.
-func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
+func Handler(auth *authenticator.Authenticator, client jamsyncpb.JamsyncAPIClient) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		if ctx.Query("state") != session.Get("state") {
@@ -45,7 +46,12 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 			return
 		}
 
-		// Redirect to logged in page.
-		ctx.Redirect(http.StatusTemporaryRedirect, "/user")
+		_, err = client.CreateUser(ctx, &jamsyncpb.CreateUserRequest{Username: profile["email"].(string)})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		ctx.Redirect(http.StatusTemporaryRedirect, "/"+profile["email"].(string))
 	}
 }

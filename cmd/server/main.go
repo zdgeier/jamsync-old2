@@ -25,7 +25,7 @@ func main() {
 	// 	log.Println("Could not chroot current directory. Run with `sudo` to allow chroot.")
 	// }
 
-	//os.Remove("./jamsync.db")
+	// os.Remove("./jamsync.db")
 	localDB, err := sql.Open("sqlite3", "./jamsync.db")
 	if err != nil {
 		log.Panic(err)

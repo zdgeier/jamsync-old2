@@ -211,17 +211,17 @@
             let projectsResp = await fetch("/api/projects");
             let projectsJson = await projectsResp.json();
 
-            if (projectsJson.length == 0) {
+            if (!projectsJson) {
                 let projectsEmptyEl = document.getElementById("projectsEmpty");
                 projectsEmptyEl.classList.remove("is-hidden");
             }
-
             let frag = document.createDocumentFragment();
             for (let project of projectsJson.projects) {
                 let temp = document.createElement("li");
                 let projectLink = document.createElement("a");
-                projectLink.href = `/projects/${project.name}`;
-                projectLink.innerHTML = project.name;
+                let email = `{{.email}}`.replaceAll('\"', '')
+                projectLink.href = `/${email}/${project.name}`;
+                projectLink.innerHTML = project.id + " " + project.name;
                 temp.appendChild(projectLink);
                 frag.appendChild(temp);
             }
