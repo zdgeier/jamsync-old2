@@ -45,7 +45,7 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	})
 	router.GET("/favicon.ico", func(ctx *gin.Context) {
 		ctx.Header("Content-Type", "image/svg+xml")
-		ctx.File("static/grapes_optimized_purple.svg")
+		ctx.File("static/favicon.svg")
 	})
 	router.GET("/robots.txt", func(ctx *gin.Context) {
 		ctx.Header("Content-Type", "text/plain")

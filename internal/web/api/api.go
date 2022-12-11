@@ -1,8 +1,6 @@
 package api
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 )
@@ -42,7 +40,6 @@ func GetFileHandler(client jamsyncpb.JamsyncAPIClient) gin.HandlerFunc {
 			ctx.Error(err)
 			return
 		}
-		fmt.Println(string(resp.Data))
 		ctx.Data(200, "", resp.Data)
 	}
 }

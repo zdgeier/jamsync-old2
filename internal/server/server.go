@@ -17,6 +17,7 @@ import (
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 	"github.com/zdgeier/jamsync/internal/db"
 	"github.com/zdgeier/jamsync/internal/rsync"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -36,6 +37,7 @@ func NewServer(db *sql.DB) JamsyncServer {
 func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectRequest) (*jamsyncpb.AddProjectResponse, error) {
 	log.Println("AddProject", len(in.ExistingFiles.Files))
 
+	// TODO: Wrap all this in a transaction
 	projectId, err := db.AddProject(s.db, in.GetProjectName())
 	if err != nil {
 		return nil, err
@@ -60,17 +62,45 @@ func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectR
 		return nil, err
 	}
 
-	for i, file := range in.GetExistingFiles().Files {
-		if !file.Dir {
-			offset, length, err := writeDataToFile(projectId, changeId, file.GetPath(), in.GetExistingData()[i])
-			if err != nil {
-				return nil, err
-			}
+	type metadata struct {
+		offset int64
+		length int
+		file   *jamsyncpb.File
+	}
 
-			_, err = db.AddChangeData(s.db, changeId, file.GetPath(), offset, length)
-			if err != nil {
-				return nil, err
-			}
+	writeFiles := func() ([]metadata, error) {
+		g := new(errgroup.Group)
+
+		res := make([]metadata, 0, len(in.GetExistingFiles().Files))
+		for i, file := range in.GetExistingFiles().Files {
+			fileRef := file
+			g.Go(func() error {
+				if !fileRef.Dir {
+					offset, length, err := writeDataToFile(projectId, changeId, fileRef.GetPath(), in.GetExistingData()[i])
+					if err != nil {
+						return err
+					}
+					res = append(res, metadata{offset, length, fileRef})
+				}
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
+
+	fileWriteMetadata, err := writeFiles()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, m := range fileWriteMetadata {
+		_, err = db.AddChangeData(s.db, changeId, m.file.Path, m.offset, m.length)
+		if err != nil {
+			// TODO: Handle the panics here
+			panic(err)
 		}
 	}
 
@@ -120,7 +150,7 @@ func writeChangeDataToFile(changeId uint64, projectId uint64, path string, chang
 		return 0, 0, err
 	}
 
-	log.Println("Wrote data file", dataFilePath, info.Size(), n)
+	//log.Println("Wrote data file", dataFilePath, info.Size(), n)
 	return info.Size(), n, nil
 }
 
@@ -346,7 +376,6 @@ func (s JamsyncServer) BrowseProject(ctx context.Context, in *jamsyncpb.BrowsePr
 	for _, file := range files.GetFiles() {
 		pathDir := filepath.Dir(file.GetPath())
 		if (in.GetPath() == "" && pathDir == ".") || pathDir == requestPath {
-			fmt.Println("ADDING", in.GetPath(), requestPath, pathDir)
 			if file.Dir {
 				directoryNames = append(directoryNames, filepath.Base(file.GetPath()))
 			} else {
