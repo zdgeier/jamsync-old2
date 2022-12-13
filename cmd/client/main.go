@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 	"google.golang.org/grpc"
@@ -56,22 +58,18 @@ func searchForJamsyncFile() (string, error) {
 	}
 
 	for {
-		currentPath = path.Dir(currentPath)
 		fmt.Println(currentPath)
 		// Simple file reading logic.
 		filePath := fmt.Sprintf("%v/%v", currentPath, ".jamsync")
 		_, err := os.Stat(filePath)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			panic(err)
-		}
-
-		if err == nil {
+		} else if err == nil {
 			return filePath, nil
-		}
-
-		if currentPath == "/" {
+		} else if currentPath == "/" {
 			break
 		}
+		currentPath = path.Dir(currentPath)
 	}
 
 	return "", nil
@@ -108,89 +106,128 @@ func initializeJamsyncFile(client jamsyncpb.JamsyncAPIClient) error {
 		log.Print("Name of project to download: ")
 		var projectName string
 		fmt.Scan(&projectName)
-
-		resp, err := client.GetFileList(context.Background(), &jamsyncpb.GetFileListRequest{
-			ProjectName: projectName,
-		})
-		if err != nil {
-			return err
-		}
-
-		log.Println("Creating directories...")
-		for _, file := range resp.Files {
-			if file.Dir {
-				err = os.Mkdir(file.GetPath(), os.ModeDir)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		log.Println("Downloading files...")
-		for _, file := range resp.Files {
-			if !file.Dir {
-				log.Println("Downloading " + file.GetPath())
-				resp, err := client.GetFile(context.Background(), &jamsyncpb.GetFileRequest{
-					ProjectName: projectName,
-					Path:        file.GetPath(),
-				})
-				if err != nil {
-					return err
-				}
-
-				// TODO: filemode
-				if err := os.WriteFile(file.GetPath(), resp.GetData(), 0644); err != nil {
-					return err
-				}
-			}
-		}
-		log.Println("Done downloading.")
+		return downloadExistingProject(client, projectName)
 	} else {
 		log.Println("This directory has some existing contents.")
 		log.Println("Name of new project to create for current directory: ")
 		var projectName string
 		fmt.Scan(&projectName)
+		return uploadNewProject(client, projectName)
+	}
+}
 
-		existingFiles := make([]*jamsyncpb.File, 0)
-		existingData := make([][]byte, 0)
+func downloadExistingProject(client jamsyncpb.JamsyncAPIClient, projectName string) error {
+	resp, err := client.GetFileList(context.TODO(), &jamsyncpb.GetFileListRequest{
+		ProjectName: projectName,
+	})
+	if err != nil {
+		return err
+	}
 
-		log.Println("Adding existing files to project...")
-		if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-			if d.IsDir() {
-				existingFiles = append(existingFiles, &jamsyncpb.File{
-					Path: path,
-					Dir:  true,
-				})
-				existingData = append(existingData, nil)
-			} else {
-				existingFiles = append(existingFiles, &jamsyncpb.File{
-					Path: path,
-					Dir:  false,
-				})
-				data, err := os.ReadFile(path)
-				if err != nil {
-					return err
-				}
-				existingData = append(existingData, data)
+	log.Println("Creating directories...")
+	for _, file := range resp.Files {
+		if file.Dir {
+			err = os.MkdirAll(file.GetPath(), os.ModePerm)
+			if err != nil {
+				return err
 			}
-			return nil
-		}); err != nil {
-			log.Println("WARN: could not walk directory tree", err)
 		}
+	}
 
-		log.Println("Adding project...")
-		_, err := client.AddProject(context.Background(), &jamsyncpb.AddProjectRequest{
-			ProjectName: projectName,
-			ExistingFiles: &jamsyncpb.GetFileListResponse{
-				Files: existingFiles,
-			},
-			ExistingData: existingData,
+	log.Println("Downloading files...")
+	for _, file := range resp.Files {
+		if !file.Dir {
+			log.Println("Downloading " + file.GetPath())
+			resp, err := client.GetFile(context.TODO(), &jamsyncpb.GetFileRequest{
+				ProjectName: projectName,
+				Path:        file.GetPath(),
+			})
+			if err != nil {
+				return err
+			}
+
+			// TODO: filemode
+			if err := os.WriteFile(file.GetPath(), resp.GetData(), 0644); err != nil {
+				return err
+			}
+		}
+	}
+
+	currChangeResp, err := client.GetCurrentChange(context.TODO(), &jamsyncpb.GetCurrentChangeRequest{ProjectName: projectName})
+	if err != nil {
+		return err
+	}
+
+	createJamsyncFile(currChangeResp.GetChangeId())
+
+	log.Println("Done downloading.")
+	return nil
+}
+
+func uploadNewProject(client jamsyncpb.JamsyncAPIClient, projectName string) error {
+	existingFiles := make([]*jamsyncpb.File, 0)
+	existingData := make([][]byte, 0)
+
+	log.Println("Adding existing files to project...")
+	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
+		if d.Name() == ".jamsync" || path == "." {
+			return nil
+		} else if d.IsDir() {
+			existingFiles = append(existingFiles, &jamsyncpb.File{
+				Path: path,
+				Dir:  true,
+			})
+			existingData = append(existingData, nil)
+			return nil
+		}
+		existingFiles = append(existingFiles, &jamsyncpb.File{
+			Path: path,
+			Dir:  false,
 		})
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		log.Println("Done adding project.")
+		existingData = append(existingData, data)
+		return nil
+	}); err != nil {
+		log.Println("WARN: could not walk directory tree", err)
 	}
 
+	log.Println("Adding project...")
+	_, err := client.AddProject(context.Background(), &jamsyncpb.AddProjectRequest{
+		ProjectName: projectName,
+		ExistingFiles: &jamsyncpb.GetFileListResponse{
+			Files: existingFiles,
+		},
+		ExistingData: existingData,
+	})
+	if err != nil {
+		return err
+	}
+
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(0))
+	err = os.WriteFile(".jamsync", b, 0644)
+	if err != nil {
+		return err
+	}
+
+	createJamsyncFile(1)
+
+	log.Println("Done adding project.")
+	return nil
+}
+
+func createJamsyncFile(changeId uint64) error {
+	f, err := os.Create(".jamsync")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(strconv.Itoa(int(changeId))) // writing...
+	if err != nil {
+		return err
+	}
 	return nil
 }

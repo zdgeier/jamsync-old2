@@ -2,13 +2,14 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 )
 
 func Setup(db *sql.DB) error {
 	sqlStmt := `
 	CREATE TABLE IF NOT EXISTS users (username TEXT);
 	CREATE TABLE IF NOT EXISTS projects (name TEXT);
-	CREATE TABLE IF NOT EXISTS changes (project_id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
+	CREATE TABLE IF NOT EXISTS changes (id INTEGER, project_id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
 	CREATE TABLE IF NOT EXISTS change_data (change_id INTEGER, path TEXT, offset INTEGER, length INTEGER);
 	`
 	_, err := db.Exec(sqlStmt)
@@ -36,6 +37,17 @@ func AddProject(db *sql.DB, projectName string) (uint64, error) {
 
 func GetProjectId(db *sql.DB, projectName string) (uint64, error) {
 	row := db.QueryRow("SELECT rowid FROM projects WHERE name = ?", projectName)
+	if row.Err() != nil {
+		return 0, row.Err()
+	}
+
+	var id uint64
+	err := row.Scan(&id)
+	return id, err
+}
+
+func GetCurrentChange(db *sql.DB, projectName string) (uint64, error) {
+	row := db.QueryRow("SELECT c.id FROM changes AS c INNER JOIN projects AS p WHERE p.name = ? ORDER BY c.timestamp DESC LIMIT 1", projectName)
 	if row.Err() != nil {
 		return 0, row.Err()
 	}
@@ -79,7 +91,11 @@ func AddChangeData(db *sql.DB, changeId uint64, path string, offset int64, lengt
 }
 
 func AddChange(db *sql.DB, projectName string) (uint64, error) {
-	res, err := db.Exec("INSERT INTO changes(project_id) SELECT rowid FROM projects WHERE name = ?", projectName)
+	changeId, err := GetCurrentChange(db, projectName)
+	if !errors.Is(sql.ErrNoRows, err) && err != nil {
+		return 0, err
+	}
+	res, err := db.Exec("INSERT INTO changes(id, project_id) SELECT ?, rowid FROM projects WHERE name = ?", changeId+1, projectName)
 	if err != nil {
 		return 0, err
 	}

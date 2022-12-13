@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type JamsyncAPIClient interface {
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*GetFileResponse, error)
 	GetFileList(ctx context.Context, in *GetFileListRequest, opts ...grpc.CallOption) (*GetFileListResponse, error)
+	GetCurrentChange(ctx context.Context, in *GetCurrentChangeRequest, opts ...grpc.CallOption) (*GetCurrentChangeResponse, error)
 	AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error)
 	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
 	BrowseProject(ctx context.Context, in *BrowseProjectRequest, opts ...grpc.CallOption) (*BrowseProjectResponse, error)
@@ -51,6 +52,15 @@ func (c *jamsyncAPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts
 func (c *jamsyncAPIClient) GetFileList(ctx context.Context, in *GetFileListRequest, opts ...grpc.CallOption) (*GetFileListResponse, error) {
 	out := new(GetFileListResponse)
 	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/GetFileList", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *jamsyncAPIClient) GetCurrentChange(ctx context.Context, in *GetCurrentChangeRequest, opts ...grpc.CallOption) (*GetCurrentChangeResponse, error) {
+	out := new(GetCurrentChangeResponse)
+	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/GetCurrentChange", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +118,7 @@ func (c *jamsyncAPIClient) CreateUser(ctx context.Context, in *CreateUserRequest
 type JamsyncAPIServer interface {
 	GetFile(context.Context, *GetFileRequest) (*GetFileResponse, error)
 	GetFileList(context.Context, *GetFileListRequest) (*GetFileListResponse, error)
+	GetCurrentChange(context.Context, *GetCurrentChangeRequest) (*GetCurrentChangeResponse, error)
 	AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error)
 	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
 	BrowseProject(context.Context, *BrowseProjectRequest) (*BrowseProjectResponse, error)
@@ -125,6 +136,9 @@ func (UnimplementedJamsyncAPIServer) GetFile(context.Context, *GetFileRequest) (
 }
 func (UnimplementedJamsyncAPIServer) GetFileList(context.Context, *GetFileListRequest) (*GetFileListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetFileList not implemented")
+}
+func (UnimplementedJamsyncAPIServer) GetCurrentChange(context.Context, *GetCurrentChangeRequest) (*GetCurrentChangeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentChange not implemented")
 }
 func (UnimplementedJamsyncAPIServer) AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddProject not implemented")
@@ -186,6 +200,24 @@ func _JamsyncAPI_GetFileList_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(JamsyncAPIServer).GetFileList(ctx, req.(*GetFileListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _JamsyncAPI_GetCurrentChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCurrentChangeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JamsyncAPIServer).GetCurrentChange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/jamsyncpb.JamsyncAPI/GetCurrentChange",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JamsyncAPIServer).GetCurrentChange(ctx, req.(*GetCurrentChangeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -294,6 +326,10 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetFileList",
 			Handler:    _JamsyncAPI_GetFileList_Handler,
+		},
+		{
+			MethodName: "GetCurrentChange",
+			Handler:    _JamsyncAPI_GetCurrentChange_Handler,
 		},
 		{
 			MethodName: "AddProject",

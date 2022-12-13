@@ -74,9 +74,10 @@ func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectR
 		res := make([]metadata, 0, len(in.GetExistingFiles().Files))
 		for i, file := range in.GetExistingFiles().Files {
 			fileRef := file
+			dataIndex := i
 			g.Go(func() error {
 				if !fileRef.Dir {
-					offset, length, err := writeDataToFile(projectId, changeId, fileRef.GetPath(), in.GetExistingData()[i])
+					offset, length, err := writeDataToFile(projectId, changeId, fileRef.GetPath(), in.GetExistingData()[dataIndex])
 					if err != nil {
 						return err
 					}
@@ -205,6 +206,15 @@ func (s JamsyncServer) GetFileList(ctx context.Context, in *jamsyncpb.GetFileLis
 	}
 
 	return files, nil
+}
+
+func (s JamsyncServer) GetCurrentChange(ctx context.Context, in *jamsyncpb.GetCurrentChangeRequest) (*jamsyncpb.GetCurrentChangeResponse, error) {
+	log.Println("GetCurrentChange", in.GetProjectName())
+	changeId, err := db.GetCurrentChange(s.db, in.GetProjectName())
+	if err != nil {
+		return nil, err
+	}
+	return &jamsyncpb.GetCurrentChangeResponse{ChangeId: changeId}, nil
 }
 
 func rsyncOperationToPb(op *rsync.Operation) jamsyncpb.Operation {

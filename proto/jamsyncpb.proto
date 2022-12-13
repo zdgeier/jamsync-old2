@@ -6,6 +6,7 @@ option go_package = "github.com/zdgeier/jamsync/proto/jamsyncpb";
 service JamsyncAPI {
     rpc GetFile(GetFileRequest) returns (GetFileResponse);
     rpc GetFileList(GetFileListRequest) returns (GetFileListResponse);
+    rpc GetCurrentChange(GetCurrentChangeRequest) returns (GetCurrentChangeResponse);
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
     rpc BrowseProject(BrowseProjectRequest) returns (BrowseProjectResponse);
@@ -89,4 +90,11 @@ message BrowseProjectRequest {
 message BrowseProjectResponse {
     repeated string directories = 1;
     repeated string files = 2;
+}
+
+message GetCurrentChangeRequest {
+    string project_name = 1;
+}
+message GetCurrentChangeResponse {
+    uint64 changeId = 1;
 }

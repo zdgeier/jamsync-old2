@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="Jamsync is a next generation version control system that is currently under development."/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="canonical" href="https://jamsync.io/" />
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <title>Next-gen version control</title>
+    <style>
+        :root {
+            --bright-pink: #ff007f;
+            --pink: #D24079;
+            --purple: rebeccapurple;
+            --tan: antiquewhite;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica', 'sans-serif';
+            background-color: var(--tan);
+            margin: 0 auto;
+        }
+
+        h2 {
+            font-size: 2em;
+            color: var(--pink);
+        }
+
+        h3 {
+            margin: 0;
+        }
+
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .Header {
+            color: var(--pink);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin: 0 auto;
+            padding: 0 32px;
+            max-width: 1000px;
+        }
+
+        .Header>* {
+            margin-left: 32px;
+            margin-right: 32px;
+        }
+
+        .Header-homeText {
+            font-size: 3em;
+            white-space: nowrap;
+            font-weight: bold;
+            margin: 32px 0;
+        }
+
+        a {
+            text-decoration: none;
+            color: var(--pink);
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: var(--purple);
+        }
+
+        main {
+            margin: 0 auto;
+            padding: 0 32px;
+            max-width: 700px;
+        }
+
+        .Header-nav {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .Header-navList {
+            display: flex;
+            margin-left: -8px;
+            margin-right: -8px;
+        }
+
+        .Header-navLink {
+            font-size: 2em;
+            margin: 16px;
+            border: .1em var(--pink) solid;
+            padding: 8px;
+            border-radius: 5px;
+        }
+
+        .Header-navLink:hover {
+            border-color: var(--purple);
+        }
+
+        .Header-homeLink {
+            display: flex;
+            align-items: center;
+        }
+
+        .Header-homeLink svg {
+            margin-left: 8px;
+        }
+
+        .Header-homeLink:hover svg ellipse {
+            fill: var(--purple);
+        }
+
+        section {
+            padding: 32px 0; 
+            margin: 0 auto;
+        }
+
+        section:first-of-type {
+            padding-top: 64px;
+            padding-bottom: 64px;
+        }
+
+        section:last-of-type {
+            padding-bottom: 256px;
+        }
+
+        .Hero-title {
+            color: var(--bright-pink);
+            font-size: 4em;
+            text-align: center;
+        }
+        
+        .Hero-ctas {
+            font-size: 2em;
+            display: flex;
+            justify-content: center;
+        }
+
+        .Hero-cta {
+            color: var(--tan);
+            padding: 8px;
+            margin: 8px;
+            border: .1em var(--pink) solid;
+            background-color: var(--pink);
+            border-radius: 5px;
+        }
+
+        .Hero-cta:hover {
+            border-color: var(--purple);
+            background-color: var(--purple);
+            color: var(--tan);
+        }
+
+        .About-list {
+            list-style: square;
+            padding-left: 32px;
+        }
+
+        .About-listItem {
+            font-size: 24px;
+            padding-bottom: 16px;
+        }
+
+        .About-description, 
+        .About-ctas {
+            font-size: 24px;
+        }
+
+        .About-ctas {
+            text-align: center;
+        }
+
+        .About-cta {
+            color: var(--tan);
+            padding: 8px;
+            margin: 8px;
+            border: .1em var(--pink) solid;
+            background-color: var(--pink);
+            border-radius: 5px;
+        }
+
+        .About-cta:hover {
+            border-color: var(--purple);
+            background-color: var(--purple);
+            color: var(--tan);
+        }
+
+        @media only screen and (max-width: 835px) {
+            .Header {
+                justify-content: center;
+            }
+
+            .Hero {
+                padding: 32px 0;
+            }
+
+            .Hero-title {
+                color: var(--bright-pink);
+                font-size: 3em;
+                text-align: center;
+            }
+            
+            .Hero-content {
+                padding: 8px;
+            }
+
+            main {
+                margin: 0 auto;
+                padding: 0 16px;
+                max-width: 700px;
+            }
+        }
+    </style>
+    <script defer data-domain="jamsync.io" src="https://plausible.io/js/plausible.js"></script>
+</head>
+
+<body>
+    <header class="Header">
+        <a class="Header-homeLink" href="/">
+            <span class="Header-homeText">Jamsync</span>
+            <svg id="a" width="55px" height="55px" version="1.1" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                <g stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2.8">
+                    <path d="m220.45 14.531c-23.261-1.2646-41.24 16.834-58.42 44.842-1.3476 2.1975-.64013 5.0602 1.58 6.3938 2.22 1.3339 10.692 8.9196 12.04 6.7219 8.1343-25.31 31.513-31.681 51.345-36.795 0 0-2.1438-20.924-6.5446-21.163z" color="#000000" fill="#007a0b" stroke-width="11.269"/>
+                    <g fill="#d24079" stroke-width="11.269">
+                        <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-189.16" cy="-105.54" rx="36.007" ry="41.807"/>
+                        <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-152.84" cy="-68.797" rx="36.007" ry="41.807"/>
+                        <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-212.42" cy="-62.836" rx="36.007" ry="41.807"/>
+                        <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-116.73" cy="-6.1428" rx="36.007" ry="41.807"/>
+                        <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-230.51" cy="9.1266" rx="36.007" ry="41.807"/>
+                        <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-199.39" cy="58.236" rx="36.007" ry="41.807"/>
+                        <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-139.22" cy="47.193" rx="36.007" ry="41.807"/>
+                        <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-175.45" cy="-4.1575" rx="36.007" ry="41.807"/>
+                    </g>
+                </g>
+            </svg>
+        </a>
+        <nav class="Header-nav">
+            <ul class="Header-navList">
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <section class="Hero">
+            <div class="Hero-content">
+                <h1 class="Hero-title">Version control made easy.</h1>
+            </div>
+        </section>
+        <section class="About">
+            <h2>Currently under development</h2>
+            <p class="About-description">
+                Check back here for more information in a bit. Feel free to email zach@jamsync.io for more info.
+            </p>
+        </section>
+    </main>
+</body>
+
+</html>

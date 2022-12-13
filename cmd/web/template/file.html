@@ -199,6 +199,10 @@
             background: var(--pink);
             cursor: pointer;
         }
+
+        .File {
+            white-space: pre-wrap;
+        }
     </style>
     <script defer data-domain="jamsync.io" src="https://plausible.io/js/plausible.js"></script>
 </head>
@@ -244,52 +248,17 @@
     <script type="module">
          async function setup() {
              let splitPath = window.location.pathname.split("/")
-        //     let projectUrl =  splitPath.slice(0, 3).join('/');
              let projectName = splitPath[2];
              let currentPath = splitPath.slice(4).join('/');
 
-            let fileEmbedEl = document.createElement("object");
-            fileEmbedEl.data = `/api/projects/${projectName}/file/${currentPath}`;
-            fileEmbedEl.innerText = "File view not supported"
-            fileEmbedEl.width = 1000
-            fileEmbedEl.height = 1000
-            document.getElementById("js-file-location").appendChild(fileEmbedEl)
 
-            //let fileResp = await fetch(`/api/projects/${projectName}/file/${currentPath}`);
-            //let fileJson = await fileResp.json();
+             let filesResp = await fetch(`/api/projects/${projectName}/file/${currentPath}`);
+            let fileText = await filesResp.text();
 
-
-        //     console.log(filesJson)
-        //     if (Object.keys(filesJson).length === 0) {
-        //         let filesEmptyEl = document.getElementById("filesEmpty");
-        //         filesEmptyEl.classList.remove("is-hidden");
-        //         return
-        //     }
-
-        //     let allFilesEl = document.getElementById("files")
-        //     if (filesJson.directories) {
-        //         for (let directory of filesJson.directories) {
-        //             let listItemEl = document.createElement("li");
-        //             let directoryLink = document.createElement("a");
-        //             directoryLink.href = `${projectUrl}/files/${currentPath}/${directory}`;
-        //             directoryLink.innerHTML = directory
-        //             listItemEl.appendChild(directoryLink);
-        //             allFilesEl.appendChild(listItemEl);
-        //         }
-        //     }
-
-        //     if (filesJson.files) {
-        //         for (let file of filesJson.files) {
-        //             let listItemEl = document.createElement("li");
-        //             let fileLink = document.createElement("a");
-        //             fileLink.href = `${projectUrl}/files/${currentPath}/${file}`;
-        //             fileLink.innerHTML = file; 
-        //             listItemEl.appendChild(fileLink);
-        //             allFilesEl.appendChild(listItemEl);
-        //         }
-        //     }
-
-        //     allFilesEl.classList.remove("is-hidden");
+            let outerDiv = document.createElement("div");
+            outerDiv.data = `/api/projects/${projectName}/file/${currentPath}`;
+            outerDiv.innerHTML = fileText
+            document.getElementById("js-file-location").appendChild(outerDiv)
         }
 
         setup();

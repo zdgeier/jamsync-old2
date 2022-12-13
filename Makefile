@@ -4,17 +4,25 @@ gen:
 clean:
 	rm -r gen/
 
+web:
+	cd cmd/web/; go run main.go
+
+buildweb:
+	go build -o build/jamweb cmd/web/main.go; cp -R cmd/web/static build; cp -R cmd/web/template build; 
+
 server:
 	go run cmd/server/main.go
 
 buildserver:
-	go build -o jams cmd/server/main.go 
+	go build -o build/jamserver cmd/server/main.go 
 
 client:
 	go run cmd/client/main.go
 
 buildclient:
-	go build -o jam cmd/client/main.go 
+	go build -o build/jam cmd/client/main.go 
+
+build: buildserver buildclient buildweb
 
 test:
 	go test ./...
