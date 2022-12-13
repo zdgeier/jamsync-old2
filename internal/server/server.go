@@ -19,6 +19,7 @@ import (
 	"github.com/zdgeier/jamsync/internal/rsync"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type JamsyncServer struct {
@@ -105,7 +106,12 @@ func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectR
 		}
 	}
 
-	return &jamsyncpb.AddProjectResponse{ProjectId: projectId}, nil
+	changeId, timestamp, err := db.GetCurrentChange(s.db, in.GetProjectName())
+	if err != nil {
+		return nil, err
+	}
+
+	return &jamsyncpb.AddProjectResponse{ProjectId: projectId, ChangeId: changeId, Timestamp: timestamppb.New(timestamp)}, nil
 }
 
 func writeDataToFile(projectId uint64, changeId uint64, path string, data []byte) (int64, int, error) {
@@ -210,11 +216,11 @@ func (s JamsyncServer) GetFileList(ctx context.Context, in *jamsyncpb.GetFileLis
 
 func (s JamsyncServer) GetCurrentChange(ctx context.Context, in *jamsyncpb.GetCurrentChangeRequest) (*jamsyncpb.GetCurrentChangeResponse, error) {
 	log.Println("GetCurrentChange", in.GetProjectName())
-	changeId, err := db.GetCurrentChange(s.db, in.GetProjectName())
+	changeId, timestamp, err := db.GetCurrentChange(s.db, in.GetProjectName())
 	if err != nil {
 		return nil, err
 	}
-	return &jamsyncpb.GetCurrentChangeResponse{ChangeId: changeId}, nil
+	return &jamsyncpb.GetCurrentChangeResponse{ChangeId: changeId, Timestamp: timestamppb.New(timestamp)}, nil
 }
 
 func rsyncOperationToPb(op *rsync.Operation) jamsyncpb.Operation {

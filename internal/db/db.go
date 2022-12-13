@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"time"
 )
 
 func Setup(db *sql.DB) error {
@@ -46,15 +47,16 @@ func GetProjectId(db *sql.DB, projectName string) (uint64, error) {
 	return id, err
 }
 
-func GetCurrentChange(db *sql.DB, projectName string) (uint64, error) {
-	row := db.QueryRow("SELECT c.id FROM changes AS c INNER JOIN projects AS p WHERE p.name = ? ORDER BY c.timestamp DESC LIMIT 1", projectName)
+func GetCurrentChange(db *sql.DB, projectName string) (uint64, time.Time, error) {
+	row := db.QueryRow("SELECT c.id, c.timestamp FROM changes AS c INNER JOIN projects AS p WHERE p.name = ? ORDER BY c.timestamp DESC LIMIT 1", projectName)
 	if row.Err() != nil {
-		return 0, row.Err()
+		return 0, time.Time{}, row.Err()
 	}
 
 	var id uint64
-	err := row.Scan(&id)
-	return id, err
+	var timestamp time.Time
+	err := row.Scan(&id, &timestamp)
+	return id, timestamp, err
 }
 
 func ListProjects(db *sql.DB) ([]Project, error) {
@@ -91,7 +93,7 @@ func AddChangeData(db *sql.DB, changeId uint64, path string, offset int64, lengt
 }
 
 func AddChange(db *sql.DB, projectName string) (uint64, error) {
-	changeId, err := GetCurrentChange(db, projectName)
+	changeId, _, err := GetCurrentChange(db, projectName)
 	if !errors.Is(sql.ErrNoRows, err) && err != nil {
 		return 0, err
 	}

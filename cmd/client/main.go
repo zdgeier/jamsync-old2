@@ -13,6 +13,8 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 	"google.golang.org/grpc"
@@ -35,26 +37,33 @@ func main() {
 
 	client := jamsyncpb.NewJamsyncAPIClient(conn)
 
-	jamsyncFile, err := searchForJamsyncFile()
+	projectName, localChangeId, timestamp, err := getJamsyncFileInfo(client)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	log.Println(jamsyncFile)
-	if jamsyncFile == "" {
-		err := initializeJamsyncFile(client)
-		if err != nil {
-			log.Panic(err)
-		}
+	currChangeResp, err := client.GetCurrentChange(context.TODO(), &jamsyncpb.GetCurrentChangeRequest{
+		ProjectName: projectName,
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+	remoteChangeId := int(currChangeResp.GetChangeId())
+
+	//TODO
+	if localChangeId < remoteChangeId {
+	} else if localChangeId == remoteChangeId {
+	} else {
+		panic("impossible...")
 	}
 
 	log.Println("DONE")
 }
 
-func searchForJamsyncFile() (string, error) {
+func getJamsyncFileInfo(client jamsyncpb.JamsyncAPIClient) (string, int, time.Time, error) {
 	currentPath, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return "", -1, time.Time{}, err
 	}
 
 	for {
@@ -65,14 +74,38 @@ func searchForJamsyncFile() (string, error) {
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			panic(err)
 		} else if err == nil {
-			return filePath, nil
+			return parseJamsyncFile(filePath)
 		} else if currentPath == "/" {
 			break
 		}
 		currentPath = path.Dir(currentPath)
 	}
 
-	return "", nil
+	// No file found
+	err = initializeJamsyncFile(client)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return parseJamsyncFile(".jamsync")
+}
+
+func parseJamsyncFile(path string) (string, int, time.Time, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", -1, time.Time{}, err
+	}
+	spl := strings.Split(string(data), " ")
+	projectName := spl[0]
+	changeId, err := strconv.Atoi(spl[1])
+	if err != nil {
+		return "", -1, time.Time{}, err
+	}
+	parsedTime, err := time.Parse(time.Layout, spl[2])
+	if err != nil {
+		return "", -1, time.Time{}, err
+	}
+	return projectName, changeId, parsedTime, nil
 }
 
 func currentDirectoryEmpty() (bool, error) {
@@ -158,10 +191,8 @@ func downloadExistingProject(client jamsyncpb.JamsyncAPIClient, projectName stri
 		return err
 	}
 
-	createJamsyncFile(currChangeResp.GetChangeId())
-
 	log.Println("Done downloading.")
-	return nil
+	return createJamsyncFile(projectName, currChangeResp.ChangeId, currChangeResp.Timestamp.AsTime())
 }
 
 func uploadNewProject(client jamsyncpb.JamsyncAPIClient, projectName string) error {
@@ -195,7 +226,7 @@ func uploadNewProject(client jamsyncpb.JamsyncAPIClient, projectName string) err
 	}
 
 	log.Println("Adding project...")
-	_, err := client.AddProject(context.Background(), &jamsyncpb.AddProjectRequest{
+	addProjResp, err := client.AddProject(context.Background(), &jamsyncpb.AddProjectRequest{
 		ProjectName: projectName,
 		ExistingFiles: &jamsyncpb.GetFileListResponse{
 			Files: existingFiles,
@@ -213,19 +244,17 @@ func uploadNewProject(client jamsyncpb.JamsyncAPIClient, projectName string) err
 		return err
 	}
 
-	createJamsyncFile(1)
-
 	log.Println("Done adding project.")
-	return nil
+	return createJamsyncFile(projectName, addProjResp.ChangeId, addProjResp.Timestamp.AsTime())
 }
 
-func createJamsyncFile(changeId uint64) error {
+func createJamsyncFile(projectName string, changeId uint64, timestamp time.Time) error {
 	f, err := os.Create(".jamsync")
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	_, err = f.WriteString(strconv.Itoa(int(changeId))) // writing...
+	_, err = f.WriteString(fmt.Sprintf("%s %d %s", projectName, changeId, timestamp.String())) // writing...
 	if err != nil {
 		return err
 	}

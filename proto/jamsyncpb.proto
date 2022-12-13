@@ -2,6 +2,7 @@ syntax = "proto3";
 package jamsyncpb;
 
 option go_package = "github.com/zdgeier/jamsync/proto/jamsyncpb";
+import "google/protobuf/timestamp.proto";
 
 service JamsyncAPI {
     rpc GetFile(GetFileRequest) returns (GetFileResponse);
@@ -58,6 +59,8 @@ message AddProjectRequest {
 }
 message AddProjectResponse {
     uint64 project_id = 1;
+    uint64 change_id = 2;
+    google.protobuf.Timestamp timestamp = 3;
 }
 
 message ListProjectsRequest {}
@@ -97,4 +100,5 @@ message GetCurrentChangeRequest {
 }
 message GetCurrentChangeResponse {
     uint64 changeId = 1;
+    google.protobuf.Timestamp timestamp = 2;
 }
