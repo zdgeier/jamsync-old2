@@ -18,7 +18,7 @@ import (
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
 )
 
-func getJamsyncFileInfo(client jamsyncpb.JamsyncAPIClient) (string, int, time.Time, error) {
+func GetJamsyncFileInfo(client jamsyncpb.JamsyncAPIClient) (string, int, time.Time, error) {
 	currentPath, err := os.Getwd()
 	if err != nil {
 		return "", -1, time.Time{}, err
@@ -59,11 +59,11 @@ func parseJamsyncFile(path string) (string, int, time.Time, error) {
 	if err != nil {
 		return "", -1, time.Time{}, err
 	}
-	parsedTime, err := time.Parse(time.Layout, spl[2])
+	timeMillis, err := strconv.Atoi(spl[2])
 	if err != nil {
 		return "", -1, time.Time{}, err
 	}
-	return projectName, changeId, parsedTime, nil
+	return projectName, changeId, time.UnixMilli(int64(timeMillis)), nil
 }
 
 func currentDirectoryEmpty() (bool, error) {
@@ -212,7 +212,7 @@ func createJamsyncFile(projectName string, changeId uint64, timestamp time.Time)
 		return err
 	}
 	defer f.Close()
-	_, err = f.WriteString(fmt.Sprintf("%s %d %s", projectName, changeId, timestamp.String())) // writing...
+	_, err = f.WriteString(fmt.Sprintf("%s %d %d", projectName, changeId, timestamp.UTC().UnixMilli())) // writing...
 	if err != nil {
 		return err
 	}

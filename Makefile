@@ -17,10 +17,10 @@ buildserver:
 	go build -o build/jamserver cmd/server/main.go 
 
 client:
-	go run cmd/client/main.go
+	go run cmd/client/main.go cmd/client/config.go
 
 buildclient:
-	go build -o build/jam cmd/client/main.go 
+	go build -o build/jam cmd/client/main.go cmd/client/config.go
 
 build: buildserver buildclient buildweb
 

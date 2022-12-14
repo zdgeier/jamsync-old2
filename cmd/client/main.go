@@ -34,7 +34,7 @@ func main() {
 
 	client := jamsyncpb.NewJamsyncAPIClient(conn)
 
-	projectName, localChangeId, timestamp, err := getJamsyncFileInfo(client)
+	projectName, localChangeId, timestamp, err := GetJamsyncFileInfo(client)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -58,15 +58,17 @@ func main() {
 	// starting at the root of the project, walk each file/directory searching for
 	// directories
 	changedFilePaths := make([]string, 0)
-	if err := filepath.WalkDir("cmd/client/test", func(path string, d fs.DirEntry, _ error) error {
+	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
 		log.Println("Watching", path)
-		fileInfo, err := d.Info()
-		if err != nil {
-			return err
-		}
+		if !d.IsDir() {
+			fileInfo, err := d.Info()
+			if err != nil {
+				return err
+			}
 
-		if fileInfo.ModTime().After(timestamp) {
-			changedFilePaths = append(changedFilePaths, path)
+			if fileInfo.ModTime().After(timestamp) {
+				changedFilePaths = append(changedFilePaths, path)
+			}
 		}
 
 		return nil
