@@ -8,9 +8,13 @@ service JamsyncAPI {
     rpc GetFile(GetFileRequest) returns (GetFileResponse);
     rpc GetFileList(GetFileListRequest) returns (GetFileListResponse);
     rpc GetCurrentChange(GetCurrentChangeRequest) returns (GetCurrentChangeResponse);
+    rpc GetFileHashBlocks(GetFileBlockHashesRequest) returns (stream GetFileBlockHashesResponse);
+    rpc ApplyOperations(stream ApplyOperationsRequest) returns (ApplyOperationsResponse);
+
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
     rpc BrowseProject(BrowseProjectRequest) returns (BrowseProjectResponse);
+
     rpc UserInfo(UserInfoRequest) returns (UserInfoResponse);
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
 }
@@ -27,6 +31,28 @@ message Operation {
     uint64 block_index_end = 3;
     bytes data = 4;
 }
+
+message GetFileBlockHashesRequest {
+    string project_name = 1;
+    repeated string paths = 2;
+    google.protobuf.Timestamp timestamp = 3;
+}
+message GetFileBlockHashesResponse {
+    message BlockHash {
+        uint64 index = 1;
+        bytes strong_hash = 2;
+        uint32 weak_hash = 3;
+    }
+    repeated BlockHash block_hashes = 2;
+    string path = 3;
+}
+
+message ApplyOperationsRequest {
+    string project_name = 1;
+    string path = 2;
+    repeated Operation operations = 3;
+}
+message ApplyOperationsResponse {}
 
 message ChangeData {
     repeated Operation ops = 1;

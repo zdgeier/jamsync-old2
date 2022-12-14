@@ -1,22 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
-	"errors"
 	"flag"
-	"fmt"
 	"io"
 	"io/fs"
+	"io/ioutil"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
 
+	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
+	"github.com/zdgeier/jamsync/internal/rsync"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -50,213 +47,139 @@ func main() {
 	}
 	remoteChangeId := int(currChangeResp.GetChangeId())
 
-	//TODO
 	if localChangeId < remoteChangeId {
+		// Local version is behind remote version, we need to update but we also need to check for local changes
 	} else if localChangeId == remoteChangeId {
+		// We're up to date, remotely but we have to check for local changes...
 	} else {
 		panic("impossible...")
 	}
 
-	log.Println("DONE")
-}
-
-func getJamsyncFileInfo(client jamsyncpb.JamsyncAPIClient) (string, int, time.Time, error) {
-	currentPath, err := os.Getwd()
-	if err != nil {
-		return "", -1, time.Time{}, err
-	}
-
-	for {
-		fmt.Println(currentPath)
-		// Simple file reading logic.
-		filePath := fmt.Sprintf("%v/%v", currentPath, ".jamsync")
-		_, err := os.Stat(filePath)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			panic(err)
-		} else if err == nil {
-			return parseJamsyncFile(filePath)
-		} else if currentPath == "/" {
-			break
-		}
-		currentPath = path.Dir(currentPath)
-	}
-
-	// No file found
-	err = initializeJamsyncFile(client)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	return parseJamsyncFile(".jamsync")
-}
-
-func parseJamsyncFile(path string) (string, int, time.Time, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", -1, time.Time{}, err
-	}
-	spl := strings.Split(string(data), " ")
-	projectName := spl[0]
-	changeId, err := strconv.Atoi(spl[1])
-	if err != nil {
-		return "", -1, time.Time{}, err
-	}
-	parsedTime, err := time.Parse(time.Layout, spl[2])
-	if err != nil {
-		return "", -1, time.Time{}, err
-	}
-	return projectName, changeId, parsedTime, nil
-}
-
-func currentDirectoryEmpty() (bool, error) {
-	f, err := os.Open(".")
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	_, err = f.Readdirnames(1) // Or f.Readdir(1)
-	if err == io.EOF {
-		return true, nil
-	}
-	return false, err // Either not empty or error, suits both cases
-}
-
-func initializeJamsyncFile(client jamsyncpb.JamsyncAPIClient) error {
-	currentPath, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	log.Println("Initializing a project at " + currentPath)
-
-	empty, err := currentDirectoryEmpty()
-	if err != nil {
-		return err
-	}
-
-	if empty {
-		log.Println("This directory is empty.")
-		log.Print("Name of project to download: ")
-		var projectName string
-		fmt.Scan(&projectName)
-		return downloadExistingProject(client, projectName)
-	} else {
-		log.Println("This directory has some existing contents.")
-		log.Println("Name of new project to create for current directory: ")
-		var projectName string
-		fmt.Scan(&projectName)
-		return uploadNewProject(client, projectName)
-	}
-}
-
-func downloadExistingProject(client jamsyncpb.JamsyncAPIClient, projectName string) error {
-	resp, err := client.GetFileList(context.TODO(), &jamsyncpb.GetFileListRequest{
-		ProjectName: projectName,
-	})
-	if err != nil {
-		return err
-	}
-
-	log.Println("Creating directories...")
-	for _, file := range resp.Files {
-		if file.Dir {
-			err = os.MkdirAll(file.GetPath(), os.ModePerm)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	log.Println("Downloading files...")
-	for _, file := range resp.Files {
-		if !file.Dir {
-			log.Println("Downloading " + file.GetPath())
-			resp, err := client.GetFile(context.TODO(), &jamsyncpb.GetFileRequest{
-				ProjectName: projectName,
-				Path:        file.GetPath(),
-			})
-			if err != nil {
-				return err
-			}
-
-			// TODO: filemode
-			if err := os.WriteFile(file.GetPath(), resp.GetData(), 0644); err != nil {
-				return err
-			}
-		}
-	}
-
-	currChangeResp, err := client.GetCurrentChange(context.TODO(), &jamsyncpb.GetCurrentChangeRequest{ProjectName: projectName})
-	if err != nil {
-		return err
-	}
-
-	log.Println("Done downloading.")
-	return createJamsyncFile(projectName, currChangeResp.ChangeId, currChangeResp.Timestamp.AsTime())
-}
-
-func uploadNewProject(client jamsyncpb.JamsyncAPIClient, projectName string) error {
-	existingFiles := make([]*jamsyncpb.File, 0)
-	existingData := make([][]byte, 0)
-
-	log.Println("Adding existing files to project...")
-	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-		if d.Name() == ".jamsync" || path == "." {
-			return nil
-		} else if d.IsDir() {
-			existingFiles = append(existingFiles, &jamsyncpb.File{
-				Path: path,
-				Dir:  true,
-			})
-			existingData = append(existingData, nil)
-			return nil
-		}
-		existingFiles = append(existingFiles, &jamsyncpb.File{
-			Path: path,
-			Dir:  false,
-		})
-		data, err := os.ReadFile(path)
+	// starting at the root of the project, walk each file/directory searching for
+	// directories
+	changedFilePaths := make([]string, 0)
+	if err := filepath.WalkDir("cmd/client/test", func(path string, d fs.DirEntry, _ error) error {
+		log.Println("Watching", path)
+		fileInfo, err := d.Info()
 		if err != nil {
 			return err
 		}
-		existingData = append(existingData, data)
+
+		if fileInfo.ModTime().After(timestamp) {
+			changedFilePaths = append(changedFilePaths, path)
+		}
+
 		return nil
 	}); err != nil {
-		log.Println("WARN: could not walk directory tree", err)
+		log.Panic("Could not walk directory tree to watch files", err)
 	}
+	uploadLocalChanges(client, projectName, changedFilePaths)
 
-	log.Println("Adding project...")
-	addProjResp, err := client.AddProject(context.Background(), &jamsyncpb.AddProjectRequest{
+	log.Println("DONE")
+}
+
+func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, paths []string) error {
+	fileHashBlocksStream, err := client.GetFileHashBlocks(context.TODO(), &jamsyncpb.GetFileBlockHashesRequest{
 		ProjectName: projectName,
-		ExistingFiles: &jamsyncpb.GetFileListResponse{
-			Files: existingFiles,
-		},
-		ExistingData: existingData,
+		Paths:       paths,
 	})
 	if err != nil {
 		return err
 	}
 
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, uint64(0))
-	err = os.WriteFile(".jamsync", b, 0644)
+	stream, err := client.ApplyOperations(context.Background())
 	if err != nil {
 		return err
 	}
+	for {
+		blockHashesResp, err := fileHashBlocksStream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		blockHashesPb := blockHashesResp.GetBlockHashes()
 
-	log.Println("Done adding project.")
-	return createJamsyncFile(projectName, addProjResp.ChangeId, addProjResp.Timestamp.AsTime())
-}
+		path := blockHashesResp.GetPath()
+		sourceFile, err := os.Open(path)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer sourceFile.Close()
 
-func createJamsyncFile(projectName string, changeId uint64, timestamp time.Time) error {
-	f, err := os.Create(".jamsync")
-	if err != nil {
-		return err
+		sourceBytes, err := ioutil.ReadAll(sourceFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		blockHashes := make([]rsync.BlockHash, len(blockHashesPb))
+		for i, block := range blockHashesPb {
+			blockHashes[i] = rsync.BlockHash{
+				Index:      block.GetIndex(),
+				StrongHash: block.GetStrongHash(),
+				WeakHash:   block.GetWeakHash(),
+			}
+		}
+
+		opsOut := make(chan rsync.Operation)
+		rsDelta := &rsync.RSync{UniqueHasher: xxhash.New()}
+		go func() {
+			sourceBuffer := bytes.NewReader(sourceBytes)
+			var blockCt, blockRangeCt, dataCt, bytes int
+			defer close(opsOut)
+			err := rsDelta.CreateDelta(sourceBuffer, blockHashes, func(op rsync.Operation) error {
+				switch op.Type {
+				case rsync.OpBlockRange:
+					blockRangeCt++
+				case rsync.OpBlock:
+					blockCt++
+				case rsync.OpData:
+					// Copy data buffer so it may be reused in internal buffer.
+					b := make([]byte, len(op.Data))
+					copy(b, op.Data)
+					op.Data = b
+					dataCt++
+					bytes += len(op.Data)
+				}
+				opsOut <- op
+				return nil
+			})
+			log.Printf("Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dKiB", blockRangeCt, blockCt, dataCt, bytes/1024)
+			if err != nil {
+				log.Fatalf("Failed to create delta: %s", err)
+			}
+		}()
+
+		allOps := make([]*jamsyncpb.Operation, 0)
+		for op := range opsOut {
+			var opPbType jamsyncpb.Operation_Type
+			switch op.Type {
+			case rsync.OpBlock:
+				opPbType = jamsyncpb.Operation_OpBlock
+			case rsync.OpData:
+				opPbType = jamsyncpb.Operation_OpBlock
+			case rsync.OpHash:
+				opPbType = jamsyncpb.Operation_OpHash
+			case rsync.OpBlockRange:
+				opPbType = jamsyncpb.Operation_OpBlockRange
+			}
+			allOps = append(allOps, &jamsyncpb.Operation{
+				Type:          opPbType,
+				BlockIndex:    op.BlockIndex,
+				BlockIndexEnd: op.BlockIndexEnd,
+				Data:          op.Data,
+			})
+		}
+
+		err = stream.Send(&jamsyncpb.ApplyOperationsRequest{
+			Operations:  allOps,
+			ProjectName: projectName,
+			Path:        path,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
-	defer f.Close()
-	_, err = f.WriteString(fmt.Sprintf("%s %d %s", projectName, changeId, timestamp.String())) // writing...
-	if err != nil {
-		return err
-	}
-	return nil
+	return stream.CloseSend()
 }

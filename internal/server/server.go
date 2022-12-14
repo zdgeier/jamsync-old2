@@ -193,6 +193,86 @@ func generateRsyncOpsForNewFile(data []byte) []rsync.Operation {
 	return opsOut
 }
 
+//rpc GetFileHashBlocks(GetFileBlockHashesRequest) returns (stream GetFileBlockHashesResponse);
+//    rpc OperationStream(stream OperationStreamRequest) returns (OperationStreamResponse);
+
+func (s JamsyncServer) GetFileHashBlocks(in *jamsyncpb.GetFileBlockHashesRequest, srv jamsyncpb.JamsyncAPI_GetFileHashBlocksServer) error {
+	rs := &rsync.RSync{UniqueHasher: xxhash.New()}
+	projectName := in.GetProjectName()
+	timestamp := in.GetTimestamp().AsTime()
+
+	for _, path := range in.GetPaths() {
+		targetBuffer, err := s.regenFile(projectName, path, timestamp)
+		if err != nil {
+			return err
+		}
+
+		blockHashesPb := make([]*jamsyncpb.GetFileBlockHashesResponse_BlockHash, 0)
+		err = rs.CreateSignature(targetBuffer, func(bl rsync.BlockHash) error {
+			blockHashesPb = append(blockHashesPb, &jamsyncpb.GetFileBlockHashesResponse_BlockHash{
+				Index:      bl.Index,
+				StrongHash: bl.StrongHash,
+				WeakHash:   bl.WeakHash,
+			})
+			return nil
+		})
+		if err != nil {
+			log.Fatalf("Failed to create signature: %s", err)
+		}
+
+		if err := srv.Send(&jamsyncpb.GetFileBlockHashesResponse{
+			Path:        path,
+			BlockHashes: blockHashesPb,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s JamsyncServer) ApplyOperations(stream jamsyncpb.JamsyncAPI_ApplyOperationsServer) error {
+	var (
+		projectId uint64
+		changeId  uint64
+	)
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatal(err)
+			break
+		}
+		// TODO: find a better way to initialize this
+		if changeId == 0 {
+			changeId, err = db.AddChange(s.db, in.GetProjectName())
+			if err != nil {
+				return err
+			}
+			projectId, err = db.GetProjectId(s.db, in.GetProjectName())
+			if err != nil {
+				return err
+			}
+		}
+
+		offset, length, err := writeChangeDataToFile(changeId, projectId, in.GetPath(), &jamsyncpb.ChangeData{
+			Ops: in.GetOperations(),
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = db.AddChangeData(s.db, changeId, in.GetPath(), offset, length)
+		if err != nil {
+			// TODO: Handle the panics here
+			panic(err)
+		}
+	}
+
+	return nil
+}
+
 func (s JamsyncServer) GetFileList(ctx context.Context, in *jamsyncpb.GetFileListRequest) (*jamsyncpb.GetFileListResponse, error) {
 	log.Println("GetFileList", in.String())
 	targetBuffer, err := s.regenFile(in.GetProjectName(), "jamsyncfilelist", time.Now())

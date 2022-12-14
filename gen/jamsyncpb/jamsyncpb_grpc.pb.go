@@ -25,6 +25,8 @@ type JamsyncAPIClient interface {
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*GetFileResponse, error)
 	GetFileList(ctx context.Context, in *GetFileListRequest, opts ...grpc.CallOption) (*GetFileListResponse, error)
 	GetCurrentChange(ctx context.Context, in *GetCurrentChangeRequest, opts ...grpc.CallOption) (*GetCurrentChangeResponse, error)
+	GetFileHashBlocks(ctx context.Context, in *GetFileBlockHashesRequest, opts ...grpc.CallOption) (JamsyncAPI_GetFileHashBlocksClient, error)
+	ApplyOperations(ctx context.Context, opts ...grpc.CallOption) (JamsyncAPI_ApplyOperationsClient, error)
 	AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error)
 	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
 	BrowseProject(ctx context.Context, in *BrowseProjectRequest, opts ...grpc.CallOption) (*BrowseProjectResponse, error)
@@ -65,6 +67,72 @@ func (c *jamsyncAPIClient) GetCurrentChange(ctx context.Context, in *GetCurrentC
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *jamsyncAPIClient) GetFileHashBlocks(ctx context.Context, in *GetFileBlockHashesRequest, opts ...grpc.CallOption) (JamsyncAPI_GetFileHashBlocksClient, error) {
+	stream, err := c.cc.NewStream(ctx, &JamsyncAPI_ServiceDesc.Streams[0], "/jamsyncpb.JamsyncAPI/GetFileHashBlocks", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &jamsyncAPIGetFileHashBlocksClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type JamsyncAPI_GetFileHashBlocksClient interface {
+	Recv() (*GetFileBlockHashesResponse, error)
+	grpc.ClientStream
+}
+
+type jamsyncAPIGetFileHashBlocksClient struct {
+	grpc.ClientStream
+}
+
+func (x *jamsyncAPIGetFileHashBlocksClient) Recv() (*GetFileBlockHashesResponse, error) {
+	m := new(GetFileBlockHashesResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *jamsyncAPIClient) ApplyOperations(ctx context.Context, opts ...grpc.CallOption) (JamsyncAPI_ApplyOperationsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &JamsyncAPI_ServiceDesc.Streams[1], "/jamsyncpb.JamsyncAPI/ApplyOperations", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &jamsyncAPIApplyOperationsClient{stream}
+	return x, nil
+}
+
+type JamsyncAPI_ApplyOperationsClient interface {
+	Send(*ApplyOperationsRequest) error
+	CloseAndRecv() (*ApplyOperationsResponse, error)
+	grpc.ClientStream
+}
+
+type jamsyncAPIApplyOperationsClient struct {
+	grpc.ClientStream
+}
+
+func (x *jamsyncAPIApplyOperationsClient) Send(m *ApplyOperationsRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *jamsyncAPIApplyOperationsClient) CloseAndRecv() (*ApplyOperationsResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(ApplyOperationsResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *jamsyncAPIClient) AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error) {
@@ -119,6 +187,8 @@ type JamsyncAPIServer interface {
 	GetFile(context.Context, *GetFileRequest) (*GetFileResponse, error)
 	GetFileList(context.Context, *GetFileListRequest) (*GetFileListResponse, error)
 	GetCurrentChange(context.Context, *GetCurrentChangeRequest) (*GetCurrentChangeResponse, error)
+	GetFileHashBlocks(*GetFileBlockHashesRequest, JamsyncAPI_GetFileHashBlocksServer) error
+	ApplyOperations(JamsyncAPI_ApplyOperationsServer) error
 	AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error)
 	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
 	BrowseProject(context.Context, *BrowseProjectRequest) (*BrowseProjectResponse, error)
@@ -139,6 +209,12 @@ func (UnimplementedJamsyncAPIServer) GetFileList(context.Context, *GetFileListRe
 }
 func (UnimplementedJamsyncAPIServer) GetCurrentChange(context.Context, *GetCurrentChangeRequest) (*GetCurrentChangeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentChange not implemented")
+}
+func (UnimplementedJamsyncAPIServer) GetFileHashBlocks(*GetFileBlockHashesRequest, JamsyncAPI_GetFileHashBlocksServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetFileHashBlocks not implemented")
+}
+func (UnimplementedJamsyncAPIServer) ApplyOperations(JamsyncAPI_ApplyOperationsServer) error {
+	return status.Errorf(codes.Unimplemented, "method ApplyOperations not implemented")
 }
 func (UnimplementedJamsyncAPIServer) AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddProject not implemented")
@@ -220,6 +296,53 @@ func _JamsyncAPI_GetCurrentChange_Handler(srv interface{}, ctx context.Context, 
 		return srv.(JamsyncAPIServer).GetCurrentChange(ctx, req.(*GetCurrentChangeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _JamsyncAPI_GetFileHashBlocks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetFileBlockHashesRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(JamsyncAPIServer).GetFileHashBlocks(m, &jamsyncAPIGetFileHashBlocksServer{stream})
+}
+
+type JamsyncAPI_GetFileHashBlocksServer interface {
+	Send(*GetFileBlockHashesResponse) error
+	grpc.ServerStream
+}
+
+type jamsyncAPIGetFileHashBlocksServer struct {
+	grpc.ServerStream
+}
+
+func (x *jamsyncAPIGetFileHashBlocksServer) Send(m *GetFileBlockHashesResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _JamsyncAPI_ApplyOperations_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(JamsyncAPIServer).ApplyOperations(&jamsyncAPIApplyOperationsServer{stream})
+}
+
+type JamsyncAPI_ApplyOperationsServer interface {
+	SendAndClose(*ApplyOperationsResponse) error
+	Recv() (*ApplyOperationsRequest, error)
+	grpc.ServerStream
+}
+
+type jamsyncAPIApplyOperationsServer struct {
+	grpc.ServerStream
+}
+
+func (x *jamsyncAPIApplyOperationsServer) SendAndClose(m *ApplyOperationsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *jamsyncAPIApplyOperationsServer) Recv() (*ApplyOperationsRequest, error) {
+	m := new(ApplyOperationsRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func _JamsyncAPI_AddProject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -352,6 +475,17 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _JamsyncAPI_CreateUser_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetFileHashBlocks",
+			Handler:       _JamsyncAPI_GetFileHashBlocks_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ApplyOperations",
+			Handler:       _JamsyncAPI_ApplyOperations_Handler,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "jamsyncpb.proto",
 }
