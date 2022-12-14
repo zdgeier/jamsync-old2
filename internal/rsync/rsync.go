@@ -33,6 +33,20 @@ const (
 	OpBlockRange
 )
 
+func (o OpType) String() string {
+	switch o {
+	case OpBlock:
+		return "OpBlock"
+	case OpData:
+		return "OpData"
+	case OpHash:
+		return "OpHash"
+	case OpBlockRange:
+		return "OpBlockRange"
+	}
+	panic("invalid op type")
+}
+
 // Instruction to mutate target to align to source.
 type Operation struct {
 	Type          OpType

@@ -231,6 +231,7 @@ func (s JamsyncServer) GetFileHashBlocks(in *jamsyncpb.GetFileBlockHashesRequest
 }
 
 func (s JamsyncServer) ApplyOperations(stream jamsyncpb.JamsyncAPI_ApplyOperationsServer) error {
+	log.Println("ApplyOperations")
 	var (
 		projectId uint64
 		changeId  uint64
@@ -240,32 +241,40 @@ func (s JamsyncServer) ApplyOperations(stream jamsyncpb.JamsyncAPI_ApplyOperatio
 		if err == io.EOF {
 			break
 		}
+		log.Println("test1")
 		if err != nil {
-			log.Fatal(err)
-			break
+			log.Println("test2")
+			return err
 		}
+		log.Println("test1.1")
 		// TODO: find a better way to initialize this
 		if changeId == 0 {
 			changeId, err = db.AddChange(s.db, in.GetProjectName())
 			if err != nil {
+				log.Println("test3")
 				return err
 			}
 			projectId, err = db.GetProjectId(s.db, in.GetProjectName())
 			if err != nil {
+				log.Println("test4")
 				return err
 			}
 		}
 
+		log.Println("test1.2")
 		offset, length, err := writeChangeDataToFile(changeId, projectId, in.GetPath(), &jamsyncpb.ChangeData{
 			Ops: in.GetOperations(),
 		})
 		if err != nil {
+			log.Println("test5")
 			return err
 		}
 
+		log.Println("test1.3")
 		_, err = db.AddChangeData(s.db, changeId, in.GetPath(), offset, length)
 		if err != nil {
 			// TODO: Handle the panics here
+			log.Println("test6")
 			panic(err)
 		}
 	}
@@ -367,6 +376,7 @@ func (s JamsyncServer) regenFile(projectName string, path string, timestamp time
 	changeDatas := make([]*jamsyncpb.ChangeData, 0)
 	for i := range lengths {
 		changeFile := make([]byte, lengths[i])
+		fmt.Println("ol0", offsets[i], lengths[i], string(changeFile))
 		n, err := f.ReadAt(changeFile, int64(offsets[i]))
 		if err != nil {
 			return nil, err
@@ -380,6 +390,7 @@ func (s JamsyncServer) regenFile(projectName string, path string, timestamp time
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("ol", offsets[i], lengths[i], string(changeFile), change.String())
 		changeDatas = append(changeDatas, change)
 	}
 
@@ -398,11 +409,14 @@ func (s JamsyncServer) regenFile(projectName string, path string, timestamp time
 	targetBuffer := bytes.NewReader([]byte{})
 	result := new(bytes.Buffer)
 	for _, ops := range changeOps {
+		fmt.Println("applying", ops, len(ops), string(ops[0].Data), ops[0].Type)
 		err := rs.ApplyDeltaBatch(result, targetBuffer, ops)
 		if err != nil {
 			return nil, err
 		}
-		targetBuffer = bytes.NewReader(result.Bytes())
+		resBytes := result.Bytes()
+		targetBuffer = bytes.NewReader(resBytes)
+		log.Println("Current result", string(resBytes), targetBuffer.Len())
 		result.Reset()
 	}
 

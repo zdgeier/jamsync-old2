@@ -7,7 +7,6 @@ import (
 	"log"
 	"math"
 	"net"
-	"os"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
@@ -32,9 +31,6 @@ func main() {
 	}
 	db.Setup(localDB)
 
-	errChan := make(chan error)
-	stopChan := make(chan os.Signal)
-
 	flag.Parse()
 	address := fmt.Sprintf("localhost:%d", *port)
 	lis, err := net.Listen("tcp", address)
@@ -49,18 +45,8 @@ func main() {
 	jamsyncServer := server.NewServer(localDB)
 
 	jamsyncpb.RegisterJamsyncAPIServer(grpcServer, jamsyncServer)
-	go func() {
-		err = grpcServer.Serve(lis)
-		if err != nil {
-			log.Panic("stopping", err)
-			errChan <- err
-		}
-	}()
-
-	// block until either OS signal, or server fatal error
-	select {
-	case err := <-errChan:
-		log.Printf("Fatal error: %v\n", err)
-	case <-stopChan:
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		log.Panic("stopping", err)
 	}
 }

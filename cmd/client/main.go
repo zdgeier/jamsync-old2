@@ -66,6 +66,10 @@ func main() {
 				return err
 			}
 
+			if fileInfo.Name() == ".jamsync" {
+				return nil
+			}
+
 			if fileInfo.ModTime().After(timestamp) {
 				changedFilePaths = append(changedFilePaths, path)
 			}
@@ -75,7 +79,22 @@ func main() {
 	}); err != nil {
 		log.Panic("Could not walk directory tree to watch files", err)
 	}
-	uploadLocalChanges(client, projectName, changedFilePaths)
+
+	log.Println("Changed:", changedFilePaths)
+	if len(changedFilePaths) > 0 {
+		uploadLocalChanges(client, projectName, changedFilePaths)
+	}
+
+	currChangeResp, err = client.GetCurrentChange(context.TODO(), &jamsyncpb.GetCurrentChangeRequest{
+		ProjectName: projectName,
+	})
+	if err != nil {
+		log.Panic("could not get current change")
+	}
+	err = createJamsyncFile(projectName, currChangeResp.ChangeId, currChangeResp.Timestamp.AsTime())
+	if err != nil {
+		log.Panic("could not update .jamsync")
+	}
 
 	log.Println("DONE")
 }
@@ -160,7 +179,7 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, p
 			case rsync.OpBlock:
 				opPbType = jamsyncpb.Operation_OpBlock
 			case rsync.OpData:
-				opPbType = jamsyncpb.Operation_OpBlock
+				opPbType = jamsyncpb.Operation_OpData
 			case rsync.OpHash:
 				opPbType = jamsyncpb.Operation_OpHash
 			case rsync.OpBlockRange:
