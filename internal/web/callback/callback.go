@@ -52,6 +52,6 @@ func Handler(auth *authenticator.Authenticator, client jamsyncpb.JamsyncAPIClien
 			return
 		}
 
-		ctx.Redirect(http.StatusTemporaryRedirect, "/"+profile["email"].(string))
+		ctx.Redirect(http.StatusTemporaryRedirect, "/"+profile["email"].(string)+"/projects")
 	}
 }

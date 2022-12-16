@@ -91,7 +91,7 @@ func main() {
 	if err != nil {
 		log.Panic("could not get current change")
 	}
-	err = createJamsyncFile(projectName, currChangeResp.ChangeId, currChangeResp.Timestamp.AsTime())
+	err = createJamsyncFile(projectName, currChangeResp.ChangeId+1, currChangeResp.Timestamp.AsTime())
 	if err != nil {
 		log.Panic("could not update .jamsync")
 	}

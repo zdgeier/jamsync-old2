@@ -41,7 +41,9 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	router.LoadHTMLGlob("template/*")
 
 	router.GET("/", func(ctx *gin.Context) {
-		ctx.HTML(http.StatusOK, "home.html", nil)
+		session := sessions.Default(ctx)
+		profile := session.Get("profile")
+		ctx.HTML(http.StatusOK, "home.html", profile)
 	})
 	router.GET("/favicon.ico", func(ctx *gin.Context) {
 		ctx.Header("Content-Type", "image/svg+xml")
@@ -67,7 +69,7 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	router.GET("/api/projects/:projectName/files/*path", middleware.IsAuthenticated, api.ProjectBrowseHandler(client))
 	router.GET("/api/projects/:projectName/file/*path", middleware.IsAuthenticated, api.GetFileHandler(client))
 
-	router.GET("/:username", middleware.IsAuthenticated, userprojects.Handler)
+	router.GET("/:username/projects", middleware.IsAuthenticated, userprojects.Handler)
 	router.GET("/:username/:project/file/*path", middleware.IsAuthenticated, file.Handler)
 	router.GET("/:username/:project/files/*path", middleware.IsAuthenticated, files.Handler)
 	router.GET("/:username/:project", middleware.IsAuthenticated, files.Handler)
