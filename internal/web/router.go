@@ -49,6 +49,10 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 		ctx.Header("Content-Type", "image/svg+xml")
 		ctx.File("static/favicon.svg")
 	})
+	router.GET("/favicon.svg", func(ctx *gin.Context) {
+		ctx.Header("Content-Type", "image/svg+xml")
+		ctx.File("static/favicon.svg")
+	})
 	router.GET("/robots.txt", func(ctx *gin.Context) {
 		ctx.Header("Content-Type", "text/plain")
 		ctx.File("static/robots.txt")
