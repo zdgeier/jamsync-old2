@@ -182,33 +182,10 @@
         </div>
     </header>
     <main>
-        <div class="slidecontainer">
-            <input class="slider is-hidden" type="range" min="1" max="10" value="1" id="commitIdInput" step="1">
+        <div>
+            This is the download page. You'll be able to download the source and binaries here.
         </div>
-        <pre><code id="js-file-location"></code></pre>
     </main>
-    <script async type="module">
-         async function setup() {
-             let splitPath = window.location.pathname.split("/")
-             let projectName = splitPath[2];
-             let currentPath = splitPath.slice(4).join('/');
-
-
-            let filesResp = await fetch(`/api/projects/${projectName}/file/${currentPath}`);
-            let fileText = await filesResp.text();
-
-            let outerDiv = document.getElementById("js-file-location");
-            if (currentPath.endsWith('.go')) {
-                outerDiv.classList.add('language-go');
-            }
-
-            outerDiv.data = `/api/projects/${projectName}/file/${currentPath}`;
-            outerDiv.innerHTML = fileText
-        }
-
-        setup();
-    </script>
-    <script src="/public/prism.js"></script>
 </body>
 
 </html>

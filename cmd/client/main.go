@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var serverAddr = flag.String("addr", "localhost:14357", "The server address in the format of host:port")
+var serverAddr = flag.String("addr", "18.216.248.73:14357", "The server address in the format of host:port")
 
 type JamsyncProjectFile struct {
 	ProjectName     string

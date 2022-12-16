@@ -45,6 +45,21 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 		profile := session.Get("profile")
 		ctx.HTML(http.StatusOK, "home.html", profile)
 	})
+	router.GET("/about", func(ctx *gin.Context) {
+		session := sessions.Default(ctx)
+		profile := session.Get("profile")
+		ctx.HTML(http.StatusOK, "about.html", profile)
+	})
+	router.GET("/browse", func(ctx *gin.Context) {
+		session := sessions.Default(ctx)
+		profile := session.Get("profile")
+		ctx.HTML(http.StatusOK, "browse.html", profile)
+	})
+	router.GET("/download", func(ctx *gin.Context) {
+		session := sessions.Default(ctx)
+		profile := session.Get("profile")
+		ctx.HTML(http.StatusOK, "download.html", profile)
+	})
 	router.GET("/favicon.ico", func(ctx *gin.Context) {
 		ctx.Header("Content-Type", "image/svg+xml")
 		ctx.File("static/favicon.svg")
