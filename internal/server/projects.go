@@ -8,46 +8,37 @@ import (
 	"time"
 
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
+	"github.com/zdgeier/jamsync/internal/changestore"
 	"github.com/zdgeier/jamsync/internal/db"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectRequest) (*jamsyncpb.AddProjectResponse, error) {
+func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectRequest) (resp *jamsyncpb.AddProjectResponse, err error) {
 	log.Println("AddProject", len(in.ExistingFiles.Files))
 
-	// TODO: Wrap all this in a transaction
-	_, err := db.AddProject(s.db, in.GetProjectName())
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		err = tx.Rollback()
+	}()
 
-	changeId, err := db.AddChange(s.db, in.GetProjectName())
+	_, err = db.AddProject(tx, in.GetProjectName())
 	if err != nil {
 		return nil, err
 	}
-
-	fileListData, err := proto.Marshal(in.ExistingFiles)
-	if err != nil {
-		return nil, err
-	}
-
-	offset, length, err := s.store.WriteFile(in.GetProjectName(), "jamsyncfilelist", fileListData)
-	if err != nil {
-		return nil, err
-	}
-	_, err = db.AddChangeData(s.db, changeId, "jamsyncfilelist", offset, length)
+	changeId, err := db.AddChange(tx, in.GetProjectName())
 	if err != nil {
 		return nil, err
 	}
 
 	type metadata struct {
-		offset int64
-		length int
-		file   *jamsyncpb.File
+		changeLocation changestore.ChangeLocation
+		file           *jamsyncpb.File
 	}
-
 	writeFiles := func() ([]metadata, error) {
 		g := new(errgroup.Group)
 
@@ -57,11 +48,11 @@ func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectR
 			dataIndex := i
 			g.Go(func() error {
 				if !fileRef.Dir {
-					offset, length, err := s.store.WriteFile(in.GetProjectName(), fileRef.GetPath(), in.GetExistingData()[dataIndex])
+					changeLocation, err := s.store.WriteFile(in.GetProjectName(), fileRef.GetPath(), in.GetExistingData()[dataIndex])
 					if err != nil {
 						return err
 					}
-					res = append(res, metadata{offset, length, fileRef})
+					res = append(res, metadata{changeLocation, fileRef})
 				}
 				return nil
 			})
@@ -78,14 +69,17 @@ func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectR
 	}
 
 	for _, m := range fileWriteMetadata {
-		_, err = db.AddChangeData(s.db, changeId, m.file.Path, m.offset, m.length)
+		_, err = db.AddChangeData(tx, changeId, m.file.Path, m.changeLocation.Offset, m.changeLocation.Length)
 		if err != nil {
-			// TODO: Handle the panics here
-			panic(err)
+			return nil, err
 		}
 	}
 
-	changeId, timestamp, err := db.GetCurrentChange(s.db, in.GetProjectName())
+	changeId, timestamp, err := db.GetCurrentChange(tx, in.GetProjectName())
+	if err != nil {
+		return nil, err
+	}
+	err = tx.Commit()
 	if err != nil {
 		return nil, err
 	}

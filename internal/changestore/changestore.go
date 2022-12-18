@@ -20,35 +20,16 @@ const (
 )
 
 type ChangeStore interface {
-	WriteFileList(projectName string, fileList jamsyncpb.GetFileListResponse) (int64, int, error)
-	ReadFileList(projectName string) (int64, int, error)
-	WriteFile(projectName string, path string, data []byte) (int64, int, error)
-	WriteChangeData(projectName string, path string, changeData *jamsyncpb.ChangeData) (int64, int, error)
-	ReadChangeData(projectName string, path string, changeLocations []ChangeLocation) ([]*jamsyncpb.ChangeData, error)
+	WriteFile(projectName string, path string, data []byte) (ChangeLocation, error)
+	ReadFile(projectName string, path string, timestamp time.Time) (*bytes.Reader, error)
+	WriteChangeData(projectName string, path string, changeData *jamsyncpb.ChangeData) (ChangeLocation, error)
+	ReadChangeDatas(projectName string, path string, changeLocations []ChangeLocation) ([]*jamsyncpb.ChangeData, error)
 }
 
-type LocalChangeStore struct {
-}
+type LocalChangeStore struct{}
 
 func getLocalProjectDirectory(projectName string) string {
 	return fmt.Sprintf(localChangeDirectory + "/" + projectName)
-}
-
-func (s LocalChangeStore) ReadFileList(projectName string, timestamp time.Time) (*bytes.Reader, error) {
-	log.Println("GetFileList")
-	targetBuffer, err := RegenFile(s, projectName, "jamsyncfilelist", timestamp)
-	if err != nil {
-		return nil, err
-	}
-	return RegenFile(s, projectName, ".jamsyncfilelist", timestamp)
-}
-
-func (s LocalChangeStore) WriteFileList(projectName string, fileList *jamsyncpb.GetFileListResponse) (int64, int, error) {
-	fileListData, err := proto.Marshal(fileList)
-	if err != nil {
-		return 0, 0, err
-	}
-	return s.WriteFile(projectName, ".jamsyncfilelist", fileListData)
 }
 
 func (s LocalChangeStore) WriteFile(projectName string, path string, data []byte) (int64, int, error) {
@@ -132,11 +113,11 @@ func (s LocalChangeStore) WriteChangeData(projectName string, path string, chang
 }
 
 type ChangeLocation struct {
-	offset int
-	length int
+	Offset uint64
+	Length uint64
 }
 
-func (s LocalChangeStore) ReadChangeData(projectName string, path string, changeLocations []ChangeLocation) ([]*jamsyncpb.ChangeData, error) {
+func (s LocalChangeStore) ReadChangeDatas(projectName string, path string, changeLocations []ChangeLocation) ([]*jamsyncpb.ChangeData, error) {
 	f, err := os.Open(dataFilePath(getLocalProjectDirectory(projectName), path))
 	if err != nil {
 		return nil, err
@@ -144,12 +125,12 @@ func (s LocalChangeStore) ReadChangeData(projectName string, path string, change
 
 	changeDatas := make([]*jamsyncpb.ChangeData, 0)
 	for _, changeLocation := range changeLocations {
-		changeFile := make([]byte, changeLocation.length)
-		n, err := f.ReadAt(changeFile, int64(changeLocation.offset))
+		changeFile := make([]byte, changeLocation.Length)
+		n, err := f.ReadAt(changeFile, int64(changeLocation.Offset))
 		if err != nil {
 			return nil, err
 		}
-		if n != int(changeLocation.length) {
+		if n != int(changeLocation.Length) {
 			return nil, errors.New("read length does not equal expected")
 		}
 
@@ -164,7 +145,7 @@ func (s LocalChangeStore) ReadChangeData(projectName string, path string, change
 }
 
 func RegenFile(s ChangeStore, projectName string, path string, changeLocations []ChangeLocation) (*bytes.Reader, error) {
-	changeDatas, err := s.ReadChangeData(projectName, path, changeLocations)
+	changeDatas, err := s.ReadChangeDatas(projectName, path, changeLocations)
 	if err != nil {
 		return nil, err
 	}

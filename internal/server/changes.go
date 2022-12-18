@@ -12,18 +12,25 @@ import (
 
 func (s JamsyncServer) GetCurrentChange(ctx context.Context, in *jamsyncpb.GetCurrentChangeRequest) (*jamsyncpb.GetCurrentChangeResponse, error) {
 	log.Println("GetCurrentChange", in.GetProjectName())
-	changeId, timestamp, err := db.GetCurrentChange(s.db, in.GetProjectName())
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &jamsyncpb.GetCurrentChangeResponse{ChangeId: changeId, Timestamp: timestamppb.New(timestamp)}, nil
+	changeId, timestamp, err := db.GetCurrentChange(tx, in.GetProjectName())
+	if err != nil {
+		return nil, err
+	}
+	return &jamsyncpb.GetCurrentChangeResponse{ChangeId: changeId, Timestamp: timestamppb.New(timestamp)}, tx.Commit()
 }
 
 func (s JamsyncServer) ApplyOperations(stream jamsyncpb.JamsyncAPI_ApplyOperationsServer) error {
 	log.Println("ApplyOperations")
-	var (
-		changeId uint64
-	)
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	var changeId uint64
 	for {
 		in, err := stream.Recv()
 		if err == io.EOF {
@@ -34,26 +41,23 @@ func (s JamsyncServer) ApplyOperations(stream jamsyncpb.JamsyncAPI_ApplyOperatio
 		}
 		// TODO: find a better way to initialize this
 		if changeId == 0 {
-			changeId, err = db.AddChange(s.db, in.GetProjectName())
+			changeId, err = db.AddChange(tx, in.GetProjectName())
 			if err != nil {
 				return err
 			}
 		}
 
-		offset, length, err := s.store.WriteChangeData(in.GetProjectName(), in.GetPath(), &jamsyncpb.ChangeData{
+		changeLocation, err := s.store.WriteChangeData(in.GetProjectName(), in.GetPath(), &jamsyncpb.ChangeData{
 			Ops: in.GetOperations(),
 		})
 		if err != nil {
-			log.Println("test5")
 			return err
 		}
 
-		_, err = db.AddChangeData(s.db, changeId, in.GetPath(), offset, length)
+		_, err = db.AddChangeData(tx, changeId, in.GetPath(), changeLocation)
 		if err != nil {
-			// TODO: Handle the panics here
-			panic(err)
+			return err
 		}
 	}
-
-	return nil
+	return tx.Commit()
 }

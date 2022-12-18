@@ -3,32 +3,49 @@ package server
 import (
 	"context"
 	"io"
-	"log"
-	"time"
 
 	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
+	"github.com/zdgeier/jamsync/internal/changestore"
+	"github.com/zdgeier/jamsync/internal/db"
 	"github.com/zdgeier/jamsync/internal/rsync"
 )
 
+const (
+	fileListPath = ".jamsyncfilelist"
+)
+
 func (s JamsyncServer) GetFile(ctx context.Context, in *jamsyncpb.GetFileRequest) (*jamsyncpb.GetFileResponse, error) {
-	log.Println("GetFile")
-	targetBuffer, err := s.regenFile(in.GetProjectName(), in.GetPath(), time.Now())
+	changeLocations, err := db.ListChangeDataLocations(s.db, in.GetProjectName(), in.GetPath())
 	if err != nil {
 		return nil, err
 	}
-
-	data, err := io.ReadAll(targetBuffer)
+	reader, err := changestore.RegenFile(s.store, in.GetProjectName(), in.GetPath(), changeLocations)
 	if err != nil {
 		return nil, err
 	}
-
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
 	return &jamsyncpb.GetFileResponse{
 		Data: data,
 	}, nil
 }
 
 func (s JamsyncServer) GetFileList(ctx context.Context, in *jamsyncpb.GetFileListRequest) (*jamsyncpb.GetFileListResponse, error) {
+	changeLocations, err := db.ListChangeDataLocations(s.db, in.GetProjectName(), fileListPath)
+	if err != nil {
+		return nil, err
+	}
+	reader, err := changestore.RegenFile(s.store, in.GetProjectName(), fileListPath, changeLocations)
+	if err != nil {
+		return nil, err
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
 	// log.Println("GetFileList")
 	// targetBuffer, err := s.regenFile(in.GetProjectName(), "jamsyncfilelist", time.Now())
 	// if err != nil {
@@ -55,13 +72,17 @@ func (s JamsyncServer) GetFileHashBlocks(in *jamsyncpb.GetFileBlockHashesRequest
 	timestamp := in.GetTimestamp().AsTime()
 
 	for _, path := range in.GetPaths() {
-		targetBuffer, err := s.regenFile(projectName, path, timestamp)
+		changeLocations, err := db.ListChangeDataLocations(s.db, projectName, path)
+		if err != nil {
+			return err
+		}
+		reader, err := changestore.RegenFile(s.store, projectName, path, changeLocations)
 		if err != nil {
 			return err
 		}
 
 		blockHashesPb := make([]*jamsyncpb.GetFileBlockHashesResponse_BlockHash, 0)
-		err = rs.CreateSignature(targetBuffer, func(bl rsync.BlockHash) error {
+		err = rs.CreateSignature(reader, func(bl rsync.BlockHash) error {
 			blockHashesPb = append(blockHashesPb, &jamsyncpb.GetFileBlockHashesResponse_BlockHash{
 				Index:      bl.Index,
 				StrongHash: bl.StrongHash,

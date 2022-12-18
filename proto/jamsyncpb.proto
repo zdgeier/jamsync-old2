@@ -6,7 +6,6 @@ import "google/protobuf/timestamp.proto";
 
 service JamsyncAPI {
     rpc GetFile(GetFileRequest) returns (GetFileResponse);
-    rpc GetFileList(GetFileListRequest) returns (GetFileListResponse);
     rpc GetCurrentChange(GetCurrentChangeRequest) returns (GetCurrentChangeResponse);
     rpc GetFileHashBlocks(GetFileBlockHashesRequest) returns (stream GetFileBlockHashesResponse);
     rpc ApplyOperations(stream ApplyOperationsRequest) returns (ApplyOperationsResponse);
