@@ -200,7 +200,8 @@ func (r *RSync) ApplyDelta(alignedTarget io.Writer, target io.ReadSeeker, ops ch
 	return nil
 }
 
-// Apply the difference to the target.
+// ApplyDeltaBatch applies all the operations to the target and writes the result to the alignedTarget
+// This is not part of the original source and is written by Zach Geier (zach@jamsync.dev)
 func (r *RSync) ApplyDeltaBatch(alignedTarget io.Writer, target io.ReadSeeker, ops []Operation) error {
 	if r.BlockSize <= 0 {
 		r.BlockSize = DefaultBlockSize
