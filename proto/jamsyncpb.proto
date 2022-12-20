@@ -50,7 +50,7 @@ message Operation {
 
 message GetFileBlockHashesRequest {
     string project_name = 1;
-    repeated string paths = 2;
+    FileList fileList = 2;
     google.protobuf.Timestamp timestamp = 3;
 }
 message GetFileBlockHashesResponse {

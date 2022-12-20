@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"time"
@@ -14,8 +15,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+func pathToHash(path string) uint64 {
+	h := xxhash.New()
+	h.Write([]byte(path))
+	return h.Sum64()
+}
+
 func (s JamsyncServer) GetFile(ctx context.Context, in *jamsyncpb.GetFileRequest) (*jamsyncpb.GetFileResponse, error) {
-	reader, err := s.regenFile(ctx, in.ProjectName, in.Path, in.Timestamp.AsTime())
+	fmt.Println("regenning", in.Path)
+	reader, err := s.regenFile(ctx, in.ProjectName, pathToHash(in.Path), in.Timestamp.AsTime())
 	if err != nil {
 		return nil, err
 	}
@@ -23,16 +31,18 @@ func (s JamsyncServer) GetFile(ctx context.Context, in *jamsyncpb.GetFileRequest
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("GOT", data)
 	return &jamsyncpb.GetFileResponse{
 		Data: data,
 	}, nil
 }
 
-func (s JamsyncServer) regenFile(ctx context.Context, projectName string, path string, timestamp time.Time) (*bytes.Reader, error) {
-	changeLocationLists, err := db.ChangeLocationLists(s.db, projectName, path, timestamp)
+func (s JamsyncServer) regenFile(ctx context.Context, projectName string, pathHash uint64, timestamp time.Time) (*bytes.Reader, error) {
+	changeLocationLists, err := db.ChangeLocationLists(s.db, projectName, pathHash, timestamp)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(pathHash)
 
 	dataClient, err := s.storeClient.ReadChangeData(ctx)
 	if err != nil {
@@ -43,25 +53,28 @@ func (s JamsyncServer) regenFile(ctx context.Context, projectName string, path s
 	targetBuffer := bytes.NewReader([]byte{})
 	result := new(bytes.Buffer)
 	for _, changeLocationList := range changeLocationLists {
+		fmt.Println("sendlist", changeLocationList)
 		err := dataClient.Send(changeLocationList)
 		if err != nil {
 			return nil, err
 		}
 
 		ops := make(chan rsync.Operation)
-		for {
-			in, err := dataClient.Recv()
-			if err == io.EOF {
-				// read done.
-				close(ops)
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
+		go func() {
+			for {
+				in, err := dataClient.Recv()
+				if err == io.EOF {
+					// read done.
+					close(ops)
+					break
+				}
+				if err != nil {
+					log.Panic(err)
+				}
 
-			ops <- pbOperationToRsync(in)
-		}
+				ops <- pbOperationToRsync(in)
+			}
+		}()
 
 		err = rs.ApplyDelta(result, targetBuffer, ops)
 		if err != nil {
@@ -100,11 +113,14 @@ func (s JamsyncServer) GetFileHashBlocks(in *jamsyncpb.GetFileBlockHashesRequest
 	rs := &rsync.RSync{UniqueHasher: xxhash.New()}
 	projectName := in.GetProjectName()
 
-	for _, path := range in.GetPaths() {
-		log.Println("getting", path)
+	for _, file := range in.FileList.GetFiles() {
+		log.Println("getting", file.Path)
+		if file.Dir {
+			continue
+		}
 		resp, err := s.GetFile(context.TODO(), &jamsyncpb.GetFileRequest{
 			ProjectName: projectName,
-			Path:        path,
+			Path:        file.GetPath(),
 			Timestamp:   in.Timestamp,
 		})
 		if err != nil {
@@ -113,7 +129,6 @@ func (s JamsyncServer) GetFileHashBlocks(in *jamsyncpb.GetFileBlockHashesRequest
 
 		reader := bytes.NewReader(resp.GetData())
 
-		log.Println("makinggg", path)
 		blockHashesPb := make([]*jamsyncpb.GetFileBlockHashesResponse_BlockHash, 0)
 		err = rs.CreateSignature(reader, func(bl rsync.BlockHash) error {
 			blockHashesPb = append(blockHashesPb, &jamsyncpb.GetFileBlockHashesResponse_BlockHash{
@@ -127,9 +142,8 @@ func (s JamsyncServer) GetFileHashBlocks(in *jamsyncpb.GetFileBlockHashesRequest
 			return err
 		}
 
-		log.Println("sending", path)
 		if err := srv.Send(&jamsyncpb.GetFileBlockHashesResponse{
-			Path:        path,
+			Path:        file.GetPath(),
 			BlockHashes: blockHashesPb,
 		}); err != nil {
 			return err

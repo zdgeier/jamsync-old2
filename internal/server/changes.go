@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 
@@ -47,34 +48,44 @@ func (s JamsyncServer) StreamChange(srv jamsyncpb.JamsyncAPI_StreamChangeServer)
 	if err != nil {
 		return err
 	}
+	waitc := make(chan struct{})
 	go func() {
 		for {
-			op, err := srv.Recv()
+			// TODO: handle errors in here!
+			fmt.Println("PdjkOPstream")
+			in, err := opStream.Recv()
 			if err == io.EOF {
+				close(waitc)
 				return
 			}
 			if err != nil {
-				log.Fatalf("Failed to receive a note : %v", err)
+				return
 			}
-			err = opStream.Send(op)
+			fmt.Println("LIST", in.String())
+
+			_, err = db.AddChangeLocationList(s.db, in)
 			if err != nil {
-				log.Fatal("could not send data")
+				return
 			}
 		}
 	}()
 
 	for {
-		in, err := opStream.Recv()
+		fmt.Println("POPstream")
+		op, err := srv.Recv()
 		if err == io.EOF {
-			return err
+			break
 		}
 		if err != nil {
 			return err
 		}
-
-		_, err = db.AddChangeLocationList(s.db, in)
+		err = opStream.Send(op)
 		if err != nil {
 			return err
 		}
 	}
+	opStream.CloseSend()
+	<-waitc
+
+	return nil
 }

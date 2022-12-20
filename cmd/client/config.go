@@ -164,34 +164,7 @@ func downloadExistingProject(client jamsyncpb.JamsyncAPIClient, projectName stri
 }
 
 func uploadNewProject(client jamsyncpb.JamsyncAPIClient, projectName string) error {
-	existingFiles := make([]*jamsyncpb.File, 0)
-	existingData := make([][]byte, 0)
-
 	log.Println("Adding existing files to project...")
-	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-		if d.Name() == ".jamsync" || path == "." {
-			return nil
-		} else if d.IsDir() {
-			existingFiles = append(existingFiles, &jamsyncpb.File{
-				Path: path,
-				Dir:  true,
-			})
-			existingData = append(existingData, nil)
-			return nil
-		}
-		existingFiles = append(existingFiles, &jamsyncpb.File{
-			Path: path,
-			Dir:  false,
-		})
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		existingData = append(existingData, data)
-		return nil
-	}); err != nil {
-		log.Println("WARN: could not walk directory tree", err)
-	}
 
 	log.Println("Adding project...")
 	_, err := client.AddProject(context.Background(), &jamsyncpb.AddProjectRequest{
@@ -200,6 +173,8 @@ func uploadNewProject(client jamsyncpb.JamsyncAPIClient, projectName string) err
 	if err != nil {
 		return err
 	}
+
+	uploadLocalChanges(client, projectName)
 
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, uint64(0))
@@ -210,6 +185,36 @@ func uploadNewProject(client jamsyncpb.JamsyncAPIClient, projectName string) err
 
 	log.Println("Done adding project.")
 	return createJamsyncFile(projectName, 0, time.Now())
+}
+
+func readLocalFileList() *jamsyncpb.FileList {
+	fileList := &jamsyncpb.FileList{
+		Files: []*jamsyncpb.File{
+			{
+				Path: ".jamsyncfilelist",
+				Dir:  false,
+			},
+		},
+	}
+	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
+		if d.Name() == ".jamsync" || path == "." {
+			return nil
+		} else if d.IsDir() {
+			fileList.Files = append(fileList.Files, &jamsyncpb.File{
+				Path: path,
+				Dir:  true,
+			})
+			return nil
+		}
+		fileList.Files = append(fileList.Files, &jamsyncpb.File{
+			Path: path,
+			Dir:  false,
+		})
+		return nil
+	}); err != nil {
+		log.Println("WARN: could not walk directory tree", err)
+	}
+	return fileList
 }
 
 func createJamsyncFile(projectName string, changeId uint64, timestamp time.Time) error {

@@ -16,6 +16,7 @@ import (
 	"github.com/zdgeier/jamsync/internal/rsync"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 )
 
 var serverAddr = flag.String("addr", "localhost:14357", "The server address in the format of host:port")
@@ -82,7 +83,7 @@ func main() {
 
 	log.Println("Changed:", changedFilePaths)
 	if len(changedFilePaths) > 0 {
-		err := uploadLocalChanges(client, projectName, changedFilePaths)
+		err := uploadLocalChanges(client, projectName)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -102,11 +103,12 @@ func main() {
 	log.Println("DONE")
 }
 
-func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, paths []string) error {
+func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string) error {
 	log.Println("uploading")
+	localFileList := readLocalFileList()
 	fileHashBlocksStream, err := client.GetFileHashBlocks(context.TODO(), &jamsyncpb.GetFileBlockHashesRequest{
 		ProjectName: projectName,
-		Paths:       paths,
+		FileList:    localFileList,
 	})
 	if err != nil {
 		return err
@@ -136,16 +138,24 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, p
 		blockHashesPb := blockHashesResp.GetBlockHashes()
 
 		log.Println("gotem")
+		var sourceBytes []byte
 		path := blockHashesResp.GetPath()
-		sourceFile, err := os.Open(path)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer sourceFile.Close()
+		if path == ".jamsyncfilelist" {
+			sourceBytes, err = proto.Marshal(localFileList)
+			if err != nil {
+				log.Panic(err)
+			}
+		} else {
+			sourceFile, err := os.Open(path)
+			if err != nil {
+				log.Panic(err)
+			}
+			defer sourceFile.Close()
 
-		sourceBytes, err := ioutil.ReadAll(sourceFile)
-		if err != nil {
-			log.Fatal(err)
+			sourceBytes, err = ioutil.ReadAll(sourceFile)
+			if err != nil {
+				log.Panic(err)
+			}
 		}
 
 		blockHashes := make([]rsync.BlockHash, len(blockHashesPb))
@@ -183,7 +193,7 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, p
 			})
 			log.Printf("Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dKiB", blockRangeCt, blockCt, dataCt, bytes/1024)
 			if err != nil {
-				log.Fatalf("Failed to create delta: %s", err)
+				log.Panicf("Failed to create delta: %s", err)
 			}
 		}()
 
@@ -202,13 +212,10 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, p
 				opPbType = jamsyncpb.Operation_OpBlockRange
 			}
 
-			h := xxhash.New()
-			h.Write([]byte(path))
-
 			err = stream.Send(&jamsyncpb.ChangeOperation{
 				ProjectId: changeRequest.ProjectId,
 				ChangeId:  changeRequest.ChangeId,
-				PathHash:  h.Sum64(),
+				PathHash:  pathToHash(path),
 				Op: &jamsyncpb.Operation{
 					Type:          opPbType,
 					BlockIndex:    op.BlockIndex,
@@ -223,4 +230,10 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, p
 	}
 	log.Println("done")
 	return stream.CloseSend()
+}
+
+func pathToHash(path string) uint64 {
+	h := xxhash.New()
+	h.Write([]byte(path))
+	return h.Sum64()
 }

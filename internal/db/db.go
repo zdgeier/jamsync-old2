@@ -15,7 +15,7 @@ func Setup(db *sql.DB) error {
 	CREATE TABLE IF NOT EXISTS users (username TEXT);
 	CREATE TABLE IF NOT EXISTS projects (name TEXT);
 	CREATE TABLE IF NOT EXISTS changes (id INTEGER, project_id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
-	CREATE TABLE IF NOT EXISTS change_data (change_id INTEGER, pathHash TEXT, locationList BLOB);
+	CREATE TABLE IF NOT EXISTS change_data (change_id INTEGER, pathHash INTEGER, locationList BLOB);
 	`
 	_, err := db.Exec(sqlStmt)
 	return err
@@ -111,21 +111,17 @@ func AddChange(db *sql.DB, projectName string) (uint64, error) {
 	if !errors.Is(sql.ErrNoRows, err) && err != nil {
 		return 0, err
 	}
-	res, err := db.Exec("INSERT INTO changes(id, project_id) SELECT ?, rowid FROM projects WHERE name = ?", changeId+1, projectName)
+	newId := changeId + 1
+	_, err = db.Exec("INSERT INTO changes(id, project_id) SELECT ?, rowid FROM projects WHERE name = ?", newId, projectName)
 	if err != nil {
 		return 0, err
 	}
 
-	var id int64
-	if id, err = res.LastInsertId(); err != nil {
-		return 0, err
-	}
-
-	return uint64(id), nil
+	return uint64(newId), nil
 }
 
-func ChangeLocationLists(db *sql.DB, projectName string, pathHash string, timestamp time.Time) ([]*jamsyncpb.ChangeLocationList, error) {
-	rows, err := db.Query("SELECT locationList FROM change_data INNER JOIN projects AS p INNER JOIN changes AS c WHERE p.name = ? AND p.rowid = c.project_id AND change_id = c.rowid AND pathHash = ? AND c.timestamp < ?", projectName, pathHash, timestamp)
+func ChangeLocationLists(db *sql.DB, projectName string, pathHash uint64, timestamp time.Time) ([]*jamsyncpb.ChangeLocationList, error) {
+	rows, err := db.Query("SELECT locationList FROM change_data INNER JOIN projects AS p INNER JOIN changes AS c WHERE p.name = ? AND p.rowid = c.project_id AND change_id = c.id AND pathHash = ? AND c.timestamp < ?", projectName, pathHash, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -146,12 +142,12 @@ func ChangeLocationLists(db *sql.DB, projectName string, pathHash string, timest
 			return nil, err
 		}
 
-		var changeLocationList *jamsyncpb.ChangeLocationList
-		err := proto.Unmarshal(changeLocationListData, changeLocationList)
+		changeLocationList := jamsyncpb.ChangeLocationList{}
+		err := proto.Unmarshal(changeLocationListData, &changeLocationList)
 		if err != nil {
 			return nil, err
 		}
-		changeLocationLists = append(changeLocationLists, changeLocationList)
+		changeLocationLists = append(changeLocationLists, &changeLocationList)
 	}
 	return changeLocationLists, nil
 }
