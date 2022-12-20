@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var serverAddr = flag.String("addr", "18.216.248.73:14357", "The server address in the format of host:port")
+var serverAddr = flag.String("addr", "localhost:14357", "The server address in the format of host:port")
 
 type JamsyncProjectFile struct {
 	ProjectName     string
@@ -82,7 +82,10 @@ func main() {
 
 	log.Println("Changed:", changedFilePaths)
 	if len(changedFilePaths) > 0 {
-		uploadLocalChanges(client, projectName, changedFilePaths)
+		err := uploadLocalChanges(client, projectName, changedFilePaths)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 
 	currChangeResp, err = client.GetCurrentChange(context.TODO(), &jamsyncpb.GetCurrentChangeRequest{
@@ -91,7 +94,7 @@ func main() {
 	if err != nil {
 		log.Panic("could not get current change")
 	}
-	err = createJamsyncFile(projectName, currChangeResp.ChangeId+1, currChangeResp.Timestamp.AsTime())
+	err = createJamsyncFile(projectName, currChangeResp.ChangeId, currChangeResp.Timestamp.AsTime())
 	if err != nil {
 		log.Panic("could not update .jamsync")
 	}
@@ -100,6 +103,7 @@ func main() {
 }
 
 func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, paths []string) error {
+	log.Println("uploading")
 	fileHashBlocksStream, err := client.GetFileHashBlocks(context.TODO(), &jamsyncpb.GetFileBlockHashesRequest{
 		ProjectName: projectName,
 		Paths:       paths,
@@ -108,10 +112,19 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, p
 		return err
 	}
 
-	stream, err := client.ApplyOperations(context.Background())
+	log.Println("stream1")
+	changeRequest, err := client.CreateChange(context.TODO(), &jamsyncpb.CreateChangeRequest{
+		ProjectName: projectName,
+	})
 	if err != nil {
 		return err
 	}
+
+	stream, err := client.StreamChange(context.Background())
+	if err != nil {
+		return err
+	}
+	log.Println("loopin")
 	for {
 		blockHashesResp, err := fileHashBlocksStream.Recv()
 		if err == io.EOF {
@@ -122,6 +135,7 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, p
 		}
 		blockHashesPb := blockHashesResp.GetBlockHashes()
 
+		log.Println("gotem")
 		path := blockHashesResp.GetPath()
 		sourceFile, err := os.Open(path)
 		if err != nil {
@@ -143,6 +157,7 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, p
 			}
 		}
 
+		log.Println("making bacon")
 		opsOut := make(chan rsync.Operation)
 		rsDelta := &rsync.RSync{UniqueHasher: xxhash.New()}
 		go func() {
@@ -172,8 +187,9 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, p
 			}
 		}()
 
-		allOps := make([]*jamsyncpb.Operation, 0)
+		log.Println("making bacons")
 		for op := range opsOut {
+			log.Println("making opss")
 			var opPbType jamsyncpb.Operation_Type
 			switch op.Type {
 			case rsync.OpBlock:
@@ -185,22 +201,26 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string, p
 			case rsync.OpBlockRange:
 				opPbType = jamsyncpb.Operation_OpBlockRange
 			}
-			allOps = append(allOps, &jamsyncpb.Operation{
-				Type:          opPbType,
-				BlockIndex:    op.BlockIndex,
-				BlockIndexEnd: op.BlockIndexEnd,
-				Data:          op.Data,
-			})
-		}
 
-		err = stream.Send(&jamsyncpb.ApplyOperationsRequest{
-			Operations:  allOps,
-			ProjectName: projectName,
-			Path:        path,
-		})
-		if err != nil {
-			log.Fatal(err)
+			h := xxhash.New()
+			h.Write([]byte(path))
+
+			err = stream.Send(&jamsyncpb.ChangeOperation{
+				ProjectId: changeRequest.ProjectId,
+				ChangeId:  changeRequest.ChangeId,
+				PathHash:  h.Sum64(),
+				Op: &jamsyncpb.Operation{
+					Type:          opPbType,
+					BlockIndex:    op.BlockIndex,
+					BlockIndexEnd: op.BlockIndexEnd,
+					Data:          op.Data,
+				},
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
+	log.Println("done")
 	return stream.CloseSend()
 }

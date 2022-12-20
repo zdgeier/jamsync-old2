@@ -1,0 +1,36 @@
+syntax = "proto3";
+package jamsyncpb;
+
+import "jamsyncpb.proto";
+
+option go_package = "github.com/zdgeier/jamsync/proto/jamsyncpb";
+
+service JamsyncStore {
+    rpc ReadChangeData(stream ChangeLocationList) returns (stream jamsyncpb.Operation);
+
+    rpc CreateChangeDir(CreateChangeDirRequest) returns (CreateChangeDirResponse);
+    rpc StreamChange(stream ChangeOperation) returns (stream ChangeLocationList);
+    rpc CommitChange(CommitChangeRequest) returns (CommitChangeResponse);
+}
+
+message ChangeLocation {
+    uint64 offset = 1;
+    uint64 length = 2;
+}
+message ChangeLocationList {
+    uint64 project_id = 1;
+    uint64 change_id = 2;
+    uint64 path_hash = 3;
+    repeated ChangeLocation change_locations = 4;
+}
+
+message CreateChangeDirRequest {
+    uint64 project_id = 1;
+    uint64 change_id = 2;
+}
+message CreateChangeDirResponse {}
+
+message CommitChangeRequest {
+    uint64 change_id = 1;
+}
+message CommitChangeResponse {}

@@ -8,7 +8,8 @@ service JamsyncAPI {
     rpc GetFile(GetFileRequest) returns (GetFileResponse);
     rpc GetCurrentChange(GetCurrentChangeRequest) returns (GetCurrentChangeResponse);
     rpc GetFileHashBlocks(GetFileBlockHashesRequest) returns (stream GetFileBlockHashesResponse);
-    rpc ApplyOperations(stream ApplyOperationsRequest) returns (ApplyOperationsResponse);
+    rpc CreateChange(CreateChangeRequest) returns (CreateChangeResponse);
+    rpc StreamChange(stream ChangeOperation) returns (ChangeOperationResponse);
 
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
@@ -16,6 +17,22 @@ service JamsyncAPI {
 
     rpc UserInfo(UserInfoRequest) returns (UserInfoResponse);
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+}
+
+message CreateChangeRequest {
+    string project_name = 1;
+}
+message CreateChangeResponse {
+    uint64 change_id = 1;
+    uint64 project_id = 2;
+}
+message ChangeOperationResponse {}
+
+message ChangeOperation {
+    uint64 project_id = 1;
+    uint64 change_id = 2;
+    uint64 path_hash = 3;
+    jamsyncpb.Operation op = 4;
 }
 
 message Operation {
@@ -46,16 +63,6 @@ message GetFileBlockHashesResponse {
     string path = 3;
 }
 
-message ApplyOperationsRequest {
-    string project_name = 1;
-    string path = 2;
-    repeated Operation operations = 3;
-}
-message ApplyOperationsResponse {}
-
-message ChangeData {
-    repeated Operation ops = 1;
-}
 
 message File {
     string path = 1;
@@ -65,28 +72,20 @@ message File {
 message GetFileRequest {
     string project_name = 1;
     string path = 2;
+    google.protobuf.Timestamp timestamp = 3;
 }
 message GetFileResponse {
     bytes data = 1;
 }
 
-message GetFileListRequest {
-    string project_name = 1;
-}
-message GetFileListResponse {
+message FileList {
     repeated File files = 1;
 }
 
 message AddProjectRequest {
     string project_name = 1;
-    GetFileListResponse existing_files = 2;
-    repeated bytes existing_data = 3;
 }
-message AddProjectResponse {
-    uint64 project_id = 1;
-    uint64 change_id = 2;
-    google.protobuf.Timestamp timestamp = 3;
-}
+message AddProjectResponse {}
 
 message ListProjectsRequest {}
 message ListProjectsResponse {

@@ -3,9 +3,11 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
-	"github.com/zdgeier/jamsync/internal/changestore"
+	"github.com/zdgeier/jamsync/gen/jamsyncpb"
+	"google.golang.org/protobuf/proto"
 )
 
 func Setup(db *sql.DB) error {
@@ -13,7 +15,7 @@ func Setup(db *sql.DB) error {
 	CREATE TABLE IF NOT EXISTS users (username TEXT);
 	CREATE TABLE IF NOT EXISTS projects (name TEXT);
 	CREATE TABLE IF NOT EXISTS changes (id INTEGER, project_id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
-	CREATE TABLE IF NOT EXISTS change_data (change_id INTEGER, path TEXT, offset INTEGER, length INTEGER);
+	CREATE TABLE IF NOT EXISTS change_data (change_id INTEGER, pathHash TEXT, locationList BLOB);
 	`
 	_, err := db.Exec(sqlStmt)
 	return err
@@ -24,7 +26,7 @@ type Project struct {
 	Id   uint64
 }
 
-func AddProject(db *sql.Tx, projectName string) (uint64, error) {
+func AddProject(db *sql.DB, projectName string) (uint64, error) {
 	res, err := db.Exec("INSERT INTO projects(name) VALUES(?)", projectName)
 	if err != nil {
 		return 0, err
@@ -49,15 +51,20 @@ func GetProjectId(db *sql.DB, projectName string) (uint64, error) {
 	return id, err
 }
 
-func GetCurrentChange(tx *sql.Tx, projectName string) (uint64, time.Time, error) {
-	row := tx.QueryRow("SELECT c.id, c.timestamp FROM changes AS c INNER JOIN projects AS p WHERE p.name = ? ORDER BY c.timestamp DESC LIMIT 1", projectName)
+func GetCurrentChange(db *sql.DB, projectName string) (uint64, time.Time, error) {
+	row := db.QueryRow("SELECT c.id, c.timestamp FROM changes AS c INNER JOIN projects AS p WHERE p.name = ? ORDER BY c.timestamp DESC LIMIT 1", projectName)
+	fmt.Println("test3")
 	if row.Err() != nil {
+		fmt.Println("test2")
 		return 0, time.Time{}, row.Err()
 	}
 
 	var id uint64
 	var timestamp time.Time
 	err := row.Scan(&id, &timestamp)
+	if errors.Is(sql.ErrNoRows, err) {
+		return 0, time.Time{}, nil
+	}
 	return id, timestamp, err
 }
 
@@ -80,8 +87,13 @@ func ListProjects(db *sql.DB) ([]Project, error) {
 	return data, err
 }
 
-func AddChangeData(tx *sql.Tx, changeId uint64, path string, changeLocation changestore.ChangeLocation) (uint64, error) {
-	res, err := tx.Exec("INSERT INTO change_data(change_id, path, offset, length) VALUES(?, ?, ?, ?)", changeId, path, changeLocation.Offset, changeLocation.Length)
+func AddChangeLocationList(db *sql.DB, data *jamsyncpb.ChangeLocationList) (uint64, error) {
+	locationListData, err := proto.Marshal(data)
+	if err != nil {
+		return 0, err
+	}
+
+	res, err := db.Exec("INSERT INTO change_data(change_id, pathHash, locationList) VALUES(?, ?, ?)", data.ChangeId, data.PathHash, locationListData)
 	if err != nil {
 		return 0, err
 	}
@@ -94,12 +106,12 @@ func AddChangeData(tx *sql.Tx, changeId uint64, path string, changeLocation chan
 	return uint64(id), nil
 }
 
-func AddChange(tx *sql.Tx, projectName string) (uint64, error) {
-	changeId, _, err := GetCurrentChange(tx, projectName)
+func AddChange(db *sql.DB, projectName string) (uint64, error) {
+	changeId, _, err := GetCurrentChange(db, projectName)
 	if !errors.Is(sql.ErrNoRows, err) && err != nil {
 		return 0, err
 	}
-	res, err := tx.Exec("INSERT INTO changes(id, project_id) SELECT ?, rowid FROM projects WHERE name = ?", changeId+1, projectName)
+	res, err := db.Exec("INSERT INTO changes(id, project_id) SELECT ?, rowid FROM projects WHERE name = ?", changeId+1, projectName)
 	if err != nil {
 		return 0, err
 	}
@@ -112,8 +124,8 @@ func AddChange(tx *sql.Tx, projectName string) (uint64, error) {
 	return uint64(id), nil
 }
 
-func ListChangeDataLocations(db *sql.DB, projectName string, path string, timestamp time.Time) ([]changestore.ChangeLocation, error) {
-	rows, err := db.Query("SELECT offset, length FROM change_data INNER JOIN projects AS p INNER JOIN changes AS c WHERE p.name = ? AND p.rowid = c.project_id AND change_id = c.rowid AND path = ? AND c.timestamp < ?", projectName, path, timestamp)
+func ChangeLocationLists(db *sql.DB, projectName string, pathHash string, timestamp time.Time) ([]*jamsyncpb.ChangeLocationList, error) {
+	rows, err := db.Query("SELECT locationList FROM change_data INNER JOIN projects AS p INNER JOIN changes AS c WHERE p.name = ? AND p.rowid = c.project_id AND change_id = c.rowid AND pathHash = ? AND c.timestamp < ?", projectName, pathHash, timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -122,23 +134,26 @@ func ListChangeDataLocations(db *sql.DB, projectName string, path string, timest
 	}
 	defer rows.Close()
 
-	changeDatas := make([]changestore.ChangeLocation, 0)
+	changeLocationLists := make([]*jamsyncpb.ChangeLocationList, 0)
 	for rows.Next() {
 		if rows.Err() != nil {
 			return nil, rows.Err()
 		}
-		var offset uint64
-		var length uint64
-		err = rows.Scan(&offset, &length)
+
+		var changeLocationListData []byte
+		err = rows.Scan(&changeLocationListData)
 		if err != nil {
 			return nil, err
 		}
-		changeDatas = append(changeDatas, changestore.ChangeLocation{
-			Offset: offset,
-			Length: length,
-		})
+
+		var changeLocationList *jamsyncpb.ChangeLocationList
+		err := proto.Unmarshal(changeLocationListData, changeLocationList)
+		if err != nil {
+			return nil, err
+		}
+		changeLocationLists = append(changeLocationLists, changeLocationList)
 	}
-	return changeDatas, nil
+	return changeLocationLists, nil
 }
 
 func CreateUser(db *sql.DB, username string) (uint64, error) {

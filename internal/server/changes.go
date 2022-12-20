@@ -12,52 +12,69 @@ import (
 
 func (s JamsyncServer) GetCurrentChange(ctx context.Context, in *jamsyncpb.GetCurrentChangeRequest) (*jamsyncpb.GetCurrentChangeResponse, error) {
 	log.Println("GetCurrentChange", in.GetProjectName())
-	tx, err := s.db.BeginTx(ctx, nil)
+	changeId, timestamp, err := db.GetCurrentChange(s.db, in.GetProjectName())
 	if err != nil {
 		return nil, err
 	}
-	changeId, timestamp, err := db.GetCurrentChange(tx, in.GetProjectName())
-	if err != nil {
-		return nil, err
-	}
-	return &jamsyncpb.GetCurrentChangeResponse{ChangeId: changeId, Timestamp: timestamppb.New(timestamp)}, tx.Commit()
+	return &jamsyncpb.GetCurrentChangeResponse{ChangeId: changeId, Timestamp: timestamppb.New(timestamp)}, nil
 }
 
-func (s JamsyncServer) ApplyOperations(stream jamsyncpb.JamsyncAPI_ApplyOperationsServer) error {
-	log.Println("ApplyOperations")
+func (s JamsyncServer) CreateChange(ctx context.Context, in *jamsyncpb.CreateChangeRequest) (*jamsyncpb.CreateChangeResponse, error) {
+	projectId, err := db.GetProjectId(s.db, in.GetProjectName())
+	if err != nil {
+		return nil, err
+	}
+	changeId, err := db.AddChange(s.db, in.GetProjectName())
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.storeClient.CreateChangeDir(ctx, &jamsyncpb.CreateChangeDirRequest{
+		ProjectId: projectId,
+		ChangeId:  changeId,
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	tx, err := s.db.Begin()
+	return &jamsyncpb.CreateChangeResponse{
+		ProjectId: projectId,
+		ChangeId:  changeId,
+	}, nil
+}
+
+func (s JamsyncServer) StreamChange(srv jamsyncpb.JamsyncAPI_StreamChangeServer) error {
+	opStream, err := s.storeClient.StreamChange(context.TODO())
 	if err != nil {
 		return err
 	}
-	var changeId uint64
-	for {
-		in, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		// TODO: find a better way to initialize this
-		if changeId == 0 {
-			changeId, err = db.AddChange(tx, in.GetProjectName())
+	go func() {
+		for {
+			op, err := srv.Recv()
+			if err == io.EOF {
+				return
+			}
 			if err != nil {
-				return err
+				log.Fatalf("Failed to receive a note : %v", err)
+			}
+			err = opStream.Send(op)
+			if err != nil {
+				log.Fatal("could not send data")
 			}
 		}
+	}()
 
-		changeLocation, err := s.store.WriteChangeData(in.GetProjectName(), in.GetPath(), &jamsyncpb.ChangeData{
-			Ops: in.GetOperations(),
-		})
+	for {
+		in, err := opStream.Recv()
+		if err == io.EOF {
+			return err
+		}
 		if err != nil {
 			return err
 		}
 
-		_, err = db.AddChangeData(tx, changeId, in.GetPath(), changeLocation)
+		_, err = db.AddChangeLocationList(s.db, in)
 		if err != nil {
 			return err
 		}
 	}
-	return tx.Commit()
 }

@@ -29,14 +29,14 @@ type JamsyncServer struct {
 
 func NewServer(db *sql.DB) JamsyncServer {
 	server := JamsyncServer{
-		db: db,
+		db: db,fdsa
 	}
 
-	return server
+	return serverafsd
 }
-
-func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectRequest) (*jamsyncpb.AddProjectResponse, error) {
-	log.Println("AddProject", len(in.ExistingFiles.Files))
+fds
+func (s JamsyncServer) AddProject(ctx context.Cfdsontext, in *jamsyncpb.AddProjectRequest) (*jamsyncpb.AddProjectResponse, error) {
+	log.Println("AddProjet", len(in.ExistingFiles.Files))
 
 	// TODO: Wrap all this in a transaction
 	projectId, err := db.AddProject(s.db, in.GetProjectName())

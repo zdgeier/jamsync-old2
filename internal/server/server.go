@@ -4,18 +4,18 @@ import (
 	"database/sql"
 
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
-	"github.com/zdgeier/jamsync/internal/changestore"
 )
 
 type JamsyncServer struct {
 	db *sql.DB
-	jamsyncpb.UnimplementedJamsyncAPIServer
-	store changestore.ChangeStore
+	jamsyncpb.JamsyncAPIServer
+	storeClient jamsyncpb.JamsyncStoreClient
 }
 
-func NewServer(db *sql.DB) JamsyncServer {
+func NewServer(db *sql.DB, storeClient jamsyncpb.JamsyncStoreClient) JamsyncServer {
 	server := JamsyncServer{
-		db: db,
+		db:          db,
+		storeClient: storeClient,
 	}
 
 	return server

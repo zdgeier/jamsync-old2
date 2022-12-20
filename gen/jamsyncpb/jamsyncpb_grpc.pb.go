@@ -23,10 +23,10 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type JamsyncAPIClient interface {
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*GetFileResponse, error)
-	GetFileList(ctx context.Context, in *GetFileListRequest, opts ...grpc.CallOption) (*GetFileListResponse, error)
 	GetCurrentChange(ctx context.Context, in *GetCurrentChangeRequest, opts ...grpc.CallOption) (*GetCurrentChangeResponse, error)
 	GetFileHashBlocks(ctx context.Context, in *GetFileBlockHashesRequest, opts ...grpc.CallOption) (JamsyncAPI_GetFileHashBlocksClient, error)
-	ApplyOperations(ctx context.Context, opts ...grpc.CallOption) (JamsyncAPI_ApplyOperationsClient, error)
+	CreateChange(ctx context.Context, in *CreateChangeRequest, opts ...grpc.CallOption) (*CreateChangeResponse, error)
+	StreamChange(ctx context.Context, opts ...grpc.CallOption) (JamsyncAPI_StreamChangeClient, error)
 	AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error)
 	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
 	BrowseProject(ctx context.Context, in *BrowseProjectRequest, opts ...grpc.CallOption) (*BrowseProjectResponse, error)
@@ -45,15 +45,6 @@ func NewJamsyncAPIClient(cc grpc.ClientConnInterface) JamsyncAPIClient {
 func (c *jamsyncAPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*GetFileResponse, error) {
 	out := new(GetFileResponse)
 	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/GetFile", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *jamsyncAPIClient) GetFileList(ctx context.Context, in *GetFileListRequest, opts ...grpc.CallOption) (*GetFileListResponse, error) {
-	out := new(GetFileListResponse)
-	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/GetFileList", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -101,34 +92,43 @@ func (x *jamsyncAPIGetFileHashBlocksClient) Recv() (*GetFileBlockHashesResponse,
 	return m, nil
 }
 
-func (c *jamsyncAPIClient) ApplyOperations(ctx context.Context, opts ...grpc.CallOption) (JamsyncAPI_ApplyOperationsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &JamsyncAPI_ServiceDesc.Streams[1], "/jamsyncpb.JamsyncAPI/ApplyOperations", opts...)
+func (c *jamsyncAPIClient) CreateChange(ctx context.Context, in *CreateChangeRequest, opts ...grpc.CallOption) (*CreateChangeResponse, error) {
+	out := new(CreateChangeResponse)
+	err := c.cc.Invoke(ctx, "/jamsyncpb.JamsyncAPI/CreateChange", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &jamsyncAPIApplyOperationsClient{stream}
+	return out, nil
+}
+
+func (c *jamsyncAPIClient) StreamChange(ctx context.Context, opts ...grpc.CallOption) (JamsyncAPI_StreamChangeClient, error) {
+	stream, err := c.cc.NewStream(ctx, &JamsyncAPI_ServiceDesc.Streams[1], "/jamsyncpb.JamsyncAPI/StreamChange", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &jamsyncAPIStreamChangeClient{stream}
 	return x, nil
 }
 
-type JamsyncAPI_ApplyOperationsClient interface {
-	Send(*ApplyOperationsRequest) error
-	CloseAndRecv() (*ApplyOperationsResponse, error)
+type JamsyncAPI_StreamChangeClient interface {
+	Send(*ChangeOperation) error
+	CloseAndRecv() (*ChangeOperationResponse, error)
 	grpc.ClientStream
 }
 
-type jamsyncAPIApplyOperationsClient struct {
+type jamsyncAPIStreamChangeClient struct {
 	grpc.ClientStream
 }
 
-func (x *jamsyncAPIApplyOperationsClient) Send(m *ApplyOperationsRequest) error {
+func (x *jamsyncAPIStreamChangeClient) Send(m *ChangeOperation) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *jamsyncAPIApplyOperationsClient) CloseAndRecv() (*ApplyOperationsResponse, error) {
+func (x *jamsyncAPIStreamChangeClient) CloseAndRecv() (*ChangeOperationResponse, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
-	m := new(ApplyOperationsResponse)
+	m := new(ChangeOperationResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -185,10 +185,10 @@ func (c *jamsyncAPIClient) CreateUser(ctx context.Context, in *CreateUserRequest
 // for forward compatibility
 type JamsyncAPIServer interface {
 	GetFile(context.Context, *GetFileRequest) (*GetFileResponse, error)
-	GetFileList(context.Context, *GetFileListRequest) (*GetFileListResponse, error)
 	GetCurrentChange(context.Context, *GetCurrentChangeRequest) (*GetCurrentChangeResponse, error)
 	GetFileHashBlocks(*GetFileBlockHashesRequest, JamsyncAPI_GetFileHashBlocksServer) error
-	ApplyOperations(JamsyncAPI_ApplyOperationsServer) error
+	CreateChange(context.Context, *CreateChangeRequest) (*CreateChangeResponse, error)
+	StreamChange(JamsyncAPI_StreamChangeServer) error
 	AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error)
 	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
 	BrowseProject(context.Context, *BrowseProjectRequest) (*BrowseProjectResponse, error)
@@ -204,17 +204,17 @@ type UnimplementedJamsyncAPIServer struct {
 func (UnimplementedJamsyncAPIServer) GetFile(context.Context, *GetFileRequest) (*GetFileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetFile not implemented")
 }
-func (UnimplementedJamsyncAPIServer) GetFileList(context.Context, *GetFileListRequest) (*GetFileListResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetFileList not implemented")
-}
 func (UnimplementedJamsyncAPIServer) GetCurrentChange(context.Context, *GetCurrentChangeRequest) (*GetCurrentChangeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCurrentChange not implemented")
 }
 func (UnimplementedJamsyncAPIServer) GetFileHashBlocks(*GetFileBlockHashesRequest, JamsyncAPI_GetFileHashBlocksServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetFileHashBlocks not implemented")
 }
-func (UnimplementedJamsyncAPIServer) ApplyOperations(JamsyncAPI_ApplyOperationsServer) error {
-	return status.Errorf(codes.Unimplemented, "method ApplyOperations not implemented")
+func (UnimplementedJamsyncAPIServer) CreateChange(context.Context, *CreateChangeRequest) (*CreateChangeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateChange not implemented")
+}
+func (UnimplementedJamsyncAPIServer) StreamChange(JamsyncAPI_StreamChangeServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamChange not implemented")
 }
 func (UnimplementedJamsyncAPIServer) AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddProject not implemented")
@@ -262,24 +262,6 @@ func _JamsyncAPI_GetFile_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _JamsyncAPI_GetFileList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetFileListRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(JamsyncAPIServer).GetFileList(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/jamsyncpb.JamsyncAPI/GetFileList",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(JamsyncAPIServer).GetFileList(ctx, req.(*GetFileListRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _JamsyncAPI_GetCurrentChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetCurrentChangeRequest)
 	if err := dec(in); err != nil {
@@ -319,26 +301,44 @@ func (x *jamsyncAPIGetFileHashBlocksServer) Send(m *GetFileBlockHashesResponse) 
 	return x.ServerStream.SendMsg(m)
 }
 
-func _JamsyncAPI_ApplyOperations_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(JamsyncAPIServer).ApplyOperations(&jamsyncAPIApplyOperationsServer{stream})
+func _JamsyncAPI_CreateChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateChangeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JamsyncAPIServer).CreateChange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/jamsyncpb.JamsyncAPI/CreateChange",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JamsyncAPIServer).CreateChange(ctx, req.(*CreateChangeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type JamsyncAPI_ApplyOperationsServer interface {
-	SendAndClose(*ApplyOperationsResponse) error
-	Recv() (*ApplyOperationsRequest, error)
+func _JamsyncAPI_StreamChange_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(JamsyncAPIServer).StreamChange(&jamsyncAPIStreamChangeServer{stream})
+}
+
+type JamsyncAPI_StreamChangeServer interface {
+	SendAndClose(*ChangeOperationResponse) error
+	Recv() (*ChangeOperation, error)
 	grpc.ServerStream
 }
 
-type jamsyncAPIApplyOperationsServer struct {
+type jamsyncAPIStreamChangeServer struct {
 	grpc.ServerStream
 }
 
-func (x *jamsyncAPIApplyOperationsServer) SendAndClose(m *ApplyOperationsResponse) error {
+func (x *jamsyncAPIStreamChangeServer) SendAndClose(m *ChangeOperationResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *jamsyncAPIApplyOperationsServer) Recv() (*ApplyOperationsRequest, error) {
-	m := new(ApplyOperationsRequest)
+func (x *jamsyncAPIStreamChangeServer) Recv() (*ChangeOperation, error) {
+	m := new(ChangeOperation)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -447,12 +447,12 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _JamsyncAPI_GetFile_Handler,
 		},
 		{
-			MethodName: "GetFileList",
-			Handler:    _JamsyncAPI_GetFileList_Handler,
-		},
-		{
 			MethodName: "GetCurrentChange",
 			Handler:    _JamsyncAPI_GetCurrentChange_Handler,
+		},
+		{
+			MethodName: "CreateChange",
+			Handler:    _JamsyncAPI_CreateChange_Handler,
 		},
 		{
 			MethodName: "AddProject",
@@ -482,8 +482,8 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 		{
-			StreamName:    "ApplyOperations",
-			Handler:       _JamsyncAPI_ApplyOperations_Handler,
+			StreamName:    "StreamChange",
+			Handler:       _JamsyncAPI_StreamChange_Handler,
 			ClientStreams: true,
 		},
 	},

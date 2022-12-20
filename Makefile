@@ -22,6 +22,12 @@ client:
 buildclient:
 	go build -o build/jam cmd/client/main.go cmd/client/config.go
 
+store:
+	go run cmd/store/main.go
+
+buildstore:
+	go build -o build/jamstore cmd/store/main.go 
+
 build: buildserver buildclient buildweb
 
 test:

@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func GetJamsyncFileInfo(client jamsyncpb.JamsyncAPIClient) (string, int, time.Time, error) {
@@ -108,15 +110,23 @@ func initializeJamsyncFile(client jamsyncpb.JamsyncAPIClient) error {
 }
 
 func downloadExistingProject(client jamsyncpb.JamsyncAPIClient, projectName string) error {
-	resp, err := client.GetFileList(context.TODO(), &jamsyncpb.GetFileListRequest{
+	resp, err := client.GetFile(context.Background(), &jamsyncpb.GetFileRequest{
 		ProjectName: projectName,
+		Path:        ".jamsyncfilelist",
+		Timestamp:   timestamppb.Now(),
 	})
 	if err != nil {
 		return err
 	}
 
+	var fileList *jamsyncpb.FileList
+	err = proto.Unmarshal(resp.GetData(), fileList)
+	if err != nil {
+		return err
+	}
+
 	log.Println("Creating directories...")
-	for _, file := range resp.Files {
+	for _, file := range fileList.Files {
 		if file.Dir {
 			err = os.MkdirAll(file.GetPath(), os.ModePerm)
 			if err != nil {
@@ -126,7 +136,7 @@ func downloadExistingProject(client jamsyncpb.JamsyncAPIClient, projectName stri
 	}
 
 	log.Println("Downloading files...")
-	for _, file := range resp.Files {
+	for _, file := range fileList.Files {
 		if !file.Dir {
 			log.Println("Downloading " + file.GetPath())
 			resp, err := client.GetFile(context.TODO(), &jamsyncpb.GetFileRequest{
@@ -184,12 +194,8 @@ func uploadNewProject(client jamsyncpb.JamsyncAPIClient, projectName string) err
 	}
 
 	log.Println("Adding project...")
-	addProjResp, err := client.AddProject(context.Background(), &jamsyncpb.AddProjectRequest{
+	_, err := client.AddProject(context.Background(), &jamsyncpb.AddProjectRequest{
 		ProjectName: projectName,
-		ExistingFiles: &jamsyncpb.GetFileListResponse{
-			Files: existingFiles,
-		},
-		ExistingData: existingData,
 	})
 	if err != nil {
 		return err
@@ -203,7 +209,7 @@ func uploadNewProject(client jamsyncpb.JamsyncAPIClient, projectName string) err
 	}
 
 	log.Println("Done adding project.")
-	return createJamsyncFile(projectName, addProjResp.ChangeId, addProjResp.Timestamp.AsTime())
+	return createJamsyncFile(projectName, 0, time.Now())
 }
 
 func createJamsyncFile(projectName string, changeId uint64, timestamp time.Time) error {

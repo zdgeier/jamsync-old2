@@ -2,89 +2,23 @@ package server
 
 import (
 	"context"
-	"io"
 	"log"
 	"path/filepath"
-	"time"
 
 	"github.com/zdgeier/jamsync/gen/jamsyncpb"
-	"github.com/zdgeier/jamsync/internal/changestore"
 	"github.com/zdgeier/jamsync/internal/db"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (s JamsyncServer) AddProject(ctx context.Context, in *jamsyncpb.AddProjectRequest) (resp *jamsyncpb.AddProjectResponse, err error) {
-	log.Println("AddProject", len(in.ExistingFiles.Files))
+	log.Println("AddProject")
 
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = tx.Rollback()
-	}()
-
-	_, err = db.AddProject(tx, in.GetProjectName())
-	if err != nil {
-		return nil, err
-	}
-	changeId, err := db.AddChange(tx, in.GetProjectName())
+	_, err = db.AddProject(s.db, in.GetProjectName())
 	if err != nil {
 		return nil, err
 	}
 
-	type metadata struct {
-		changeLocation changestore.ChangeLocation
-		file           *jamsyncpb.File
-	}
-	writeFiles := func() ([]metadata, error) {
-		g := new(errgroup.Group)
-
-		res := make([]metadata, 0, len(in.GetExistingFiles().Files))
-		for i, file := range in.GetExistingFiles().Files {
-			fileRef := file
-			dataIndex := i
-			g.Go(func() error {
-				if !fileRef.Dir {
-					changeLocation, err := s.store.WriteFile(in.GetProjectName(), fileRef.GetPath(), in.GetExistingData()[dataIndex])
-					if err != nil {
-						return err
-					}
-					res = append(res, metadata{changeLocation, fileRef})
-				}
-				return nil
-			})
-		}
-		if err := g.Wait(); err != nil {
-			return nil, err
-		}
-		return res, nil
-	}
-
-	fileWriteMetadata, err := writeFiles()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, m := range fileWriteMetadata {
-		_, err = db.AddChangeData(tx, changeId, m.file.Path, m.changeLocation.Offset, m.changeLocation.Length)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	changeId, timestamp, err := db.GetCurrentChange(tx, in.GetProjectName())
-	if err != nil {
-		return nil, err
-	}
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
-	}
-
-	return &jamsyncpb.AddProjectResponse{ChangeId: changeId, Timestamp: timestamppb.New(timestamp)}, nil
+	return &jamsyncpb.AddProjectResponse{}, nil
 }
 
 func (s JamsyncServer) ListProjects(ctx context.Context, in *jamsyncpb.ListProjectsRequest) (*jamsyncpb.ListProjectsResponse, error) {
@@ -103,18 +37,16 @@ func (s JamsyncServer) ListProjects(ctx context.Context, in *jamsyncpb.ListProje
 
 func (s JamsyncServer) BrowseProject(ctx context.Context, in *jamsyncpb.BrowseProjectRequest) (*jamsyncpb.BrowseProjectResponse, error) {
 	log.Println("BrowseProject", in.String())
-	targetBuffer, err := s.regenFile(in.GetProjectName(), "jamsyncfilelist", time.Now())
+	resp, err := s.GetFile(ctx, &jamsyncpb.GetFileRequest{
+		ProjectName: in.ProjectName,
+		Path:        ".jamsyncfilelist",
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := io.ReadAll(targetBuffer)
-	if err != nil {
-		return nil, err
-	}
-
-	files := &jamsyncpb.GetFileListResponse{}
-	err = proto.Unmarshal(data, files)
+	files := &jamsyncpb.FileList{}
+	err = proto.Unmarshal(resp.GetData(), files)
 	if err != nil {
 		return nil, err
 	}
