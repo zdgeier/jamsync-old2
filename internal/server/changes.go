@@ -79,6 +79,7 @@ func (s JamsyncServer) StreamChange(srv jamsyncpb.JamsyncAPI_StreamChangeServer)
 		if err != nil {
 			return err
 		}
+		fmt.Println("OP", op)
 		err = opStream.Send(op)
 		if err != nil {
 			return err

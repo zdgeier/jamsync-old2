@@ -213,8 +213,8 @@ func uploadLocalChanges(client jamsyncpb.JamsyncAPIClient, projectName string) e
 			}
 
 			err = stream.Send(&jamsyncpb.ChangeOperation{
-				ProjectId: changeRequest.ProjectId,
-				ChangeId:  changeRequest.ChangeId,
+				ProjectId: changeRequest.GetProjectId(),
+				ChangeId:  changeRequest.GetChangeId(),
 				PathHash:  pathToHash(path),
 				Op: &jamsyncpb.Operation{
 					Type:          opPbType,

@@ -111,8 +111,12 @@ func AddChange(db *sql.DB, projectName string) (uint64, error) {
 	if !errors.Is(sql.ErrNoRows, err) && err != nil {
 		return 0, err
 	}
+	projectId, err := GetProjectId(db, projectName)
+	if err != nil {
+		return 0, err
+	}
 	newId := changeId + 1
-	_, err = db.Exec("INSERT INTO changes(id, project_id) SELECT ?, rowid FROM projects WHERE name = ?", newId, projectName)
+	_, err = db.Exec("INSERT INTO changes(id, project_id) VALUES(?, ?)", newId, projectId)
 	if err != nil {
 		return 0, err
 	}
@@ -121,6 +125,7 @@ func AddChange(db *sql.DB, projectName string) (uint64, error) {
 }
 
 func ChangeLocationLists(db *sql.DB, projectName string, pathHash uint64, timestamp time.Time) ([]*jamsyncpb.ChangeLocationList, error) {
+	fmt.Println(projectName, pathHash, timestamp)
 	rows, err := db.Query("SELECT locationList FROM change_data INNER JOIN projects AS p INNER JOIN changes AS c WHERE p.name = ? AND p.rowid = c.project_id AND change_id = c.id AND pathHash = ? AND c.timestamp < ?", projectName, pathHash, timestamp)
 	if err != nil {
 		return nil, err
@@ -147,6 +152,7 @@ func ChangeLocationLists(db *sql.DB, projectName string, pathHash uint64, timest
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("GOT", changeLocationList)
 		changeLocationLists = append(changeLocationLists, &changeLocationList)
 	}
 	return changeLocationLists, nil

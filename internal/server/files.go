@@ -42,23 +42,17 @@ func (s JamsyncServer) regenFile(ctx context.Context, projectName string, pathHa
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(pathHash)
-
-	dataClient, err := s.storeClient.ReadChangeData(ctx)
-	if err != nil {
-		return nil, err
-	}
+	fmt.Println(pathHash, changeLocationLists)
 
 	rs := rsync.RSync{UniqueHasher: xxhash.New()}
 	targetBuffer := bytes.NewReader([]byte{})
 	result := new(bytes.Buffer)
+
 	for _, changeLocationList := range changeLocationLists {
-		fmt.Println("sendlist", changeLocationList)
-		err := dataClient.Send(changeLocationList)
+		dataClient, err := s.storeClient.ReadChangeData(ctx, changeLocationList)
 		if err != nil {
 			return nil, err
 		}
-
 		ops := make(chan rsync.Operation)
 		go func() {
 			for {
@@ -71,6 +65,7 @@ func (s JamsyncServer) regenFile(ctx context.Context, projectName string, pathHa
 				if err != nil {
 					log.Panic(err)
 				}
+				fmt.Println("sendlist1", in)
 
 				ops <- pbOperationToRsync(in)
 			}

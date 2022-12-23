@@ -8,8 +8,11 @@ service JamsyncAPI {
     rpc GetFile(GetFileRequest) returns (GetFileResponse);
     rpc GetCurrentChange(GetCurrentChangeRequest) returns (GetCurrentChangeResponse);
     rpc GetFileHashBlocks(GetFileBlockHashesRequest) returns (stream GetFileBlockHashesResponse);
+
     rpc CreateChange(CreateChangeRequest) returns (CreateChangeResponse);
     rpc StreamChange(stream ChangeOperation) returns (ChangeOperationResponse);
+    rpc CommitChange(CommitChangeRequest) returns (CommitChangeResponse);
+    rpc ReadChangeData(ChangeLocationList) returns (stream jamsyncpb.Operation);
 
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
@@ -17,6 +20,30 @@ service JamsyncAPI {
 
     rpc UserInfo(UserInfoRequest) returns (UserInfoResponse);
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+}
+
+
+message ChangeLocation {
+    uint64 offset = 1;
+    uint64 length = 2;
+}
+
+message CreateChangeDirRequest {
+    uint64 project_id = 1;
+    uint64 change_id = 2;
+}
+message CreateChangeDirResponse {}
+
+message CommitChangeRequest {
+    uint64 change_id = 1;
+}
+message CommitChangeResponse {}
+
+message ChangeLocationList {
+    uint64 project_id = 1;
+    uint64 change_id = 2;
+    uint64 path_hash = 3;
+    repeated ChangeLocation change_locations = 4;
 }
 
 message CreateChangeRequest {

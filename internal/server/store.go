@@ -1,4 +1,4 @@
-package store
+package server
 
 import (
 	"context"
@@ -39,48 +39,38 @@ func filePath(projectId uint64, changeId uint64, pathHash uint64) string {
 	return fmt.Sprintf("%s/%d.jb", changeDirectory(projectId, changeId), pathHash)
 }
 
-func (s JamsyncStore) ReadChangeData(srv jamsyncpb.JamsyncStore_ReadChangeDataServer) error {
-	currPathHash := uint64(0)
-	currFile := new(os.File)
-	for {
-		in, err := srv.Recv()
-		if err == io.EOF {
-			break
-		}
+func (s JamsyncStore) ReadChangeData(in *jamsyncpb.ChangeLocationList, srv jamsyncpb.JamsyncStore_ReadChangeDataServer) error {
+	currFile, err := os.OpenFile(filePath(in.ProjectId, in.ChangeId, in.PathHash), os.O_RDONLY, 0644)
+	if err != nil {
+		fmt.Println("DOn5")
+		return err
+	}
+
+	for _, loc := range in.ChangeLocations {
+		fmt.Println("reading", loc.Offset, loc.Length)
+		b := make([]byte, loc.Length)
+		_, err = currFile.ReadAt(b, int64(loc.Offset))
 		if err != nil {
+			fmt.Println("DOn4")
+			fmt.Println(err)
 			return err
 		}
 
-		if in.GetPathHash() != currPathHash {
-			fmt.Println("openning", filePath(in.ProjectId, in.ChangeId, in.PathHash))
-			f, err := os.OpenFile(filePath(in.ProjectId, in.ChangeId, in.PathHash), os.O_RDONLY, 0644)
-			if err != nil {
-				return err
-			}
-			currFile = f
+		op := new(jamsyncpb.Operation)
+		fmt.Println(b)
+		err = proto.Unmarshal(b, op)
+		if err != nil {
+			fmt.Println("DOn3")
+			return err
 		}
 
-		for _, loc := range in.ChangeLocations {
-			fmt.Println("reading", loc.Offset, loc.Length)
-			b := make([]byte, loc.Length)
-			_, err = currFile.ReadAt(b, int64(loc.Offset))
-			if err != nil {
-				return err
-			}
-
-			op := new(jamsyncpb.Operation)
-			fmt.Println(b)
-			err = proto.Unmarshal(b, op)
-			if err != nil {
-				return err
-			}
-
-			err = srv.Send(op)
-			if err != nil {
-				return err
-			}
+		err = srv.Send(op)
+		if err != nil {
+			fmt.Println("DOn2")
+			return err
 		}
 	}
+
 	return nil
 }
 func (s JamsyncStore) CreateChangeDir(ctx context.Context, in *jamsyncpb.CreateChangeDirRequest) (*jamsyncpb.CreateChangeDirResponse, error) {
@@ -94,6 +84,8 @@ func (s JamsyncStore) CreateChangeDir(ctx context.Context, in *jamsyncpb.CreateC
 }
 func (s JamsyncStore) StreamChange(srv jamsyncpb.JamsyncStore_StreamChangeServer) error {
 	log.Println("StoreStream")
+	currChangeId := uint64(0)
+	currProjectId := uint64(0)
 	currPathHash := uint64(0)
 	currOffset := uint64(0)
 	currLength := uint64(0)
@@ -102,9 +94,10 @@ func (s JamsyncStore) StreamChange(srv jamsyncpb.JamsyncStore_StreamChangeServer
 	for {
 		in, err := srv.Recv()
 		if err == io.EOF {
+			fmt.Println("STORE", changeLocations)
 			err := srv.Send(&jamsyncpb.ChangeLocationList{
-				ChangeId:        in.GetChangeId(),
-				ProjectId:       in.GetProjectId(),
+				ChangeId:        currChangeId,
+				ProjectId:       currProjectId,
 				ChangeLocations: changeLocations,
 				PathHash:        currPathHash,
 			})
@@ -120,9 +113,10 @@ func (s JamsyncStore) StreamChange(srv jamsyncpb.JamsyncStore_StreamChangeServer
 		if in.GetPathHash() != currPathHash {
 			if currPathHash != 0 {
 				// We've completed a path hash writting
+				fmt.Println("STORE0", changeLocations)
 				err := srv.Send(&jamsyncpb.ChangeLocationList{
-					ChangeId:        in.ChangeId,
-					ProjectId:       in.ProjectId,
+					ChangeId:        currChangeId,
+					ProjectId:       currProjectId,
 					ChangeLocations: changeLocations,
 					PathHash:        currPathHash,
 				})
@@ -144,6 +138,9 @@ func (s JamsyncStore) StreamChange(srv jamsyncpb.JamsyncStore_StreamChangeServer
 			currOffset = uint64(info.Size())
 			currLength = 0
 			currPathHash = in.GetPathHash()
+			currChangeId = in.GetChangeId()
+			currProjectId = in.GetProjectId()
+			changeLocations = make([]*jamsyncpb.ChangeLocation, 0)
 		}
 
 		opBytes, err := proto.Marshal(in.Op)
