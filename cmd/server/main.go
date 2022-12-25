@@ -9,16 +9,15 @@ import (
 	"net"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/zdgeier/jamsync/gen/jamsyncpb"
+	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/db"
 	"github.com/zdgeier/jamsync/internal/server"
+	"github.com/zdgeier/jamsync/internal/store"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 )
 
 var port = flag.Int("port", 14357, "port to start the grpc server")
-var storeAddr = flag.String("storeAddr", "localhost:14358", "address of the store grpc server")
 
 func main() {
 	// err := syscall.Chroot(".")
@@ -44,17 +43,9 @@ func main() {
 	grpcServer := grpc.NewServer(opts...)
 	reflection.Register(grpcServer)
 
-	// TODO: secure
-	conn, err := grpc.Dial(*storeAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Panicf("could not connect to jamsync server: %s", err)
-	}
-	defer conn.Close()
+	jamsyncServer := server.NewServer(localDB, store.NewMemoryStore())
 
-	storeClient := jamsyncpb.NewJamsyncStoreClient(conn)
-	jamsyncServer := server.NewServer(localDB, storeClient)
-
-	jamsyncpb.RegisterJamsyncAPIServer(grpcServer, jamsyncServer)
+	pb.RegisterJamsyncAPIServer(grpcServer, jamsyncServer)
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		log.Panic("stopping", err)

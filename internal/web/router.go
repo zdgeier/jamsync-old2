@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/zdgeier/jamsync/gen/jamsyncpb"
+	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/web/api"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 	"github.com/zdgeier/jamsync/internal/web/callback"
@@ -77,7 +77,7 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	if err != nil {
 		log.Panicf("could not connect to jamsync server: %s", err)
 	}
-	client := jamsyncpb.NewJamsyncAPIClient(conn)
+	client := pb.NewJamsyncAPIClient(conn)
 
 	router.GET("/login", login.Handler(auth))
 	router.GET("/callback", callback.Handler(auth, client))

@@ -7,12 +7,12 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/zdgeier/jamsync/gen/jamsyncpb"
+	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 )
 
 // Handler for our callback.
-func Handler(auth *authenticator.Authenticator, client jamsyncpb.JamsyncAPIClient) gin.HandlerFunc {
+func Handler(auth *authenticator.Authenticator, client pb.JamsyncAPIClient) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		if ctx.Query("state") != session.Get("state") {
@@ -46,7 +46,7 @@ func Handler(auth *authenticator.Authenticator, client jamsyncpb.JamsyncAPIClien
 			return
 		}
 
-		_, err = client.CreateUser(ctx, &jamsyncpb.CreateUserRequest{Username: profile["email"].(string)})
+		_, err = client.CreateUser(ctx, &pb.CreateUserRequest{Username: profile["email"].(string)})
 		if err != nil {
 			ctx.String(http.StatusInternalServerError, err.Error())
 			return

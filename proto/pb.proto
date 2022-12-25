@@ -1,18 +1,16 @@
 syntax = "proto3";
-package jamsyncpb;
+package pb;
 
-option go_package = "github.com/zdgeier/jamsync/proto/jamsyncpb";
+option go_package = "github.com/zdgeier/jamsync/proto/pb";
 import "google/protobuf/timestamp.proto";
 
 service JamsyncAPI {
-    rpc GetFile(GetFileRequest) returns (GetFileResponse);
-    rpc GetCurrentChange(GetCurrentChangeRequest) returns (GetCurrentChangeResponse);
-    rpc GetFileHashBlocks(GetFileBlockHashesRequest) returns (stream GetFileBlockHashesResponse);
-
     rpc CreateChange(CreateChangeRequest) returns (CreateChangeResponse);
-    rpc StreamChange(stream ChangeOperation) returns (ChangeOperationResponse);
+    rpc WriteOperationStream(stream Operation) returns (stream OperationLocation);
     rpc CommitChange(CommitChangeRequest) returns (CommitChangeResponse);
-    rpc ReadChangeData(ChangeLocationList) returns (stream jamsyncpb.Operation);
+    rpc ReadOperationStream(stream OperationLocation) returns (stream Operation);
+    rpc ReadBlockHashes(ReadBlockHashesRequest) returns (ReadBlockHashesResponse);
+    rpc ReadFile(ReadFileRequest) returns (stream Operation);
 
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
@@ -22,29 +20,57 @@ service JamsyncAPI {
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
 }
 
-
-message ChangeLocation {
-    uint64 offset = 1;
-    uint64 length = 2;
+message FileMetadataDiff {
+    enum Type {
+        NoOp = 0;
+        Create = 1;
+        Update = 2;
+        Delete = 3; 
+    }
+    message FileDiff {
+        Type type = 1;
+        File file = 2;
+    }
+    map<string, FileDiff> diffs = 1;
 }
 
-message CreateChangeDirRequest {
+message BlockHash {
+    uint64 index = 1;
+    bytes strong_hash = 2;
+    uint32 weak_hash = 3;
+}
+
+message ReadFileRequest {
     uint64 project_id = 1;
     uint64 change_id = 2;
+    uint64 path_hash = 3;
+    google.protobuf.Timestamp mod_time = 4; 
+    repeated BlockHash block_hashes = 5;
 }
-message CreateChangeDirResponse {}
+
+message ReadBlockHashesRequest {
+    uint64 project_id = 1;
+    uint64 change_id = 2;
+    uint64 path_hash = 3;
+    google.protobuf.Timestamp mod_time = 4; 
+}
+
+message ReadBlockHashesResponse {
+    repeated BlockHash block_hashes = 1;
+}
+
+message OperationLocation {
+    uint64 project_id = 1;
+    uint64 change_id = 2;
+    uint64 path_hash = 3;
+    uint64 offset = 4;
+    uint64 length = 5;
+}
 
 message CommitChangeRequest {
     uint64 change_id = 1;
 }
 message CommitChangeResponse {}
-
-message ChangeLocationList {
-    uint64 project_id = 1;
-    uint64 change_id = 2;
-    uint64 path_hash = 3;
-    repeated ChangeLocation change_locations = 4;
-}
 
 message CreateChangeRequest {
     string project_name = 1;
@@ -53,66 +79,39 @@ message CreateChangeResponse {
     uint64 change_id = 1;
     uint64 project_id = 2;
 }
-message ChangeOperationResponse {}
 
-message ChangeOperation {
+message Operation {
     uint64 project_id = 1;
     uint64 change_id = 2;
     uint64 path_hash = 3;
-    jamsyncpb.Operation op = 4;
-}
-
-message Operation {
     enum Type {
         OpBlock = 0;
         OpData = 1;
         OpHash = 2;
         OpBlockRange = 3;
     }
-    Type type = 1;
-    uint64 block_index = 2;
-    uint64 block_index_end = 3;
-    bytes data = 4;
+    Type type = 4;
+    uint64 block_index = 5;
+    uint64 block_index_end = 6;
+    bytes data = 7;
 }
-
-message GetFileBlockHashesRequest {
-    string project_name = 1;
-    FileList fileList = 2;
-    google.protobuf.Timestamp timestamp = 3;
-}
-message GetFileBlockHashesResponse {
-    message BlockHash {
-        uint64 index = 1;
-        bytes strong_hash = 2;
-        uint32 weak_hash = 3;
-    }
-    repeated BlockHash block_hashes = 2;
-    string path = 3;
-}
-
 
 message File {
-    string path = 1;
+    google.protobuf.Timestamp mod_time = 1; 
     bool dir = 2;
+    uint64 hash = 3;
 }
 
-message GetFileRequest {
-    string project_name = 1;
-    string path = 2;
-    google.protobuf.Timestamp timestamp = 3;
-}
-message GetFileResponse {
-    bytes data = 1;
-}
-
-message FileList {
-    repeated File files = 1;
+message FileMetadata {
+    map<string, File> files = 1;
 }
 
 message AddProjectRequest {
     string project_name = 1;
 }
-message AddProjectResponse {}
+message AddProjectResponse {
+    uint64 project_id = 1;
+}
 
 message ListProjectsRequest {}
 message ListProjectsResponse {

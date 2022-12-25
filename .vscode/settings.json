@@ -4,9 +4,9 @@
         "compile_on_save": false,
         "options": [
             "--proto_path=proto",
-            "--go_out=gen/jamsyncpb",
+            "--go_out=gen/pb",
             "--go_opt=paths=source_relative",
-            "--go-grpc_out=gen/jamsyncpb",
+            "--go-grpc_out=gen/pb",
             "--go-grpc_opt=paths=source_relative",
         ]
     }
