@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"log"
 
 	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/pb"
@@ -75,7 +74,7 @@ func UploadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint6
 			opsOut <- &op
 			return nil
 		})
-		log.Printf("Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dB", blockRangeCt, blockCt, dataCt, bytes)
+		//log.Printf("Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dB", blockRangeCt, blockCt, dataCt, bytes)
 		if err != nil {
 			panic(err)
 		}
@@ -85,6 +84,7 @@ func UploadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint6
 	if err != nil {
 		return err
 	}
+	sent := 0
 	for op := range opsOut {
 		var opPbType pb.Operation_Type
 		switch op.Type {
@@ -110,6 +110,19 @@ func UploadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint6
 		if err != nil {
 			return err
 		}
+		sent += 1
+	}
+	// We have to send a tombstone if we have not generated any ops (empty file)
+	if sent == 0 {
+		writeStream.Send(&pb.Operation{
+			ProjectId:     projectId,
+			ChangeId:      changeId,
+			PathHash:      pathToHash(filePath),
+			Type:          pb.Operation_OpData,
+			BlockIndex:    0,
+			BlockIndexEnd: 0,
+			Data:          []byte{},
+		})
 	}
 	_, err = writeStream.CloseAndRecv()
 	return err

@@ -68,8 +68,7 @@ func (s MemoryStore) Write(projectId uint64, changeId uint64, pathHash uint64, d
 	offset = uint64(len(s.files[s.filePath(projectId, changeId, pathHash)]))
 	length = uint64(len(data))
 
-	curr := s.files[s.filePath(projectId, changeId, pathHash)]
-	curr = append(curr[:], data[:]...)
+	curr := append(s.files[s.filePath(projectId, changeId, pathHash)], data[:]...)
 	s.files[s.filePath(projectId, changeId, pathHash)] = curr
 
 	return offset, length, nil

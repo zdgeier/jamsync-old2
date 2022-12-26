@@ -14,12 +14,10 @@ import (
 	"crypto/md5"
 	"hash"
 	"io"
-
-	"github.com/cespare/xxhash"
 )
 
 // If no BlockSize is specified in the RSync instance, this value is used.
-const DefaultBlockSize = 16
+const DefaultBlockSize = 1024 * 6
 const DefaultMaxDataOp = DefaultBlockSize * 10
 
 // Internal constant used in rolling checksum.
@@ -100,8 +98,7 @@ func (r *RSync) CreateSignature(target io.Reader, sw SignatureWriter) error {
 		r.BlockSize = DefaultBlockSize
 	}
 	if r.UniqueHasher == nil {
-		// r.UniqueHasher = md5.New()
-		r.UniqueHasher = xxhash.New()
+		r.UniqueHasher = md5.New()
 	}
 	var err error
 	var n int
