@@ -63,7 +63,7 @@ func (c *jamsyncAPIClient) WriteOperationStream(ctx context.Context, opts ...grp
 
 type JamsyncAPI_WriteOperationStreamClient interface {
 	Send(*Operation) error
-	Recv() (*OperationLocation, error)
+	CloseAndRecv() (*WriteOperationStreamResponse, error)
 	grpc.ClientStream
 }
 
@@ -75,8 +75,11 @@ func (x *jamsyncAPIWriteOperationStreamClient) Send(m *Operation) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *jamsyncAPIWriteOperationStreamClient) Recv() (*OperationLocation, error) {
-	m := new(OperationLocation)
+func (x *jamsyncAPIWriteOperationStreamClient) CloseAndRecv() (*WriteOperationStreamResponse, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(WriteOperationStreamResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -300,7 +303,7 @@ func _JamsyncAPI_WriteOperationStream_Handler(srv interface{}, stream grpc.Serve
 }
 
 type JamsyncAPI_WriteOperationStreamServer interface {
-	Send(*OperationLocation) error
+	SendAndClose(*WriteOperationStreamResponse) error
 	Recv() (*Operation, error)
 	grpc.ServerStream
 }
@@ -309,7 +312,7 @@ type jamsyncAPIWriteOperationStreamServer struct {
 	grpc.ServerStream
 }
 
-func (x *jamsyncAPIWriteOperationStreamServer) Send(m *OperationLocation) error {
+func (x *jamsyncAPIWriteOperationStreamServer) SendAndClose(m *WriteOperationStreamResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -538,7 +541,6 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "WriteOperationStream",
 			Handler:       _JamsyncAPI_WriteOperationStream_Handler,
-			ServerStreams: true,
 			ClientStreams: true,
 		},
 		{

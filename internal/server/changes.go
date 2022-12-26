@@ -32,7 +32,7 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 	for {
 		in, err := srv.Recv()
 		if err == io.EOF {
-			return nil
+			break
 		}
 		if err != nil {
 			return err
@@ -45,7 +45,6 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 		if err != nil {
 			return err
 		}
-
 		operationLocation := &pb.OperationLocation{
 			ProjectId: in.GetProjectId(),
 			ChangeId:  in.GetChangeId(),
@@ -53,16 +52,13 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 			Offset:    offset,
 			Length:    length,
 		}
-		err = srv.Send(operationLocation)
-		if err != nil {
-			return err
-		}
-
 		_, err = db.AddOperationLocation(s.db, operationLocation)
 		if err != nil {
 			return err
 		}
 	}
+
+	return srv.SendAndClose(&pb.WriteOperationStreamResponse{})
 }
 
 func (s JamsyncServer) ReadOperationStream(srv pb.JamsyncAPI_ReadOperationStreamServer) error {
@@ -113,15 +109,25 @@ func (s JamsyncServer) ReadBlockHashes(ctx context.Context, in *pb.ReadBlockHash
 }
 
 func (s JamsyncServer) regenFile(projectId uint64, pathHash uint64, modTime time.Time) (*bytes.Reader, error) {
-	changeIds, err := db.ListChanges(s.db, projectId, pathHash, modTime)
+	changeIds, err := db.ListCommittedChanges(s.db, projectId, pathHash, modTime)
 	if err != nil {
 		return nil, err
 	}
 
+	uniqueChangeIds := make(map[uint64]interface{}, 0)
+	for _, id := range changeIds {
+		uniqueChangeIds[id] = nil
+	}
+
 	rs := rsync.RSync{UniqueHasher: xxhash.New()}
-	targetBuffer := bytes.NewReader([]byte{})
+	targetBuffer := bytes.NewBuffer([]byte{})
 	result := new(bytes.Buffer)
+	appliedChanges := make(map[uint64]interface{}, 0)
 	for _, changeId := range changeIds {
+		if _, found := appliedChanges[changeId]; found {
+			continue
+		}
+		appliedChanges[changeId] = nil
 		operationLocations, err := db.ListOperationLocations(s.db, projectId, pathHash, changeId)
 		if err != nil {
 			return nil, err
@@ -139,19 +145,19 @@ func (s JamsyncServer) regenFile(projectId uint64, pathHash uint64, modTime time
 				if err != nil {
 					panic(err)
 				}
-				ops <- pbOperationToRsync(op)
+				ops <- PbOperationToRsync(op)
 			}
 			close(ops)
 		}()
-		err = rs.ApplyDelta(result, targetBuffer, ops)
+		err = rs.ApplyDelta(result, bytes.NewReader(targetBuffer.Bytes()), ops)
 		if err != nil {
 			panic(err)
 		}
-		resBytes := result.Bytes()
-		targetBuffer = bytes.NewReader(resBytes)
+		targetBuffer.Reset()
+		targetBuffer.Write(result.Bytes())
 		result.Reset()
 	}
-	return targetBuffer, nil
+	return bytes.NewReader(targetBuffer.Bytes()), nil
 }
 
 func (s JamsyncServer) ReadFile(in *pb.ReadFileRequest, srv pb.JamsyncAPI_ReadFileServer) error {
@@ -228,7 +234,7 @@ func PbBlockHashesToRsync(pbBlockHashes []*pb.BlockHash) []rsync.BlockHash {
 	return blockHashes
 }
 
-func pbOperationToRsync(op *pb.Operation) rsync.Operation {
+func PbOperationToRsync(op *pb.Operation) rsync.Operation {
 	var opType rsync.OpType
 	switch op.Type {
 	case pb.Operation_OpBlock:
@@ -250,5 +256,9 @@ func pbOperationToRsync(op *pb.Operation) rsync.Operation {
 }
 
 func (s JamsyncServer) CommitChange(ctx context.Context, in *pb.CommitChangeRequest) (*pb.CommitChangeResponse, error) {
-	return nil, nil
+	err := db.CommitChange(s.db, in.GetProjectId(), in.GetChangeId())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.CommitChangeResponse{}, nil
 }

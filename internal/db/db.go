@@ -13,6 +13,7 @@ func Setup(db *sql.DB) error {
 	sqlStmt := `
 	CREATE TABLE IF NOT EXISTS users (username TEXT);
 	CREATE TABLE IF NOT EXISTS projects (name TEXT);
+	CREATE TABLE IF NOT EXISTS committed_changes (project_id INTEGER, change_id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
 	CREATE TABLE IF NOT EXISTS changes (id INTEGER, project_id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
 	CREATE TABLE IF NOT EXISTS operation_locations (project_id INTEGER, change_id INTEGER, path_hash INTEGER, offset INTEGER, length INTEGER);
 	`
@@ -56,7 +57,7 @@ func GetProjectId(db *sql.DB, projectName string) (uint64, error) {
 }
 
 func GetCurrentChange(db *sql.DB, projectName string) (uint64, time.Time, error) {
-	row := db.QueryRow("SELECT c.id, c.timestamp FROM changes AS c INNER JOIN projects AS p WHERE p.name = ? ORDER BY c.timestamp DESC LIMIT 1", projectName)
+	row := db.QueryRow("SELECT c.id, c.timestamp FROM changes AS c INNER JOIN projects AS p WHERE p.name = ? ORDER BY c.id DESC LIMIT 1", projectName)
 	if row.Err() != nil {
 		return 0, time.Time{}, row.Err()
 	}
@@ -90,7 +91,7 @@ func ListProjects(db *sql.DB) ([]Project, error) {
 }
 
 func AddOperationLocation(db *sql.DB, data *pb.OperationLocation) (uint64, error) {
-	res, err := db.Exec("INSERT INTO operation_locations(project_id, change_id, path_hash, offset, length) VALUES(?, ?, ?, ?, ?)", data.ProjectId, data.ChangeId, data.PathHash, data.Offset, data.Length)
+	res, err := db.Exec("INSERT INTO operation_locations(project_id, change_id, path_hash, offset, length) VALUES(?, ?, ?, ?, ?)", data.ProjectId, data.ChangeId, int64(data.PathHash), data.Offset, data.Length)
 	if err != nil {
 		return 0, err
 	}
@@ -121,8 +122,17 @@ func AddChange(db *sql.DB, projectName string) (uint64, error) {
 	return uint64(newId), nil
 }
 
-func ListChanges(db *sql.DB, projectId uint64, pathHash uint64, timestamp time.Time) ([]uint64, error) {
-	rows, err := db.Query("SELECT change_id FROM changes AS c INNER JOIN operation_locations WHERE c.project_id = ? AND path_hash = ? AND timestamp < ? ORDER BY change_id", projectId, pathHash, timestamp)
+func CommitChange(db *sql.DB, projectId uint64, changeId uint64) error {
+	_, err := db.Exec("INSERT INTO committed_changes(change_id, project_id) VALUES(?, ?)", changeId, projectId)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
+func ListCommittedChanges(db *sql.DB, projectId uint64, pathHash uint64, timestamp time.Time) ([]uint64, error) {
+	rows, err := db.Query("SELECT c.change_id FROM committed_changes AS c INNER JOIN operation_locations AS o WHERE c.project_id = ? AND c.change_id = o.change_id AND path_hash = ? AND timestamp < ? ORDER BY c.timestamp ASC", projectId, int64(pathHash), timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +151,7 @@ func ListChanges(db *sql.DB, projectId uint64, pathHash uint64, timestamp time.T
 }
 
 func ListOperationLocations(db *sql.DB, projectId uint64, pathHash uint64, changeId uint64) ([]*pb.OperationLocation, error) {
-	rows, err := db.Query("SELECT offset, length FROM operation_locations WHERE project_id = ? AND pathHash = ? AND change_id = ?", projectId, pathHash, changeId)
+	rows, err := db.Query("SELECT offset, length FROM operation_locations WHERE project_id = ? AND path_hash = ? AND change_id = ?", projectId, int64(pathHash), changeId)
 	if err != nil {
 		return nil, err
 	}
