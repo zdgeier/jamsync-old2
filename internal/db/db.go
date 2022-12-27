@@ -56,8 +56,8 @@ func GetProjectId(db *sql.DB, projectName string) (uint64, error) {
 	return id, err
 }
 
-func GetCurrentChange(db *sql.DB, projectName string) (uint64, time.Time, error) {
-	row := db.QueryRow("SELECT c.id, c.timestamp FROM changes AS c INNER JOIN projects AS p WHERE p.name = ? ORDER BY c.id DESC LIMIT 1", projectName)
+func GetCurrentChange(db *sql.DB, projectId uint64) (uint64, time.Time, error) {
+	row := db.QueryRow("SELECT c.id, c.timestamp FROM changes AS c INNER JOIN projects AS p WHERE p.rowid = ? ORDER BY c.id DESC LIMIT 1", projectId)
 	if row.Err() != nil {
 		return 0, time.Time{}, row.Err()
 	}
@@ -104,13 +104,9 @@ func AddOperationLocation(db *sql.DB, data *pb.OperationLocation) (uint64, error
 	return uint64(id), nil
 }
 
-func AddChange(db *sql.DB, projectName string) (uint64, error) {
-	changeId, _, err := GetCurrentChange(db, projectName)
+func AddChange(db *sql.DB, projectId uint64) (uint64, error) {
+	changeId, _, err := GetCurrentChange(db, projectId)
 	if !errors.Is(sql.ErrNoRows, err) && err != nil {
-		return 0, err
-	}
-	projectId, err := GetProjectId(db, projectName)
-	if err != nil {
 		return 0, err
 	}
 	newId := changeId + 1

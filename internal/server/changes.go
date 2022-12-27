@@ -14,17 +14,12 @@ import (
 )
 
 func (s JamsyncServer) CreateChange(ctx context.Context, in *pb.CreateChangeRequest) (*pb.CreateChangeResponse, error) {
-	projectId, err := db.GetProjectId(s.db, in.GetProjectName())
-	if err != nil {
-		return nil, err
-	}
-	changeId, err := db.AddChange(s.db, in.GetProjectName())
+	changeId, err := db.AddChange(s.db, in.GetProjectId())
 	if err != nil {
 		return nil, err
 	}
 	return &pb.CreateChangeResponse{
-		ProjectId: projectId,
-		ChangeId:  changeId,
+		ChangeId: changeId,
 	}, nil
 }
 

@@ -76,11 +76,10 @@ message CommitChangeRequest {
 message CommitChangeResponse {}
 
 message CreateChangeRequest {
-    string project_name = 1;
+    uint64 project_id = 1;
 }
 message CreateChangeResponse {
     uint64 change_id = 1;
-    uint64 project_id = 2;
 }
 
 message Operation {
@@ -154,4 +153,9 @@ message GetCurrentChangeRequest {
 message GetCurrentChangeResponse {
     uint64 changeId = 1;
     google.protobuf.Timestamp timestamp = 2;
+}
+
+message ProjectConfig {
+    uint64 projectId = 1;
+    uint64 current_commit = 2;
 }

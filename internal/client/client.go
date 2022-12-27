@@ -13,10 +13,42 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func UploadDiff(client pb.JamsyncAPIClient, fileMetadata *pb.FileMetadata, fileData map[string][]byte, projectId uint64, changeId uint64) error {
+type Client struct {
+	api       pb.JamsyncAPIClient
+	projectId uint64
+	changeId  uint64
+	committed bool
+}
+
+func NewClient(apiClient pb.JamsyncAPIClient, projectId uint64, changeId uint64) *Client {
+	return &Client{
+		api:       apiClient,
+		projectId: projectId,
+		changeId:  changeId,
+	}
+}
+
+func (c *Client) CreateChange() error {
+	resp, err := c.api.CreateChange(context.Background(), &pb.CreateChangeRequest{
+		ProjectId: c.projectId,
+	})
+	c.changeId = resp.GetChangeId()
+	return err
+}
+
+func (c *Client) CommitChange() error {
+	_, err := c.api.CommitChange(context.Background(), &pb.CommitChangeRequest{
+		ProjectId: c.projectId,
+		ChangeId:  c.changeId,
+	})
+	c.committed = true
+	return err
+}
+
+func (c *Client) UploadDiff(fileMetadata *pb.FileMetadata, fileData map[string][]byte) error {
 	ctx := context.Background()
 
-	diff, err := GetFileListDiff(ctx, client, fileMetadata, projectId, changeId)
+	diff, err := c.GetFileListDiff(ctx, fileMetadata)
 	if err != nil {
 		return err
 	}
@@ -24,7 +56,7 @@ func UploadDiff(client pb.JamsyncAPIClient, fileMetadata *pb.FileMetadata, fileD
 		if fileDiff.File.Dir || fileDiff.Type == pb.FileMetadataDiff_NoOp {
 			continue
 		}
-		err := UploadFile(ctx, client, projectId, changeId, filePath, bytes.NewReader(fileData[filePath]))
+		err := c.UploadFile(ctx, filePath, bytes.NewReader(fileData[filePath]))
 		if err != nil {
 			return err
 		}
@@ -33,7 +65,7 @@ func UploadDiff(client pb.JamsyncAPIClient, fileMetadata *pb.FileMetadata, fileD
 	if err != nil {
 		return err
 	}
-	err = UploadFile(ctx, client, projectId, changeId, ".jamsyncfilemetadata", bytes.NewReader(fileMetadataData))
+	err = c.UploadFile(ctx, ".jamsyncfilemetadata", bytes.NewReader(fileMetadataData))
 	if err != nil {
 		return err
 	}
@@ -41,10 +73,10 @@ func UploadDiff(client pb.JamsyncAPIClient, fileMetadata *pb.FileMetadata, fileD
 	return nil
 }
 
-func UploadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint64, changeId uint64, filePath string, sourceReader io.Reader) error {
-	blockHashResp, err := client.ReadBlockHashes(ctx, &pb.ReadBlockHashesRequest{
-		ProjectId: projectId,
-		ChangeId:  changeId,
+func (c *Client) UploadFile(ctx context.Context, filePath string, sourceReader io.Reader) error {
+	blockHashResp, err := c.api.ReadBlockHashes(ctx, &pb.ReadBlockHashesRequest{
+		ProjectId: c.projectId,
+		ChangeId:  c.changeId,
 		PathHash:  pathToHash(filePath),
 		ModTime:   timestamppb.Now(),
 	})
@@ -80,7 +112,7 @@ func UploadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint6
 		}
 	}()
 
-	writeStream, err := client.WriteOperationStream(ctx)
+	writeStream, err := c.api.WriteOperationStream(ctx)
 	if err != nil {
 		return err
 	}
@@ -99,8 +131,8 @@ func UploadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint6
 		}
 
 		err = writeStream.Send(&pb.Operation{
-			ProjectId:     projectId,
-			ChangeId:      changeId,
+			ProjectId:     c.projectId,
+			ChangeId:      c.changeId,
 			PathHash:      pathToHash(filePath),
 			Type:          opPbType,
 			BlockIndex:    op.BlockIndex,
@@ -115,8 +147,8 @@ func UploadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint6
 	// We have to send a tombstone if we have not generated any ops (empty file)
 	if sent == 0 {
 		writeStream.Send(&pb.Operation{
-			ProjectId:     projectId,
-			ChangeId:      changeId,
+			ProjectId:     c.projectId,
+			ChangeId:      c.changeId,
 			PathHash:      pathToHash(filePath),
 			Type:          pb.Operation_OpData,
 			BlockIndex:    0,
@@ -128,10 +160,8 @@ func UploadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint6
 	return err
 }
 
-func UploadFileList(ctx context.Context, client pb.JamsyncAPIClient, fileMetadata *pb.FileMetadata, projectName string) error {
-	resp, err := client.CreateChange(ctx, &pb.CreateChangeRequest{
-		ProjectName: projectName,
-	})
+func (c *Client) UploadFileList(ctx context.Context, fileMetadata *pb.FileMetadata) error {
+	err := c.CreateChange()
 	if err != nil {
 		return err
 	}
@@ -139,25 +169,21 @@ func UploadFileList(ctx context.Context, client pb.JamsyncAPIClient, fileMetadat
 	if err != nil {
 		return err
 	}
-	err = UploadFile(ctx, client, resp.GetProjectId(), resp.GetChangeId(), ".jamsyncfilelist", bytes.NewReader(metadataBytes))
+	err = c.UploadFile(ctx, ".jamsyncfilelist", bytes.NewReader(metadataBytes))
 	if err != nil {
 		return err
 	}
-	_, err = client.CommitChange(ctx, &pb.CommitChangeRequest{
-		ProjectId: resp.ProjectId,
-		ChangeId:  resp.ChangeId,
-	})
-	return err
+	return c.CommitChange()
 }
 
-func GetFileListDiff(ctx context.Context, client pb.JamsyncAPIClient, fileMetadata *pb.FileMetadata, projectId uint64, changeId uint64) (*pb.FileMetadataDiff, error) {
+func (c *Client) GetFileListDiff(ctx context.Context, fileMetadata *pb.FileMetadata) (*pb.FileMetadataDiff, error) {
 	metadataBytes, err := proto.Marshal(fileMetadata)
 	if err != nil {
 		return nil, err
 	}
 	metadataReader := bytes.NewReader(metadataBytes)
 	metadataResult := new(bytes.Buffer)
-	err = DownloadFile(ctx, client, projectId, changeId, ".jamsyncfilelist", metadataReader, metadataResult)
+	err = c.DownloadFile(ctx, ".jamsyncfilelist", metadataReader, metadataResult)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +226,7 @@ func GetFileListDiff(ctx context.Context, client pb.JamsyncAPIClient, fileMetada
 	}, err
 }
 
-func DownloadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint64, changeId uint64, filePath string, localReader *bytes.Reader, localWriter io.Writer) error {
+func (c *Client) DownloadFile(ctx context.Context, filePath string, localReader *bytes.Reader, localWriter io.Writer) error {
 	rs := rsync.RSync{UniqueHasher: xxhash.New()}
 	blockHashes := make([]*pb.BlockHash, 0)
 	err := rs.CreateSignature(localReader, func(bl rsync.BlockHash) error {
@@ -215,9 +241,9 @@ func DownloadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uin
 		return err
 	}
 
-	readFileClient, err := client.ReadFile(ctx, &pb.ReadFileRequest{
-		ProjectId:   projectId,
-		ChangeId:    changeId,
+	readFileClient, err := c.api.ReadFile(ctx, &pb.ReadFileRequest{
+		ProjectId:   c.projectId,
+		ChangeId:    c.changeId,
 		PathHash:    pathToHash(filePath),
 		ModTime:     timestamppb.Now(),
 		BlockHashes: blockHashes,

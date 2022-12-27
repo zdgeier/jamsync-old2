@@ -90,15 +90,17 @@ func TestClient_RandUploadDownload(t *testing.T) {
 	}
 	db.Setup(localDB)
 
-	client, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
+	apiClient, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
 	defer closeClient()
 
 	projectName := "test_randuploaddownload"
-	addProjectResp, err := client.AddProject(context.Background(), &pb.AddProjectRequest{
+	addProjectResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
 		ProjectName: projectName,
 	})
 	require.NoError(t, err)
 	projectId := addProjectResp.GetProjectId()
+
+	client := NewClient(apiClient, projectId, 1)
 
 	var pairs = []pair{
 		{
@@ -167,23 +169,17 @@ func TestClient_RandUploadDownload(t *testing.T) {
 	for _, pair := range pairs {
 		t.Run(pair.Description, func(t *testing.T) {
 			uploadFile := func(data []byte) {
-				createChangeResp, err := client.CreateChange(context.Background(), &pb.CreateChangeRequest{
-					ProjectName: projectName,
-				})
-				require.NoError(t, err)
-				changeId := createChangeResp.GetChangeId()
-
-				err = UploadFile(ctx, client, projectId, changeId, pair.FilePath, bytes.NewReader(data))
+				client.CreateChange()
 				require.NoError(t, err)
 
-				_, err = client.CommitChange(ctx, &pb.CommitChangeRequest{
-					ChangeId:  changeId,
-					ProjectId: projectId,
-				})
+				err = client.UploadFile(ctx, pair.FilePath, bytes.NewReader(data))
+				require.NoError(t, err)
+
+				client.CommitChange()
 				require.NoError(t, err)
 
 				result := new(bytes.Buffer)
-				err = DownloadFile(ctx, client, projectId, changeId, pair.FilePath, bytes.NewReader(data), result)
+				err = client.DownloadFile(ctx, pair.FilePath, bytes.NewReader(data), result)
 				require.NoError(t, err)
 
 				resultBytes, err := io.ReadAll(result)
@@ -211,16 +207,17 @@ func TestClient_UploadDownload(t *testing.T) {
 	}
 	db.Setup(localDB)
 
-	client, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
+	apiClient, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
 	defer closeClient()
 
 	projectName := "test"
 
-	addProjectResp, err := client.AddProject(context.Background(), &pb.AddProjectRequest{
+	addProjectResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
 		ProjectName: projectName,
 	})
 	require.NoError(t, err)
-	projectId := addProjectResp.GetProjectId()
+
+	client := NewClient(apiClient, addProjectResp.ProjectId, 1)
 
 	fileOperations := []struct {
 		name        string
@@ -267,11 +264,8 @@ func TestClient_UploadDownload(t *testing.T) {
 
 	for _, fileOperation := range fileOperations {
 		t.Run(fileOperation.name, func(t *testing.T) {
-			createChangeResp, err := client.CreateChange(context.Background(), &pb.CreateChangeRequest{
-				ProjectName: projectName,
-			})
+			err := client.CreateChange()
 			require.NoError(t, err)
-			changeId := createChangeResp.GetChangeId()
 
 			var currData []byte
 			if fileOperation.data != nil {
@@ -280,17 +274,14 @@ func TestClient_UploadDownload(t *testing.T) {
 				fileOperation.randContent.Fill()
 				currData = fileOperation.randContent.Data
 			}
-			err = UploadFile(ctx, client, projectId, changeId, fileOperation.filePath, bytes.NewReader(currData))
+			err = client.UploadFile(ctx, fileOperation.filePath, bytes.NewReader(currData))
 			require.NoError(t, err)
 
-			_, err = client.CommitChange(ctx, &pb.CommitChangeRequest{
-				ChangeId:  changeId,
-				ProjectId: projectId,
-			})
+			client.CommitChange()
 			require.NoError(t, err)
 
 			result := new(bytes.Buffer)
-			err = DownloadFile(ctx, client, projectId, changeId, fileOperation.filePath, bytes.NewReader(currData), result)
+			err = client.DownloadFile(ctx, fileOperation.filePath, bytes.NewReader(currData), result)
 			require.NoError(t, err)
 
 			require.Equal(t, currData, result.Bytes())
@@ -300,24 +291,18 @@ func TestClient_UploadDownload(t *testing.T) {
 	closeClient()
 }
 
-func benchmarkUpload(b *testing.B, client pb.JamsyncAPIClient, projectName string, filePath string, content content) {
+func benchmarkUpload(b *testing.B, client *Client, projectName string, filePath string, content content) {
 	for n := 0; n < b.N; n++ {
 		ctx := context.Background()
 
 		uploadFile := func(data []byte) {
-			createChangeResp, err := client.CreateChange(context.Background(), &pb.CreateChangeRequest{
-				ProjectName: projectName,
-			})
-			require.NoError(b, err)
-			changeId := createChangeResp.GetChangeId()
-
-			err = UploadFile(ctx, client, createChangeResp.ProjectId, changeId, filePath, bytes.NewReader(data))
+			err := client.CreateChange()
 			require.NoError(b, err)
 
-			_, err = client.CommitChange(ctx, &pb.CommitChangeRequest{
-				ChangeId:  changeId,
-				ProjectId: createChangeResp.ProjectId,
-			})
+			err = client.UploadFile(ctx, filePath, bytes.NewReader(data))
+			require.NoError(b, err)
+
+			err = client.CommitChange()
 			require.NoError(b, err)
 		}
 
@@ -326,13 +311,13 @@ func benchmarkUpload(b *testing.B, client pb.JamsyncAPIClient, projectName strin
 	}
 }
 
-func benchmarkDownload(b *testing.B, client pb.JamsyncAPIClient, projectId uint64, changeId uint64, filePath string, content content) {
+func benchmarkDownload(b *testing.B, client *Client, projectId uint64, changeId uint64, filePath string, content content) {
 	for n := 0; n < b.N; n++ {
 		ctx := context.Background()
 
 		downloadFile := func(data []byte) {
 			result := new(bytes.Buffer)
-			err := DownloadFile(ctx, client, projectId, changeId, filePath, bytes.NewReader(data), result)
+			err := client.DownloadFile(ctx, filePath, bytes.NewReader(data), result)
 			require.NoError(b, err)
 
 			resultBytes, err := io.ReadAll(result)
@@ -355,14 +340,15 @@ func BenchmarkRandUploadDownload(b *testing.B) {
 	}
 	db.Setup(localDB)
 
-	client, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
+	apiClient, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
 	defer closeClient()
 
 	projectName := "bench_randuploaddownload"
-	addProjResp, err := client.AddProject(context.Background(), &pb.AddProjectRequest{
+	addProjResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
 		ProjectName: projectName,
 	})
 	require.NoError(b, err)
+	client := NewClient(apiClient, addProjResp.ProjectId, 0)
 
 	content := content{Len: 1, Seed: 42, Alter: 0}
 	var pairs = []struct {
@@ -432,14 +418,16 @@ func TestGetFileListDiff(t *testing.T) {
 	}
 	db.Setup(localDB)
 
-	client, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
+	apiClient, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
 	defer closeClient()
 
 	projectName := "test_getfilelistdiff"
-	addProjectResp, err := client.AddProject(context.Background(), &pb.AddProjectRequest{
+	addProjectResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
 		ProjectName: projectName,
 	})
 	require.NoError(t, err)
+
+	client := NewClient(apiClient, addProjectResp.ProjectId, 0)
 
 	initMetadata := &pb.FileMetadata{
 		Files: map[string]*pb.File{
@@ -460,7 +448,7 @@ func TestGetFileListDiff(t *testing.T) {
 
 	type args struct {
 		ctx          context.Context
-		client       pb.JamsyncAPIClient
+		client       *Client
 		fileMetadata *pb.FileMetadata
 		projectId    uint64
 	}
@@ -592,11 +580,10 @@ func TestGetFileListDiff(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			createChangeResp, err := tt.args.client.CreateChange(ctx, &pb.CreateChangeRequest{
-				ProjectName: projectName,
-			})
+			err := tt.args.client.CreateChange()
 			require.NoError(t, err)
-			got, err := GetFileListDiff(tt.args.ctx, tt.args.client, tt.args.fileMetadata, tt.args.projectId, createChangeResp.GetChangeId())
+
+			got, err := client.GetFileListDiff(tt.args.ctx, tt.args.fileMetadata)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetFileListDiff() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -605,7 +592,7 @@ func TestGetFileListDiff(t *testing.T) {
 				t.Errorf("GetFileListDiff() = %v, want %v", got, tt.want)
 			}
 
-			require.NoError(t, UploadFileList(ctx, client, tt.args.fileMetadata, projectName))
+			require.NoError(t, client.UploadFileList(ctx, tt.args.fileMetadata))
 		})
 	}
 }
