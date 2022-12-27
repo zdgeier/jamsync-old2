@@ -344,7 +344,7 @@ func TestUploadDownload(t *testing.T) {
 	closeClient()
 }
 
-func benchmarkRandUploadDownload(b *testing.B, client pb.JamsyncAPIClient, projectName string, filePath string, content content) {
+func benchmarkUpload(b *testing.B, client pb.JamsyncAPIClient, projectName string, filePath string, content content) {
 	for n := 0; n < b.N; n++ {
 		ctx := context.Background()
 
@@ -363,19 +363,30 @@ func benchmarkRandUploadDownload(b *testing.B, client pb.JamsyncAPIClient, proje
 				ProjectId: createChangeResp.ProjectId,
 			})
 			require.NoError(b, err)
-
-			// result := new(bytes.Buffer)
-			// err = DownloadFile(ctx, client, createChangeResp.ProjectId, changeId, filePath, bytes.NewReader(data), result)
-			// require.NoError(b, err)
-
-			// resultBytes, err := io.ReadAll(result)
-			// require.NoError(b, err)
-
-			// require.Equal(b, data, resultBytes)
 		}
 
 		content.Fill()
 		uploadFile(content.Data)
+	}
+}
+
+func benchmarkDownload(b *testing.B, client pb.JamsyncAPIClient, projectId uint64, changeId uint64, filePath string, content content) {
+	for n := 0; n < b.N; n++ {
+		ctx := context.Background()
+
+		downloadFile := func(data []byte) {
+			result := new(bytes.Buffer)
+			err := DownloadFile(ctx, client, projectId, changeId, filePath, bytes.NewReader(data), result)
+			require.NoError(b, err)
+
+			resultBytes, err := io.ReadAll(result)
+			require.NoError(b, err)
+
+			require.Equal(b, data, resultBytes)
+		}
+
+		content.Fill()
+		downloadFile(content.Data)
 	}
 }
 
@@ -392,7 +403,7 @@ func BenchmarkRandUploadDownload(b *testing.B) {
 	defer closeClient()
 
 	projectName := "bench_randuploaddownload"
-	_, err = client.AddProject(context.Background(), &pb.AddProjectRequest{
+	addProjResp, err := client.AddProject(context.Background(), &pb.AddProjectRequest{
 		ProjectName: projectName,
 	})
 	require.NoError(b, err)
@@ -443,7 +454,13 @@ func BenchmarkRandUploadDownload(b *testing.B) {
 		b.Run(pair.Description, func(b *testing.B) {
 			testContent := content
 			testContent.Len *= pair.Multi
-			benchmarkRandUploadDownload(b, client, projectName, pair.FilePath, testContent)
+			benchmarkUpload(b, client, projectName, pair.FilePath, testContent)
+		})
+
+		b.Run(pair.Description+"DL", func(b *testing.B) {
+			testContent := content
+			testContent.Len *= pair.Multi
+			benchmarkDownload(b, client, addProjResp.GetProjectId(), ^uint64(0), pair.FilePath, testContent)
 		})
 	}
 
