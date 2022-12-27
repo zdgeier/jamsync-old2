@@ -31,3 +31,17 @@ func (s JamsyncServer) ListProjects(ctx context.Context, in *pb.ListProjectsRequ
 
 	return &pb.ListProjectsResponse{Projects: projectsPb}, nil
 }
+
+func (s JamsyncServer) GetProjectConfig(ctx context.Context, in *pb.GetProjectConfigRequest) (*pb.ProjectConfig, error) {
+	projectId, err := db.GetProjectId(s.db, in.GetProjectName())
+	if err != nil {
+		return nil, err
+	}
+
+	changeId, _, err := db.GetCurrentChange(s.db, projectId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ProjectConfig{ProjectId: projectId, CurrentChange: changeId}, nil
+}

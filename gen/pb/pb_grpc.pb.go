@@ -31,6 +31,7 @@ type JamsyncAPIClient interface {
 	AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error)
 	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
 	BrowseProject(ctx context.Context, in *BrowseProjectRequest, opts ...grpc.CallOption) (*BrowseProjectResponse, error)
+	GetProjectConfig(ctx context.Context, in *GetProjectConfigRequest, opts ...grpc.CallOption) (*ProjectConfig, error)
 	UserInfo(ctx context.Context, in *UserInfoRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
 	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error)
 }
@@ -194,6 +195,15 @@ func (c *jamsyncAPIClient) BrowseProject(ctx context.Context, in *BrowseProjectR
 	return out, nil
 }
 
+func (c *jamsyncAPIClient) GetProjectConfig(ctx context.Context, in *GetProjectConfigRequest, opts ...grpc.CallOption) (*ProjectConfig, error) {
+	out := new(ProjectConfig)
+	err := c.cc.Invoke(ctx, "/pb.JamsyncAPI/GetProjectConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *jamsyncAPIClient) UserInfo(ctx context.Context, in *UserInfoRequest, opts ...grpc.CallOption) (*UserInfoResponse, error) {
 	out := new(UserInfoResponse)
 	err := c.cc.Invoke(ctx, "/pb.JamsyncAPI/UserInfo", in, out, opts...)
@@ -225,6 +235,7 @@ type JamsyncAPIServer interface {
 	AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error)
 	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
 	BrowseProject(context.Context, *BrowseProjectRequest) (*BrowseProjectResponse, error)
+	GetProjectConfig(context.Context, *GetProjectConfigRequest) (*ProjectConfig, error)
 	UserInfo(context.Context, *UserInfoRequest) (*UserInfoResponse, error)
 	CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error)
 	mustEmbedUnimplementedJamsyncAPIServer()
@@ -260,6 +271,9 @@ func (UnimplementedJamsyncAPIServer) ListProjects(context.Context, *ListProjects
 }
 func (UnimplementedJamsyncAPIServer) BrowseProject(context.Context, *BrowseProjectRequest) (*BrowseProjectResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BrowseProject not implemented")
+}
+func (UnimplementedJamsyncAPIServer) GetProjectConfig(context.Context, *GetProjectConfigRequest) (*ProjectConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetProjectConfig not implemented")
 }
 func (UnimplementedJamsyncAPIServer) UserInfo(context.Context, *UserInfoRequest) (*UserInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UserInfo not implemented")
@@ -461,6 +475,24 @@ func _JamsyncAPI_BrowseProject_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _JamsyncAPI_GetProjectConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProjectConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JamsyncAPIServer).GetProjectConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.JamsyncAPI/GetProjectConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JamsyncAPIServer).GetProjectConfig(ctx, req.(*GetProjectConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _JamsyncAPI_UserInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UserInfoRequest)
 	if err := dec(in); err != nil {
@@ -527,6 +559,10 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BrowseProject",
 			Handler:    _JamsyncAPI_BrowseProject_Handler,
+		},
+		{
+			MethodName: "GetProjectConfig",
+			Handler:    _JamsyncAPI_GetProjectConfig_Handler,
 		},
 		{
 			MethodName: "UserInfo",

@@ -45,33 +45,33 @@ func (c *Client) CommitChange() error {
 	return err
 }
 
-func (c *Client) UploadDiff(fileMetadata *pb.FileMetadata, fileData map[string][]byte) error {
-	ctx := context.Background()
-
-	diff, err := c.GetFileListDiff(ctx, fileMetadata)
-	if err != nil {
-		return err
-	}
-	for filePath, fileDiff := range diff.GetDiffs() {
-		if fileDiff.File.Dir || fileDiff.Type == pb.FileMetadataDiff_NoOp {
-			continue
-		}
-		err := c.UploadFile(ctx, filePath, bytes.NewReader(fileData[filePath]))
-		if err != nil {
-			return err
-		}
-	}
-	fileMetadataData, err := proto.Marshal(fileMetadata)
-	if err != nil {
-		return err
-	}
-	err = c.UploadFile(ctx, ".jamsyncfilemetadata", bytes.NewReader(fileMetadataData))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
+// func (c *Client) UploadDiff(fileMetadata *pb.FileMetadata, fileData map[string][]byte) error {
+// 	ctx := context.Background()
+//
+// 	diff, err := c.GetFileListDiff(ctx, fileMetadata)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	for filePath, fileDiff := range diff.GetDiffs() {
+// 		if fileDiff.File.Dir || fileDiff.Type == pb.FileMetadataDiff_NoOp {
+// 			continue
+// 		}
+// 		err := c.UploadFile(ctx, filePath, bytes.NewReader(fileData[filePath]))
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	fileMetadataData, err := proto.Marshal(fileMetadata)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	err = c.UploadFile(ctx, ".jamsyncfilemetadata", bytes.NewReader(fileMetadataData))
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	return nil
+// }
 
 func (c *Client) UploadFile(ctx context.Context, filePath string, sourceReader io.Reader) error {
 	blockHashResp, err := c.api.ReadBlockHashes(ctx, &pb.ReadBlockHashesRequest{
@@ -226,7 +226,7 @@ func (c *Client) GetFileListDiff(ctx context.Context, fileMetadata *pb.FileMetad
 	}, err
 }
 
-func (c *Client) DownloadFile(ctx context.Context, filePath string, localReader *bytes.Reader, localWriter io.Writer) error {
+func (c *Client) DownloadFile(ctx context.Context, filePath string, localReader io.ReadSeeker, localWriter io.Writer) error {
 	rs := rsync.RSync{UniqueHasher: xxhash.New()}
 	blockHashes := make([]*pb.BlockHash, 0)
 	err := rs.CreateSignature(localReader, func(bl rsync.BlockHash) error {
@@ -268,7 +268,6 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, localReader 
 		}
 		close(ops)
 	}()
-
 	localReader.Seek(0, 0)
 	err = rs.ApplyDelta(localWriter, localReader, ops)
 	if err != nil {
@@ -276,6 +275,13 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, localReader 
 	}
 
 	return err
+}
+
+func (c *Client) ProjectConfig() *pb.ProjectConfig {
+	return &pb.ProjectConfig{
+		CurrentChange: c.changeId,
+		ProjectId:     c.projectId,
+	}
 }
 
 func pathToHash(path string) uint64 {

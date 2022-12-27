@@ -15,6 +15,7 @@ service JamsyncAPI {
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
     rpc BrowseProject(BrowseProjectRequest) returns (BrowseProjectResponse);
+    rpc GetProjectConfig(GetProjectConfigRequest) returns (ProjectConfig);
 
     rpc UserInfo(UserInfoRequest) returns (UserInfoResponse);
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
@@ -155,7 +156,11 @@ message GetCurrentChangeResponse {
     google.protobuf.Timestamp timestamp = 2;
 }
 
+message GetProjectConfigRequest {
+    string project_name = 1;
+}
+
 message ProjectConfig {
     uint64 projectId = 1;
-    uint64 current_commit = 2;
+    uint64 current_change = 2;
 }

@@ -5,13 +5,19 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/client"
+	jam "github.com/zdgeier/jamsync/internal/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var serverAddr = flag.String("addr", "localhost:14357", "The server address in the format of host:port")
@@ -22,28 +28,24 @@ type JamsyncProjectFile struct {
 }
 
 func main() {
-	c := client.NewClient(*serverAddr)
-
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// TODO Chroot
+	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Panicf("could not connect to jamsync server: %s", err)
 	}
 	defer conn.Close()
-	return Client{
-		pb.NewJamsyncAPIClient(conn),
-	}
 
-	client := pb.NewJamsyncAPIClient()
+	apiClient := pb.NewJamsyncAPIClient(conn)
 
 	currentPath, err := os.Getwd()
 	if err != nil {
-		return err
+		log.Panic(err)
 	}
 	log.Println("Initializing a project at " + currentPath)
 
 	empty, err := currentDirectoryEmpty()
 	if err != nil {
-		return err
+		log.Panic(err)
 	}
 
 	if empty {
@@ -51,28 +53,157 @@ func main() {
 		log.Print("Name of project to download: ")
 		var projectName string
 		fmt.Scan(&projectName)
-		return downloadExistingProject(client, projectName)
+
+		resp, err := apiClient.GetProjectConfig(context.Background(), &pb.GetProjectConfigRequest{
+			ProjectName: projectName,
+		})
+		if err != nil {
+			log.Panic(err)
+		}
+
+		client := jam.NewClient(apiClient, resp.ProjectId, resp.CurrentChange)
+		err = downloadExistingProject(client)
+		if err != nil {
+			log.Panic(err)
+		}
 	} else {
 		log.Println("This directory has some existing contents.")
 		log.Println("Name of new project to create for current directory: ")
 		var projectName string
 		fmt.Scan(&projectName)
-		return uploadNewProject(client, projectName)
+
+		resp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
+			ProjectName: projectName,
+		})
+		if err != nil {
+			log.Panic(err)
+		}
+
+		client := jam.NewClient(apiClient, resp.ProjectId, 0)
+		err = uploadNewProject(client)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 }
 
-func downloadExistingProject(client pb.JamsyncAPIClient, projectName string) error {
-	resp, err := client.GetFileList(context.TODO(), &jamsyncpb.GetFileListRequest{
-		ProjectName: projectName,
-	})
+func writeJamsyncFile(config *pb.ProjectConfig) error {
+	f, err := os.Create(".jamsync")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	configBytes, err := proto.Marshal(config)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(configBytes)
+	return err
+}
+
+func uploadNewProject(client *jam.Client) error {
+	fileMetadata := readLocalFileList()
+	fileMetadataDiff, err := client.GetFileListDiff(context.Background(), fileMetadata)
+	if err != nil {
+		return err
+	}
+	err = pushFileListDiff(fileMetadata, fileMetadataDiff, client)
 	if err != nil {
 		return err
 	}
 
+	log.Println("Done adding project.")
+	return writeJamsyncFile(client.ProjectConfig())
+}
+
+func readLocalFileList() *pb.FileMetadata {
+	files := map[string]*pb.File{}
+	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
+		if d.Name() == ".jamsync" || path == "." {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			files[path] = &pb.File{
+				ModTime: timestamppb.New(info.ModTime()),
+				Dir:     true,
+			}
+		} else {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			h := xxhash.New()
+			h.Write(data)
+
+			files[path] = &pb.File{
+				ModTime: timestamppb.New(info.ModTime()),
+				Dir:     false,
+				Hash:    h.Sum64(),
+			}
+		}
+		return nil
+	}); err != nil {
+		log.Println("WARN: could not walk directory tree", err)
+	}
+
+	return &pb.FileMetadata{
+		Files: files,
+	}
+}
+
+func downloadExistingProject(client *client.Client) error {
+	resp, err := client.GetFileListDiff(context.TODO(), &pb.FileMetadata{})
+	if err != nil {
+		return err
+	}
+
+	err = applyFileListDiff(resp, client)
+
+	log.Println("Done downloading.")
+	return writeJamsyncFile(client.ProjectConfig())
+}
+
+func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMetadataDiff, client *client.Client) error {
+	ctx := context.TODO()
+
+	err := client.CreateChange()
+	if err != nil {
+		return err
+	}
+	defer client.CommitChange()
+
+	log.Println("Uploading files...")
+	for path, diff := range fileMetadataDiff.GetDiffs() {
+		if diff.Type != pb.FileMetadataDiff_NoOp && !diff.File.Dir {
+			log.Println("Uploading " + path)
+			file, err := os.OpenFile(path, os.O_RDONLY, 0755)
+			if err != nil {
+				return err
+			}
+			err = client.UploadFile(ctx, path, file)
+			if err != nil {
+				return err
+			}
+			file.Close()
+		}
+	}
+	log.Println("Uploading filelist...")
+
+	return client.UploadFileList(ctx, fileMetadata)
+}
+
+func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *client.Client) error {
+	ctx := context.TODO()
 	log.Println("Creating directories...")
-	for _, file := range resp.Files {
-		if file.Dir {
-			err = os.MkdirAll(file.GetPath(), os.ModePerm)
+	for path, diff := range fileMetadataDiff.GetDiffs() {
+		if diff.Type != pb.FileMetadataDiff_NoOp && diff.File.Dir == true {
+			err := os.MkdirAll(path, os.ModePerm)
 			if err != nil {
 				return err
 			}
@@ -80,35 +211,24 @@ func downloadExistingProject(client pb.JamsyncAPIClient, projectName string) err
 	}
 
 	log.Println("Downloading files...")
-	for _, file := range resp.Files {
-		if !file.Dir {
-			log.Println("Downloading " + file.GetPath())
-			resp, err := client.GetFile(context.TODO(), &jamsyncpb.GetFileRequest{
-				ProjectName: projectName,
-				Path:        file.GetPath(),
-			})
+	for path, diff := range fileMetadataDiff.GetDiffs() {
+		if diff.Type != pb.FileMetadataDiff_NoOp && diff.File.Dir == false {
+			log.Println("Downloading " + path)
+
+			file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0755)
 			if err != nil {
 				return err
 			}
 
-			// TODO: filemode
-			if err := os.WriteFile(file.GetPath(), resp.GetData(), 0644); err != nil {
+			err = client.DownloadFile(ctx, path, file, file)
+			if err != nil {
 				return err
 			}
+
+			file.Close()
 		}
 	}
-
-	currChangeResp, err := client.GetCurrentChange(context.TODO(), &jamsyncpb.GetCurrentChangeRequest{ProjectName: projectName})
-	if err != nil {
-		return err
-	}
-
-	log.Println("Done downloading.")
-	return createJamsyncFile(projectName, currChangeResp.ChangeId, currChangeResp.Timestamp.AsTime())
-}
-
-func readProjectConfig() {
-
+	return nil
 }
 
 func currentDirectoryEmpty() (bool, error) {
