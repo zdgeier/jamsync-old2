@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/pb"
@@ -120,13 +121,14 @@ func uploadNewProject(client *jam.Client) error {
 func readLocalFileList() *pb.FileMetadata {
 	files := map[string]*pb.File{}
 	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-		if d.Name() == ".jamsync" || path == "." || d.Name() == ".git" {
+		if d.Name() == ".jamsync" || path == "." || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") {
 			return nil
 		}
 		info, err := d.Info()
 		if err != nil {
 			return err
 		}
+		fmt.Println(path)
 
 		if d.IsDir() {
 			files[path] = &pb.File{
@@ -183,7 +185,7 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 	log.Println("Uploading files...")
 	for path, diff := range fileMetadataDiff.GetDiffs() {
 		if diff.Type != pb.FileMetadataDiff_NoOp && !diff.File.Dir {
-			log.Println("Uploading " + path)
+			//log.Println("Uploading " + path)
 			file, err := os.OpenFile(path, os.O_RDONLY, 0755)
 			if err != nil {
 				return err
@@ -214,26 +216,55 @@ func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client
 	}
 
 	log.Println("Downloading files...")
-	for path, diff := range fileMetadataDiff.GetDiffs() {
-		if diff.GetType() != pb.FileMetadataDiff_NoOp && !diff.GetFile().GetDir() {
-			log.Println("Downloading " + path)
+	paths := make(chan string, len(fileMetadataDiff.GetDiffs()))
+	results := make(chan error, len(fileMetadataDiff.GetDiffs()))
 
+	worker := func(id int, paths <-chan string, results chan<- error) {
+		for path := range paths {
 			file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0755)
 			if err != nil {
-				return err
+				results <- err
+				return
 			}
 
 			fileContents, err := os.ReadFile(path)
 			if err != nil {
-				return err
+				results <- err
+				return
 			}
 
 			err = client.DownloadFile(ctx, path, bytes.NewReader(fileContents), file)
 			if err != nil {
-				return err
+				results <- err
+				return
 			}
 
-			file.Close()
+			results <- file.Close()
+		}
+	}
+
+	// This starts up 3 workers, initially blocked
+	// because there are no jobs yet.
+	for w := 1; w <= 10000; w++ {
+		go worker(w, paths, results)
+	}
+	for path, diff := range fileMetadataDiff.GetDiffs() {
+		if diff.GetType() != pb.FileMetadataDiff_NoOp && !diff.GetFile().GetDir() {
+			paths <- path
+		}
+	}
+	close(paths)
+	done := 0
+	batchesDone := 0
+	for _, diff := range fileMetadataDiff.GetDiffs() {
+		if diff.GetType() != pb.FileMetadataDiff_NoOp && !diff.GetFile().GetDir() {
+			<-results
+			done += 1
+			if done > 1000 {
+				fmt.Println("Done: ", batchesDone*1000)
+				batchesDone += 1
+				done = 0
+			}
 		}
 	}
 	return nil

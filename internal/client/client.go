@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"path/filepath"
 
 	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/pb"
@@ -332,6 +333,39 @@ func (c *Client) ProjectConfig() *pb.ProjectConfig {
 		CurrentChange: c.changeId,
 		ProjectId:     c.projectId,
 	}
+}
+
+func (c *Client) BrowseProject(path string) (*pb.BrowseProjectResponse, error) {
+	ctx := context.TODO()
+	metadataResult := new(bytes.Buffer)
+	err := c.DownloadFile(ctx, ".jamsyncfilelist", bytes.NewReader([]byte{}), metadataResult)
+	if err != nil {
+		return nil, err
+	}
+	fileMetadata := &pb.FileMetadata{}
+	err = proto.Unmarshal(metadataResult.Bytes(), fileMetadata)
+	if err != nil {
+		return nil, err
+	}
+
+	directoryNames := make([]string, 0, len(fileMetadata.GetFiles()))
+	fileNames := make([]string, 0, len(fileMetadata.GetFiles()))
+	requestPath := filepath.Clean(path)
+	for path, file := range fileMetadata.GetFiles() {
+		pathDir := filepath.Dir(path)
+		if (path == "" && pathDir == ".") || pathDir == requestPath {
+			if file.GetDir() {
+				directoryNames = append(directoryNames, filepath.Base(path))
+			} else {
+				fileNames = append(fileNames, filepath.Base(path))
+			}
+		}
+	}
+
+	return &pb.BrowseProjectResponse{
+		Directories: directoryNames,
+		Files:       fileNames,
+	}, err
 }
 
 func pathToHash(path string) uint64 {

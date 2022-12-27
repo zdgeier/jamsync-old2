@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"time"
 
@@ -109,7 +108,6 @@ func (s JamsyncServer) regenFile(projectId uint64, pathHash uint64, modTime time
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("COMMITTED", pathHash, changeIds, modTime)
 
 	uniqueChangeIds := make(map[uint64]interface{}, 0)
 	for _, id := range changeIds {
@@ -163,9 +161,9 @@ func (s JamsyncServer) ReadFile(in *pb.ReadFileRequest, srv pb.JamsyncAPI_ReadFi
 		return err
 	}
 
-	a, _ := io.ReadAll(sourceBuffer)
-	fmt.Println("READING", in.PathHash, string(a))
-	sourceBuffer.Seek(0, 0)
+	//a, _ := io.ReadAll(sourceBuffer)
+	//fmt.Println("READING", in.PathHash, string(a))
+	//sourceBuffer.Seek(0, 0)
 
 	opsOut := make(chan *rsync.Operation)
 	rsDelta := &rsync.RSync{UniqueHasher: xxhash.New()}

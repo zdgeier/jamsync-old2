@@ -27,7 +27,6 @@ func (s LocalStore) filePath(projectId uint64, changeId uint64, pathHash uint64)
 	return fmt.Sprintf("%s/%d.jb", s.changeDirectory(projectId), pathHash)
 }
 func (s LocalStore) Read(projectId uint64, changeId uint64, pathHash uint64, offset uint64, length uint64) (data []byte, err error) {
-	fmt.Println("read", projectId, changeId, pathHash, offset, length)
 	currFile, err := os.OpenFile(s.filePath(projectId, changeId, pathHash), os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
@@ -40,8 +39,6 @@ func (s LocalStore) Read(projectId uint64, changeId uint64, pathHash uint64, off
 	return b, nil
 }
 func (s LocalStore) Write(projectId uint64, changeId uint64, pathHash uint64, data []byte) (offset uint64, length uint64, err error) {
-	fmt.Println("write", projectId, changeId, pathHash, string(data))
-
 	err = os.MkdirAll(s.changeDirectory(projectId), os.ModePerm)
 	if err != nil {
 		return 0, 0, err
