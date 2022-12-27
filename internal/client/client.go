@@ -74,7 +74,7 @@ func UploadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint6
 			opsOut <- &op
 			return nil
 		})
-		//log.Printf("Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dB", blockRangeCt, blockCt, dataCt, bytes)
+		//log.Printf("%s: Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dB", filePath, blockRangeCt, blockCt, dataCt, bytes)
 		if err != nil {
 			panic(err)
 		}
@@ -128,87 +128,70 @@ func UploadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uint6
 	return err
 }
 
+func UploadFileList(ctx context.Context, client pb.JamsyncAPIClient, fileMetadata *pb.FileMetadata, projectName string) error {
+	resp, err := client.CreateChange(ctx, &pb.CreateChangeRequest{
+		ProjectName: projectName,
+	})
+	if err != nil {
+		return err
+	}
+	metadataBytes, err := proto.Marshal(fileMetadata)
+	if err != nil {
+		return err
+	}
+	err = UploadFile(ctx, client, resp.GetProjectId(), resp.GetChangeId(), ".jamsyncfilelist", bytes.NewReader(metadataBytes))
+	if err != nil {
+		return err
+	}
+	_, err = client.CommitChange(ctx, &pb.CommitChangeRequest{
+		ProjectId: resp.ProjectId,
+		ChangeId:  resp.ChangeId,
+	})
+	return err
+}
+
 func GetFileListDiff(ctx context.Context, client pb.JamsyncAPIClient, fileMetadata *pb.FileMetadata, projectId uint64, changeId uint64) (*pb.FileMetadataDiff, error) {
-	fileMetadataData, err := proto.Marshal(fileMetadata)
+	metadataBytes, err := proto.Marshal(fileMetadata)
 	if err != nil {
 		return nil, err
 	}
-	fileMetadataReader := bytes.NewReader(fileMetadataData)
-
-	rs := rsync.RSync{UniqueHasher: xxhash.New()}
-	blockHashes := make([]*pb.BlockHash, 0)
-	err = rs.CreateSignature(fileMetadataReader, func(bl rsync.BlockHash) error {
-		blockHashes = append(blockHashes, &pb.BlockHash{
-			Index:      bl.Index,
-			StrongHash: bl.StrongHash,
-			WeakHash:   bl.WeakHash,
-		})
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	readFileClient, err := client.ReadFile(ctx, &pb.ReadFileRequest{
-		ProjectId:   projectId,
-		ChangeId:    changeId,
-		PathHash:    pathToHash(".jamsyncfilelist"),
-		ModTime:     timestamppb.Now(),
-		BlockHashes: blockHashes,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	ops := make(chan rsync.Operation)
-	go func() {
-		for {
-			in, err := readFileClient.Recv()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				panic(err)
-			}
-
-			ops <- server.PbOperationToRsync(in)
-		}
-		close(ops)
-	}()
-
-	result := new(bytes.Buffer)
-	fileMetadataReader.Reset(fileMetadataData)
-	err = rs.ApplyDelta(result, fileMetadataReader, ops)
+	metadataReader := bytes.NewReader(metadataBytes)
+	metadataResult := new(bytes.Buffer)
+	err = DownloadFile(ctx, client, projectId, changeId, ".jamsyncfilelist", metadataReader, metadataResult)
 	if err != nil {
 		return nil, err
 	}
 
 	remoteFileMetadata := &pb.FileMetadata{}
-	err = proto.Unmarshal(result.Bytes(), remoteFileMetadata)
+	err = proto.Unmarshal(metadataResult.Bytes(), remoteFileMetadata)
 	if err != nil {
 		return nil, err
 	}
 
 	fileMetadataDiff := make(map[string]*pb.FileMetadataDiff_FileDiff, len(fileMetadata.GetFiles()))
-	for filePath, file := range fileMetadata.GetFiles() {
-		fileMetadataDiff[filePath] = &pb.FileMetadataDiff_FileDiff{
-			Type: pb.FileMetadataDiff_NoOp,
-			File: file,
+	for remoteFilePath := range remoteFileMetadata.GetFiles() {
+		fileMetadataDiff[remoteFilePath] = &pb.FileMetadataDiff_FileDiff{
+			Type: pb.FileMetadataDiff_Delete,
 		}
 	}
 
-	for remoteFilePath, remoteFile := range remoteFileMetadata.GetFiles() {
-		diffType := pb.FileMetadataDiff_NoOp
-		diffFile, found := fileMetadataDiff[remoteFilePath]
-		if found && remoteFile.Hash != fileMetadata.GetFiles()[remoteFilePath].GetHash() {
+	for filePath, file := range fileMetadata.GetFiles() {
+		var diffFile *pb.File
+		diffType := pb.FileMetadataDiff_Delete
+		remoteFile, found := remoteFileMetadata.GetFiles()[filePath]
+		if found && proto.Equal(file, remoteFile) {
+			diffType = pb.FileMetadataDiff_NoOp
+		} else if found {
+			diffFile = file
 			diffType = pb.FileMetadataDiff_Update
 		} else {
+			diffFile = file
 			diffType = pb.FileMetadataDiff_Create
 		}
 
-		fileMetadataDiff[remoteFilePath] = &pb.FileMetadataDiff_FileDiff{
+		fileMetadataDiff[filePath] = &pb.FileMetadataDiff_FileDiff{
 			Type: diffType,
-			File: diffFile.File,
+			File: diffFile,
 		}
 	}
 
@@ -243,6 +226,7 @@ func DownloadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uin
 		return err
 	}
 
+	numOps := 0
 	ops := make(chan rsync.Operation)
 	go func() {
 		for {
@@ -253,14 +237,19 @@ func DownloadFile(ctx context.Context, client pb.JamsyncAPIClient, projectId uin
 			if err != nil {
 				panic(err)
 			}
-
 			ops <- server.PbOperationToRsync(in)
+			numOps += 1
 		}
 		close(ops)
 	}()
 
 	localReader.Seek(0, 0)
-	return rs.ApplyDelta(localWriter, localReader, ops)
+	err = rs.ApplyDelta(localWriter, localReader, ops)
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func pathToHash(path string) uint64 {

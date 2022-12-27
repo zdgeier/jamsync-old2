@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"testing"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
@@ -15,6 +16,8 @@ import (
 	"github.com/zdgeier/jamsync/internal/db"
 	"github.com/zdgeier/jamsync/internal/server"
 	"github.com/zdgeier/jamsync/internal/store"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type RandReader struct {
@@ -78,7 +81,7 @@ func min(a, b int) int {
 	return b
 }
 
-func TestRandUploadDownload(t *testing.T) {
+func TestClient_RandUploadDownload(t *testing.T) {
 	ctx := context.Background()
 
 	localDB, err := sql.Open("sqlite3", "file:foobar0?mode=memory&cache=shared")
@@ -199,7 +202,7 @@ func TestRandUploadDownload(t *testing.T) {
 	closeClient()
 }
 
-func TestUploadDownload(t *testing.T) {
+func TestClient_UploadDownload(t *testing.T) {
 	ctx := context.Background()
 
 	localDB, err := sql.Open("sqlite3", "file:foobar0?mode=memory&cache=shared")
@@ -212,20 +215,7 @@ func TestUploadDownload(t *testing.T) {
 	defer closeClient()
 
 	projectName := "test"
-	// _ := &pb.FileMetadata{
-	// 	Files: map[string]*pb.File{
-	// 		"test.txt": {
-	// 			ModTime: timestamppb.New(time.UnixMilli(100)),
-	// 		},
-	// 		"testdir": {
-	// 			ModTime: timestamppb.New(time.UnixMilli(200)),
-	// 			Dir:     true,
-	// 		},
-	// 		"testdir/test2.txt": {
-	// 			ModTime: timestamppb.New(time.UnixMilli(200)),
-	// 		},
-	// 	},
-	// }
+
 	addProjectResp, err := client.AddProject(context.Background(), &pb.AddProjectRequest{
 		ProjectName: projectName,
 	})
@@ -275,37 +265,6 @@ func TestUploadDownload(t *testing.T) {
 		},
 	}
 
-	// pair{
-	// 	Source:      content{Len: 512*1024 + 89, Seed: 42, Alter: 0},
-	// 	Target:      content{Len: 256*1024 + 19, Seed: 42, Alter: 5},
-	// 	Description: "Target shorter then source, slightly different content.",
-	// },
-	// pair{
-	// 	Source:      content{Len: 256*1024 + 19, Seed: 42, Alter: 0},
-	// 	Target:      content{Len: 512*1024 + 89, Seed: 42, Alter: 0},
-	// 	Description: "Source shorter then target, same content.",
-	// },
-	// pair{
-	// 	Source:      content{Len: 512*1024 + 89, Seed: 42, Alter: 5},
-	// 	Target:      content{Len: 256*1024 + 19, Seed: 42, Alter: 0},
-	// 	Description: "Source shorter then target, slightly different content.",
-	// },
-	// pair{
-	// 	Source:      content{Len: 512*1024 + 89, Seed: 42, Alter: 0},
-	// 	Target:      content{Len: 0, Seed: 42, Alter: 0},
-	// 	Description: "Target empty and source has content.",
-	// },
-	// pair{
-	// 	Source:      content{Len: 0, Seed: 42, Alter: 0},
-	// 	Target:      content{Len: 512*1024 + 89, Seed: 42, Alter: 0},
-	// 	Description: "Source empty and target has content.",
-	// },
-	// pair{
-	// 	Source:      content{Len: 872, Seed: 9824, Alter: 0},
-	// 	Target:      content{Len: 235, Seed: 2345, Alter: 0},
-	// 	Description: "Source and target both smaller then a block size.",
-	// },
-
 	for _, fileOperation := range fileOperations {
 		t.Run(fileOperation.name, func(t *testing.T) {
 			createChangeResp, err := client.CreateChange(context.Background(), &pb.CreateChangeRequest{
@@ -334,10 +293,7 @@ func TestUploadDownload(t *testing.T) {
 			err = DownloadFile(ctx, client, projectId, changeId, fileOperation.filePath, bytes.NewReader(currData), result)
 			require.NoError(t, err)
 
-			resultBytes, err := io.ReadAll(result)
-			require.NoError(t, err)
-
-			require.Equal(t, currData, resultBytes)
+			require.Equal(t, currData, result.Bytes())
 		})
 	}
 
@@ -465,4 +421,191 @@ func BenchmarkRandUploadDownload(b *testing.B) {
 	}
 
 	closeClient()
+}
+
+func TestGetFileListDiff(t *testing.T) {
+	ctx := context.Background()
+
+	localDB, err := sql.Open("sqlite3", "file:foobar0?mode=memory&cache=shared")
+	if err != nil {
+		log.Panic(err)
+	}
+	db.Setup(localDB)
+
+	client, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
+	defer closeClient()
+
+	projectName := "test_getfilelistdiff"
+	addProjectResp, err := client.AddProject(context.Background(), &pb.AddProjectRequest{
+		ProjectName: projectName,
+	})
+	require.NoError(t, err)
+
+	initMetadata := &pb.FileMetadata{
+		Files: map[string]*pb.File{
+			"test.txt": {
+				ModTime: timestamppb.New(time.UnixMilli(100)),
+				Hash:    1234,
+			},
+			"testdir": {
+				ModTime: timestamppb.New(time.UnixMilli(200)),
+				Dir:     true,
+			},
+			"testdir/test2.txt": {
+				ModTime: timestamppb.New(time.UnixMilli(200)),
+				Hash:    123,
+			},
+		},
+	}
+
+	type args struct {
+		ctx          context.Context
+		client       pb.JamsyncAPIClient
+		fileMetadata *pb.FileMetadata
+		projectId    uint64
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *pb.FileMetadataDiff
+		wantErr bool
+	}{
+		{
+			name: "Simple",
+			args: args{
+				ctx:          ctx,
+				client:       client,
+				fileMetadata: initMetadata,
+				projectId:    addProjectResp.GetProjectId(),
+			},
+			want: &pb.FileMetadataDiff{
+				Diffs: map[string]*pb.FileMetadataDiff_FileDiff{
+					"test.txt": {
+						Type: pb.FileMetadataDiff_Create,
+						File: &pb.File{
+							ModTime: timestamppb.New(time.UnixMilli(100)),
+							Dir:     false,
+							Hash:    1234,
+						},
+					},
+					"testdir": {
+						Type: pb.FileMetadataDiff_Create,
+						File: &pb.File{
+							ModTime: timestamppb.New(time.UnixMilli(200)),
+							Dir:     true,
+						},
+					},
+					"testdir/test2.txt": {
+						Type: pb.FileMetadataDiff_Create,
+						File: &pb.File{
+							ModTime: timestamppb.New(time.UnixMilli(200)),
+							Dir:     false,
+							Hash:    123,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Noop after upload",
+			args: args{
+				ctx:          ctx,
+				client:       client,
+				fileMetadata: initMetadata,
+				projectId:    addProjectResp.GetProjectId(),
+			},
+			want: &pb.FileMetadataDiff{
+				Diffs: map[string]*pb.FileMetadataDiff_FileDiff{
+					"test.txt": {
+						Type: pb.FileMetadataDiff_NoOp,
+					},
+					"testdir": {
+						Type: pb.FileMetadataDiff_NoOp,
+					},
+					"testdir/test2.txt": {
+						Type: pb.FileMetadataDiff_NoOp,
+					},
+				},
+			},
+		},
+		{
+			name: "Changed",
+			args: args{
+				ctx:    ctx,
+				client: client,
+				fileMetadata: &pb.FileMetadata{
+					Files: map[string]*pb.File{
+						"test2.txt": {
+							ModTime: timestamppb.New(time.UnixMilli(100)),
+							Hash:    1234,
+						},
+						"testdir": {
+							ModTime: timestamppb.New(time.UnixMilli(200)),
+							Dir:     true,
+						},
+						"testdir2": {
+							ModTime: timestamppb.New(time.UnixMilli(200)),
+							Dir:     true,
+						},
+						"testdir/test2.txt": {
+							ModTime: timestamppb.New(time.UnixMilli(300)),
+							Hash:    12345,
+						},
+					},
+				},
+				projectId: addProjectResp.GetProjectId(),
+			},
+			want: &pb.FileMetadataDiff{
+				Diffs: map[string]*pb.FileMetadataDiff_FileDiff{
+					"test.txt": {
+						Type: pb.FileMetadataDiff_Delete,
+					},
+					"test2.txt": {
+						Type: pb.FileMetadataDiff_Create,
+						File: &pb.File{
+							ModTime: timestamppb.New(time.UnixMilli(100)),
+							Dir:     false,
+							Hash:    1234,
+						},
+					},
+					"testdir": {
+						Type: pb.FileMetadataDiff_NoOp,
+					},
+					"testdir2": {
+						Type: pb.FileMetadataDiff_Create,
+						File: &pb.File{
+							ModTime: timestamppb.New(time.UnixMilli(200)),
+							Dir:     true,
+						},
+					},
+					"testdir/test2.txt": {
+						Type: pb.FileMetadataDiff_Update,
+						File: &pb.File{
+							ModTime: timestamppb.New(time.UnixMilli(300)),
+							Dir:     false,
+							Hash:    12345,
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			createChangeResp, err := tt.args.client.CreateChange(ctx, &pb.CreateChangeRequest{
+				ProjectName: projectName,
+			})
+			require.NoError(t, err)
+			got, err := GetFileListDiff(tt.args.ctx, tt.args.client, tt.args.fileMetadata, tt.args.projectId, createChangeResp.GetChangeId())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetFileListDiff() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !proto.Equal(got, tt.want) {
+				t.Errorf("GetFileListDiff() = %v, want %v", got, tt.want)
+			}
+
+			require.NoError(t, UploadFileList(ctx, client, tt.args.fileMetadata, projectName))
+		})
+	}
 }
