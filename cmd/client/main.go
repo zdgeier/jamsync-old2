@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/pb"
-	"github.com/zdgeier/jamsync/internal/client"
 	jam "github.com/zdgeier/jamsync/internal/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -62,6 +62,7 @@ func main() {
 		}
 
 		client := jam.NewClient(apiClient, resp.ProjectId, resp.CurrentChange)
+		fmt.Println("Cur", resp.CurrentChange)
 		err = downloadExistingProject(client)
 		if err != nil {
 			log.Panic(err)
@@ -104,7 +105,7 @@ func writeJamsyncFile(config *pb.ProjectConfig) error {
 
 func uploadNewProject(client *jam.Client) error {
 	fileMetadata := readLocalFileList()
-	fileMetadataDiff, err := client.GetFileListDiff(context.Background(), fileMetadata)
+	fileMetadataDiff, err := client.DiffLocalToRemote(context.Background(), fileMetadata)
 	if err != nil {
 		return err
 	}
@@ -120,7 +121,7 @@ func uploadNewProject(client *jam.Client) error {
 func readLocalFileList() *pb.FileMetadata {
 	files := map[string]*pb.File{}
 	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-		if d.Name() == ".jamsync" || path == "." {
+		if d.Name() == ".jamsync" || path == "." || d.Name() == ".git" {
 			return nil
 		}
 		info, err := d.Info()
@@ -157,26 +158,28 @@ func readLocalFileList() *pb.FileMetadata {
 	}
 }
 
-func downloadExistingProject(client *client.Client) error {
-	resp, err := client.GetFileListDiff(context.TODO(), &pb.FileMetadata{})
+func downloadExistingProject(client *jam.Client) error {
+	resp, err := client.DiffRemoteToLocal(context.TODO(), &pb.FileMetadata{})
 	if err != nil {
 		return err
 	}
 
 	err = applyFileListDiff(resp, client)
+	if err != nil {
+		return err
+	}
 
 	log.Println("Done downloading.")
 	return writeJamsyncFile(client.ProjectConfig())
 }
 
-func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMetadataDiff, client *client.Client) error {
+func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client) error {
 	ctx := context.TODO()
 
 	err := client.CreateChange()
 	if err != nil {
 		return err
 	}
-	defer client.CommitChange()
 
 	log.Println("Uploading files...")
 	for path, diff := range fileMetadataDiff.GetDiffs() {
@@ -193,16 +196,18 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 			file.Close()
 		}
 	}
+	client.CommitChange()
 	log.Println("Uploading filelist...")
 
 	return client.UploadFileList(ctx, fileMetadata)
 }
 
-func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *client.Client) error {
+func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client) error {
 	ctx := context.TODO()
 	log.Println("Creating directories...")
+	fmt.Println(fileMetadataDiff)
 	for path, diff := range fileMetadataDiff.GetDiffs() {
-		if diff.Type != pb.FileMetadataDiff_NoOp && diff.File.Dir == true {
+		if diff.GetType() != pb.FileMetadataDiff_NoOp && diff.GetFile().GetDir() {
 			err := os.MkdirAll(path, os.ModePerm)
 			if err != nil {
 				return err
@@ -212,7 +217,7 @@ func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *client.Cli
 
 	log.Println("Downloading files...")
 	for path, diff := range fileMetadataDiff.GetDiffs() {
-		if diff.Type != pb.FileMetadataDiff_NoOp && diff.File.Dir == false {
+		if diff.GetType() != pb.FileMetadataDiff_NoOp && !diff.GetFile().GetDir() {
 			log.Println("Downloading " + path)
 
 			file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0755)
@@ -220,7 +225,13 @@ func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *client.Cli
 				return err
 			}
 
-			err = client.DownloadFile(ctx, path, file, file)
+			fileContents, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("HEr")
+			err = client.DownloadFile(ctx, path, bytes.NewReader(fileContents), file)
 			if err != nil {
 				return err
 			}
@@ -244,223 +255,3 @@ func currentDirectoryEmpty() (bool, error) {
 	}
 	return false, err // Either not empty or error, suits both cases
 }
-
-// client := pb.NewJamsyncAPIClient(conn)
-// currFileMetadata := &pb.FileMetadata{}
-// if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-// 	fileInfo, err := d.Info()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	dir := d.IsDir()
-// 	currFileMetadata.Files[path] = &pb.File{
-// 		Dir:     dir,
-// 		ModTime: timestamppb.New(fileInfo.ModTime()),
-// 	}
-// 	return nil
-// }); err != nil {
-// 	log.Panic("Could not walk directory tree to watch files", err)
-// }
-
-// projectName, localChangeId, timestamp, err := GetJamsyncFileInfo(client)
-// if err != nil {
-// 	log.Panic(err)
-// }
-
-// currChangeResp, err := client.GetCurrentChange(context.TODO(), &pb.GetCurrentChangeRequest{
-// 	ProjectName: projectName,
-// })
-// if err != nil {
-// 	log.Panic(err)
-// }
-// remoteChangeId := int(currChangeResp.GetChangeId())
-
-// if localChangeId < remoteChangeId {
-// 	// Local version is behind remote version, we need to update but we also need to check for local changes
-// } else if localChangeId == remoteChangeId {
-// 	// We're up to date, remotely but we have to check for local changes...
-// } else {
-// 	panic("impossible...")
-// }
-
-// // starting at the root of the project, walk each file/directory searching for
-// // directories
-// changedFilePaths := make([]string, 0)
-// if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-// 	log.Println("Watching", path)
-// 	if !d.IsDir() {
-// 		fileInfo, err := d.Info()
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		if fileInfo.Name() == ".jamsync" {
-// 			return nil
-// 		}
-
-// 		if fileInfo.ModTime().After(timestamp) {
-// 			changedFilePaths = append(changedFilePaths, path)
-// 		}
-// 	}
-
-// 	return nil
-// }); err != nil {
-// 	log.Panic("Could not walk directory tree to watch files", err)
-// }
-
-// log.Println("Changed:", changedFilePaths)
-// if len(changedFilePaths) > 0 {
-// 	err := uploadLocalChanges(client, projectName)
-// 	if err != nil {
-// 		log.Panic(err)
-// 	}
-// }
-
-// currChangeResp, err = client.GetCurrentChange(context.TODO(), &pb.GetCurrentChangeRequest{
-// 	ProjectName: projectName,
-// })
-// if err != nil {
-// 	log.Panic("could not get current change")
-// }
-// err = createJamsyncFile(projectName, currChangeResp.ChangeId, currChangeResp.Timestamp.AsTime())
-// if err != nil {
-// 	log.Panic("could not update .jamsync")
-// }
-
-// log.Println("DONE")
-
-// func uploadLocalChanges(client pb.JamsyncAPIClient, projectName string) error {
-// 	log.Println("uploading")
-// 	localFileList := readLocalFileList()
-// 	fileHashBlocksStream, err := client.GetFileHashBlocks(context.TODO(), &pb.GetFileBlockHashesRequest{
-// 		ProjectName: projectName,
-// 		FileList:    localFileList,
-// 	})
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	log.Println("stream1")
-// 	changeRequest, err := client.CreateChange(context.TODO(), &pb.CreateChangeRequest{
-// 		ProjectName: projectName,
-// 	})
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	stream, err := client.StreamChange(context.Background())
-// 	if err != nil {
-// 		return err
-// 	}
-// 	log.Println("loopin")
-// 	for {
-// 		blockHashesResp, err := fileHashBlocksStream.Recv()
-// 		if err == io.EOF {
-// 			break
-// 		}
-// 		if err != nil {
-// 			return err
-// 		}
-// 		blockHashesPb := blockHashesResp.GetBlockHashes()
-//
-// 		log.Println("gotem")
-// 		var sourceBytes []byte
-// 		path := blockHashesResp.GetPath()
-// 		if path == ".jamsyncfilelist" {
-// 			sourceBytes, err = proto.Marshal(localFileList)
-// 			if err != nil {
-// 				log.Panic(err)
-// 			}
-// 		} else {
-// 			sourceFile, err := os.Open(path)
-// 			if err != nil {
-// 				log.Panic(err)
-// 			}
-// 			defer sourceFile.Close()
-//
-// 			sourceBytes, err = ioutil.ReadAll(sourceFile)
-// 			if err != nil {
-// 				log.Panic(err)
-// 			}
-// 		}
-//
-// 		blockHashes := make([]rsync.BlockHash, len(blockHashesPb))
-// 		for i, block := range blockHashesPb {
-// 			blockHashes[i] = rsync.BlockHash{
-// 				Index:      block.GetIndex(),
-// 				StrongHash: block.GetStrongHash(),
-// 				WeakHash:   block.GetWeakHash(),
-// 			}
-// 		}
-//
-// 		log.Println("making bacon")
-// 		opsOut := make(chan rsync.Operation)
-// 		rsDelta := &rsync.RSync{UniqueHasher: xxhash.New()}
-// 		go func() {
-// 			sourceBuffer := bytes.NewReader(sourceBytes)
-// 			var blockCt, blockRangeCt, dataCt, bytes int
-// 			defer close(opsOut)
-// 			err := rsDelta.CreateDelta(sourceBuffer, blockHashes, func(op rsync.Operation) error {
-// 				switch op.Type {
-// 				case rsync.OpBlockRange:
-// 					blockRangeCt++
-// 				case rsync.OpBlock:
-// 					blockCt++
-// 				case rsync.OpData:
-// 					// Copy data buffer so it may be reused in internal buffer.
-// 					b := make([]byte, len(op.Data))
-// 					copy(b, op.Data)
-// 					op.Data = b
-// 					dataCt++
-// 					bytes += len(op.Data)
-// 				}
-// 				opsOut <- op
-// 				return nil
-// 			})
-// 			log.Printf("Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dKiB", blockRangeCt, blockCt, dataCt, bytes/1024)
-// 			if err != nil {
-// 				log.Panicf("Failed to create delta: %s", err)
-// 			}
-// 		}()
-//
-// 		log.Println("making bacons")
-// 		for op := range opsOut {
-// 			log.Println("making opss")
-// 			var opPbType pb.Operation_Type
-// 			switch op.Type {
-// 			case rsync.OpBlock:
-// 				opPbType = pb.Operation_OpBlock
-// 			case rsync.OpData:
-// 				opPbType = pb.Operation_OpData
-// 			case rsync.OpHash:
-// 				opPbType = pb.Operation_OpHash
-// 			case rsync.OpBlockRange:
-// 				opPbType = pb.Operation_OpBlockRange
-// 			}
-//
-// 			err = stream.Send(&pb.ChangeOperation{
-// 				ProjectId: changeRequest.GetProjectId(),
-// 				ChangeId:  changeRequest.GetChangeId(),
-// 				PathHash:  pathToHash(path),
-// 				Op: &pb.Operation{
-// 					Type:          opPbType,
-// 					BlockIndex:    op.BlockIndex,
-// 					BlockIndexEnd: op.BlockIndexEnd,
-// 					Data:          op.Data,
-// 				},
-// 			})
-// 			if err != nil {
-// 				return err
-// 			}
-// 		}
-// 	}
-// 	log.Println("done")
-// 	return stream.CloseSend()
-// }
-//
-// func pathToHash(path string) uint64 {
-// 	h := xxhash.New()
-// 	h.Write([]byte(path))
-// 	return h.Sum64()
-// }
-//

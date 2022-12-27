@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/cespare/xxhash"
@@ -176,7 +177,57 @@ func (c *Client) UploadFileList(ctx context.Context, fileMetadata *pb.FileMetada
 	return c.CommitChange()
 }
 
-func (c *Client) GetFileListDiff(ctx context.Context, fileMetadata *pb.FileMetadata) (*pb.FileMetadataDiff, error) {
+func (c *Client) DiffLocalToRemote(ctx context.Context, fileMetadata *pb.FileMetadata) (*pb.FileMetadataDiff, error) {
+	metadataBytes, err := proto.Marshal(fileMetadata)
+	if err != nil {
+		return nil, err
+	}
+	metadataReader := bytes.NewReader(metadataBytes)
+	metadataResult := new(bytes.Buffer)
+	err = c.DownloadFile(ctx, ".jamsyncfilelist", metadataReader, metadataResult)
+	if err != nil {
+		return nil, err
+	}
+
+	remoteFileMetadata := &pb.FileMetadata{}
+	err = proto.Unmarshal(metadataResult.Bytes(), remoteFileMetadata)
+	if err != nil {
+		return nil, err
+	}
+
+	fileMetadataDiff := make(map[string]*pb.FileMetadataDiff_FileDiff, len(remoteFileMetadata.GetFiles()))
+	for remoteFilePath := range remoteFileMetadata.GetFiles() {
+		fileMetadataDiff[remoteFilePath] = &pb.FileMetadataDiff_FileDiff{
+			Type: pb.FileMetadataDiff_Delete,
+		}
+	}
+
+	for filePath, file := range fileMetadata.GetFiles() {
+		var diffFile *pb.File
+		diffType := pb.FileMetadataDiff_Delete
+		remoteFile, found := remoteFileMetadata.GetFiles()[filePath]
+		if found && proto.Equal(file, remoteFile) {
+			diffType = pb.FileMetadataDiff_NoOp
+		} else if found {
+			diffFile = file
+			diffType = pb.FileMetadataDiff_Update
+		} else {
+			diffFile = file
+			diffType = pb.FileMetadataDiff_Create
+		}
+
+		fileMetadataDiff[filePath] = &pb.FileMetadataDiff_FileDiff{
+			Type: diffType,
+			File: diffFile,
+		}
+	}
+
+	return &pb.FileMetadataDiff{
+		Diffs: fileMetadataDiff,
+	}, err
+}
+
+func (c *Client) DiffRemoteToLocal(ctx context.Context, fileMetadata *pb.FileMetadata) (*pb.FileMetadataDiff, error) {
 	metadataBytes, err := proto.Marshal(fileMetadata)
 	if err != nil {
 		return nil, err
@@ -195,16 +246,16 @@ func (c *Client) GetFileListDiff(ctx context.Context, fileMetadata *pb.FileMetad
 	}
 
 	fileMetadataDiff := make(map[string]*pb.FileMetadataDiff_FileDiff, len(fileMetadata.GetFiles()))
-	for remoteFilePath := range remoteFileMetadata.GetFiles() {
-		fileMetadataDiff[remoteFilePath] = &pb.FileMetadataDiff_FileDiff{
+	for filePath := range fileMetadata.GetFiles() {
+		fileMetadataDiff[filePath] = &pb.FileMetadataDiff_FileDiff{
 			Type: pb.FileMetadataDiff_Delete,
 		}
 	}
 
-	for filePath, file := range fileMetadata.GetFiles() {
+	for filePath, file := range remoteFileMetadata.GetFiles() {
 		var diffFile *pb.File
 		diffType := pb.FileMetadataDiff_Delete
-		remoteFile, found := remoteFileMetadata.GetFiles()[filePath]
+		remoteFile, found := fileMetadata.GetFiles()[filePath]
 		if found && proto.Equal(file, remoteFile) {
 			diffType = pb.FileMetadataDiff_NoOp
 		} else if found {
@@ -241,6 +292,7 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, localReader 
 		return err
 	}
 
+	fmt.Println("READING", filePath, pathToHash(filePath))
 	readFileClient, err := c.api.ReadFile(ctx, &pb.ReadFileRequest{
 		ProjectId:   c.projectId,
 		ChangeId:    c.changeId,
@@ -252,12 +304,15 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, localReader 
 		return err
 	}
 
+	fmt.Println("Donwliandg", filePath)
+
 	numOps := 0
 	ops := make(chan rsync.Operation)
 	go func() {
 		for {
 			in, err := readFileClient.Recv()
 			if err == io.EOF {
+				fmt.Println("GOTOP", in, err)
 				break
 			}
 			if err != nil {

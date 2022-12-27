@@ -583,7 +583,7 @@ func TestGetFileListDiff(t *testing.T) {
 			err := tt.args.client.CreateChange()
 			require.NoError(t, err)
 
-			got, err := client.GetFileListDiff(tt.args.ctx, tt.args.fileMetadata)
+			got, err := client.DiffLocalToRemote(tt.args.ctx, tt.args.fileMetadata)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetFileListDiff() error = %v, wantErr %v", err, tt.wantErr)
 				return

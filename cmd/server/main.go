@@ -43,7 +43,7 @@ func main() {
 	grpcServer := grpc.NewServer(opts...)
 	reflection.Register(grpcServer)
 
-	jamsyncServer := server.NewServer(localDB, store.NewMemoryStore())
+	jamsyncServer := server.NewServer(localDB, store.NewLocalStore("jb"))
 
 	pb.RegisterJamsyncAPIServer(grpcServer, jamsyncServer)
 	err = grpcServer.Serve(lis)

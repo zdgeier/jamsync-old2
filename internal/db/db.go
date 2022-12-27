@@ -119,6 +119,7 @@ func AddChange(db *sql.DB, projectId uint64) (uint64, error) {
 }
 
 func CommitChange(db *sql.DB, projectId uint64, changeId uint64) error {
+	fmt.Println("comming", projectId, changeId)
 	_, err := db.Exec("INSERT INTO committed_changes(change_id, project_id) VALUES(?, ?)", changeId, projectId)
 	if err != nil {
 		return err
@@ -128,6 +129,7 @@ func CommitChange(db *sql.DB, projectId uint64, changeId uint64) error {
 }
 
 func ListCommittedChanges(db *sql.DB, projectId uint64, pathHash uint64, timestamp time.Time) ([]uint64, error) {
+	fmt.Println("LIST", projectId, pathHash, timestamp)
 	rows, err := db.Query("SELECT c.change_id FROM committed_changes AS c INNER JOIN operation_locations AS o WHERE c.project_id = ? AND c.change_id = o.change_id AND path_hash = ? AND timestamp < ? ORDER BY c.timestamp ASC", projectId, int64(pathHash), timestamp)
 	if err != nil {
 		return nil, err
