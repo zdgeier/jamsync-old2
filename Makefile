@@ -32,7 +32,6 @@ buildstore:
 	go build -o build/jamstore cmd/store/main.go 
 
 build: buildserver buildclient buildweb
-run: server web
 
 test:
 	go test ./...
