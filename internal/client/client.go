@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/cespare/xxhash"
@@ -292,7 +291,6 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, localReader 
 		return err
 	}
 
-	fmt.Println("READING", filePath, pathToHash(filePath))
 	readFileClient, err := c.api.ReadFile(ctx, &pb.ReadFileRequest{
 		ProjectId:   c.projectId,
 		ChangeId:    c.changeId,
@@ -304,15 +302,12 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, localReader 
 		return err
 	}
 
-	fmt.Println("Donwliandg", filePath)
-
 	numOps := 0
 	ops := make(chan rsync.Operation)
 	go func() {
 		for {
 			in, err := readFileClient.Recv()
 			if err == io.EOF {
-				fmt.Println("GOTOP", in, err)
 				break
 			}
 			if err != nil {

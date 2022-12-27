@@ -62,7 +62,6 @@ func main() {
 		}
 
 		client := jam.NewClient(apiClient, resp.ProjectId, resp.CurrentChange)
-		fmt.Println("Cur", resp.CurrentChange)
 		err = downloadExistingProject(client)
 		if err != nil {
 			log.Panic(err)
@@ -205,7 +204,6 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client) error {
 	ctx := context.TODO()
 	log.Println("Creating directories...")
-	fmt.Println(fileMetadataDiff)
 	for path, diff := range fileMetadataDiff.GetDiffs() {
 		if diff.GetType() != pb.FileMetadataDiff_NoOp && diff.GetFile().GetDir() {
 			err := os.MkdirAll(path, os.ModePerm)
@@ -230,7 +228,6 @@ func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client
 				return err
 			}
 
-			fmt.Println("HEr")
 			err = client.DownloadFile(ctx, path, bytes.NewReader(fileContents), file)
 			if err != nil {
 				return err
