@@ -3,16 +3,20 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cespare/xxhash"
+	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/pb"
 	jam "github.com/zdgeier/jamsync/internal/client"
 	"google.golang.org/grpc"
@@ -21,14 +25,11 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// var serverAddr = flag.String("addr", "18.216.248.73:14357", "The server address in the format of host:port")
 var serverAddr = flag.String("addr", "localhost:14357", "The server address in the format of host:port")
 
-type JamsyncProjectFile struct {
-	ProjectName     string
-	CurrentChangeId uint64
-}
-
 func main() {
+	flag.Parse()
 	// TODO Chroot
 	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -49,6 +50,7 @@ func main() {
 		log.Panic(err)
 	}
 
+	var client *jam.Client
 	if empty {
 		log.Println("This directory is empty.")
 		log.Print("Name of project to download: ")
@@ -62,11 +64,13 @@ func main() {
 			log.Panic(err)
 		}
 
-		client := jam.NewClient(apiClient, resp.ProjectId, resp.CurrentChange)
+		client = jam.NewClient(apiClient, resp.ProjectId, resp.CurrentChange)
 		err = downloadExistingProject(client)
 		if err != nil {
 			log.Panic(err)
 		}
+	} else if config := findJamsyncConfig(); config != nil {
+		client = jam.NewClient(apiClient, config.ProjectId, config.CurrentChange)
 	} else {
 		log.Println("This directory has some existing contents.")
 		log.Println("Name of new project to create for current directory: ")
@@ -80,12 +84,114 @@ func main() {
 			log.Panic(err)
 		}
 
-		client := jam.NewClient(apiClient, resp.ProjectId, 0)
+		client = jam.NewClient(apiClient, resp.ProjectId, 0)
 		err = uploadNewProject(client)
 		if err != nil {
 			log.Panic(err)
 		}
 	}
+
+	watcher, _ := fsnotify.NewWatcher()
+	defer watcher.Close()
+
+	// starting at the root of the project, walk each file/directory searching for
+	// directories
+	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
+		if d.Name() == ".jamsync" || path == "." || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") || strings.HasPrefix(path, "jamsync.db") {
+			return nil
+		}
+		log.Println("Watching", path)
+		return watcher.Add(path)
+	}); err != nil {
+		log.Panic("Could not walk directory tree to watch files", err)
+	}
+
+	// This is a test2
+
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Op == fsnotify.Chmod {
+				continue
+			}
+
+			// TODO: Wait for VS code by default, we should test with other editors
+			time.Sleep(time.Millisecond * 250)
+
+			path := event.Name
+
+			if stat, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+				log.Println(path + " deleted")
+				err := watcher.Remove(path)
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else if stat.IsDir() {
+				if err := filepath.WalkDir(path, func(path string, d fs.DirEntry, _ error) error {
+					if d.IsDir() {
+						log.Println(path + " directory changed")
+					} else {
+						log.Println(path + " changed")
+					}
+
+					return watcher.Add(path)
+				}); err != nil {
+					log.Panic("Could not walk directory tree to watch files")
+				}
+			} else {
+				log.Println(path + " changed ")
+				err := watcher.Add(path)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+
+			fileMetadata := readLocalFileList()
+			fileMetadataDiff, err := client.DiffLocalToRemote(context.Background(), fileMetadata)
+			if err != nil {
+				log.Panic(err)
+			}
+			err = pushFileListDiff(fileMetadata, fileMetadataDiff, client)
+			if err != nil {
+				log.Panic(err)
+			}
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Println("error:", err)
+		}
+	}
+}
+
+func findJamsyncConfig() *pb.ProjectConfig {
+	currentPath, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	for {
+		fmt.Println("Looking for config in ", currentPath)
+
+		filePath := fmt.Sprintf("%v/%v", currentPath, ".jamsync")
+		_, err := os.Stat(filePath)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			panic(err)
+		} else if err == nil {
+			if configBytes, err := os.ReadFile(filePath); err != nil {
+				config := &pb.ProjectConfig{}
+				err = proto.Unmarshal(configBytes, config)
+				if err != nil {
+					fmt.Println("Could not parse config file")
+					return nil
+				}
+				return config
+			}
+		} else if currentPath == "/" {
+			break
+		}
+		currentPath = path.Dir(currentPath)
+	}
+	return nil
 }
 
 func writeJamsyncFile(config *pb.ProjectConfig) error {
