@@ -8,13 +8,12 @@ import (
 
 	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/pb"
-	"github.com/zdgeier/jamsync/internal/db"
 	"github.com/zdgeier/jamsync/internal/rsync"
 	"google.golang.org/protobuf/proto"
 )
 
 func (s JamsyncServer) CreateChange(ctx context.Context, in *pb.CreateChangeRequest) (*pb.CreateChangeResponse, error) {
-	changeId, err := db.AddChange(s.db, in.GetProjectId())
+	changeId, err := s.changestore.AddChange(in.GetProjectId())
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +35,7 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 		if err != nil {
 			return err
 		}
-		offset, length, err := s.store.Write(in.GetProjectId(), in.GetChangeId(), in.GetPathHash(), data)
+		offset, length, err := s.opstore.Write(in.GetProjectId(), in.GetChangeId(), in.GetPathHash(), data)
 		if err != nil {
 			return err
 		}
@@ -47,7 +46,7 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 			Offset:    offset,
 			Length:    length,
 		}
-		_, err = db.AddOperationLocation(s.db, operationLocation)
+		_, err = s.changestore.AddOperationLocation(operationLocation)
 		if err != nil {
 			return err
 		}
@@ -65,7 +64,7 @@ func (s JamsyncServer) ReadOperationStream(srv pb.JamsyncAPI_ReadOperationStream
 		if err != nil {
 			return err
 		}
-		b, err := s.store.Read(in.GetProjectId(), in.GetChangeId(), in.GetPathHash(), in.GetOffset(), in.GetLength())
+		b, err := s.opstore.Read(in.GetProjectId(), in.GetChangeId(), in.GetPathHash(), in.GetOffset(), in.GetLength())
 		if err != nil {
 			return err
 		}
@@ -104,7 +103,7 @@ func (s JamsyncServer) ReadBlockHashes(ctx context.Context, in *pb.ReadBlockHash
 }
 
 func (s JamsyncServer) regenFile(projectId uint64, pathHash uint64, modTime time.Time) (*bytes.Reader, error) {
-	changeIds, err := db.ListCommittedChanges(s.db, projectId, pathHash, modTime)
+	changeIds, err := s.changestore.ListCommittedChanges(projectId, pathHash, modTime)
 	if err != nil {
 		return nil, err
 	}
@@ -123,14 +122,14 @@ func (s JamsyncServer) regenFile(projectId uint64, pathHash uint64, modTime time
 			continue
 		}
 		appliedChanges[changeId] = nil
-		operationLocations, err := db.ListOperationLocations(s.db, projectId, pathHash, changeId)
+		operationLocations, err := s.changestore.ListOperationLocations(projectId, pathHash, changeId)
 		if err != nil {
 			return nil, err
 		}
 		ops := make(chan rsync.Operation)
 		go func() {
 			for _, loc := range operationLocations {
-				b, err := s.store.Read(loc.GetProjectId(), loc.GetChangeId(), loc.GetPathHash(), loc.GetOffset(), loc.GetLength())
+				b, err := s.opstore.Read(projectId, loc.GetChangeId(), loc.GetPathHash(), loc.GetOffset(), loc.GetLength())
 				if err != nil {
 					panic(err)
 				}
@@ -255,7 +254,7 @@ func PbOperationToRsync(op *pb.Operation) rsync.Operation {
 }
 
 func (s JamsyncServer) CommitChange(ctx context.Context, in *pb.CommitChangeRequest) (*pb.CommitChangeResponse, error) {
-	err := db.CommitChange(s.db, in.GetProjectId(), in.GetChangeId())
+	err := s.changestore.CommitChange(in.GetProjectId(), in.GetChangeId())
 	if err != nil {
 		return nil, err
 	}

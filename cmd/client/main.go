@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -19,19 +19,33 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/pb"
 	jam "github.com/zdgeier/jamsync/internal/client"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// var serverAddr = flag.String("addr", "18.216.248.73:14357", "The server address in the format of host:port")
-var serverAddr = flag.String("addr", "localhost:14357", "The server address in the format of host:port")
-
 func main() {
-	flag.Parse()
-	// TODO Chroot
-	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(jamenv.PublicAPIAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		raddr, err := net.ResolveTCPAddr("tcp", jamenv.PublicAPIAddress())
+		if err != nil {
+			return nil, err
+		}
+
+		conn, err := net.DialTCP("tcp", nil, raddr)
+		if err != nil {
+			return nil, err
+		}
+
+		file, err := conn.File()
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println("Connection", file.Name())
+
+		return conn, err
+	}))
 	if err != nil {
 		log.Panicf("could not connect to jamsync server: %s", err)
 	}
@@ -100,7 +114,6 @@ func main() {
 		if d.Name() == ".jamsync" || path == "." || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") || strings.HasPrefix(path, "jamsync.db") {
 			return nil
 		}
-		log.Println("Watching", path)
 		return watcher.Add(path)
 	}); err != nil {
 		log.Panic("Could not walk directory tree to watch files", err)
@@ -170,14 +183,13 @@ func findJamsyncConfig() *pb.ProjectConfig {
 		panic(err)
 	}
 	for {
-		fmt.Println("Looking for config in ", currentPath)
-
 		filePath := fmt.Sprintf("%v/%v", currentPath, ".jamsync")
+		fmt.Println("Looking for config in ", filePath)
 		_, err := os.Stat(filePath)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			panic(err)
 		} else if err == nil {
-			if configBytes, err := os.ReadFile(filePath); err != nil {
+			if configBytes, err := os.ReadFile(filePath); err == nil {
 				config := &pb.ProjectConfig{}
 				err = proto.Unmarshal(configBytes, config)
 				if err != nil {
@@ -234,7 +246,6 @@ func readLocalFileList() *pb.FileMetadata {
 		if err != nil {
 			return err
 		}
-		fmt.Println(path)
 
 		if d.IsDir() {
 			files[path] = &pb.File{
@@ -304,9 +315,15 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 		}
 	}
 	client.CommitChange()
-	log.Println("Uploading filelist...")
+	log.Println("Uploading file list...")
 
-	return client.UploadFileList(ctx, fileMetadata)
+	err = client.UploadFileList(ctx, fileMetadata)
+	if err != nil {
+		return err
+	}
+	log.Println("Done")
+
+	return nil
 }
 
 func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client) error {
@@ -351,7 +368,7 @@ func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client
 
 	// This starts up 3 workers, initially blocked
 	// because there are no jobs yet.
-	for w := 1; w <= 10000; w++ {
+	for w := 1; w <= 10; w++ {
 		go worker(w, paths, results)
 	}
 	for path, diff := range fileMetadataDiff.GetDiffs() {

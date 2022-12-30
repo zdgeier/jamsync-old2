@@ -46,34 +46,6 @@ func (c *Client) CommitChange() error {
 	return err
 }
 
-// func (c *Client) UploadDiff(fileMetadata *pb.FileMetadata, fileData map[string][]byte) error {
-// 	ctx := context.Background()
-//
-// 	diff, err := c.GetFileListDiff(ctx, fileMetadata)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	for filePath, fileDiff := range diff.GetDiffs() {
-// 		if fileDiff.File.Dir || fileDiff.Type == pb.FileMetadataDiff_NoOp {
-// 			continue
-// 		}
-// 		err := c.UploadFile(ctx, filePath, bytes.NewReader(fileData[filePath]))
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	fileMetadataData, err := proto.Marshal(fileMetadata)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	err = c.UploadFile(ctx, ".jamsyncfilemetadata", bytes.NewReader(fileMetadataData))
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	return nil
-// }
-
 func (c *Client) UploadFile(ctx context.Context, filePath string, sourceReader io.Reader) error {
 	blockHashResp, err := c.api.ReadBlockHashes(ctx, &pb.ReadBlockHashesRequest{
 		ProjectId: c.projectId,
@@ -107,7 +79,7 @@ func (c *Client) UploadFile(ctx context.Context, filePath string, sourceReader i
 			opsOut <- &op
 			return nil
 		})
-		//log.Printf("%s: Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dB", filePath, blockRangeCt, blockCt, dataCt, bytes)
+		// log.Printf("%s: Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dB", filePath, blockRangeCt, blockCt, dataCt, bytes)
 		if err != nil {
 			panic(err)
 		}

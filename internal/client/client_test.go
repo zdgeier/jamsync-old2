@@ -3,19 +3,21 @@ package client
 import (
 	"bytes"
 	"context"
-	"database/sql"
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"testing"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 	"github.com/zdgeier/jamsync/gen/pb"
-	"github.com/zdgeier/jamsync/internal/db"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	"github.com/zdgeier/jamsync/internal/server"
-	"github.com/zdgeier/jamsync/internal/store"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -81,17 +83,49 @@ func min(a, b int) int {
 	return b
 }
 
+var apiClient pb.JamsyncAPIClient
+
+func setup() (pb.JamsyncAPIClient, func(), error) {
+	if apiClient == nil {
+		apiClient, _, err := server.New()
+		if err != nil {
+			return nil, nil, err
+		}
+		return apiClient, nil, err
+	}
+	conn, err := grpc.Dial(jamenv.PublicAPIAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		raddr, err := net.ResolveTCPAddr("tcp", jamenv.PublicAPIAddress())
+		if err != nil {
+			return nil, err
+		}
+
+		conn, err := net.DialTCP("tcp", nil, raddr)
+		if err != nil {
+			return nil, err
+		}
+
+		file, err := conn.File()
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println("Connection", file.Name())
+
+		return conn, err
+	}))
+	closer := func() {
+		if err := conn.Close(); err != nil {
+			log.Panic("could not close connection", err)
+		}
+	}
+	return pb.NewJamsyncAPIClient(conn), closer, err
+}
+
 func TestClient_RandUploadDownload(t *testing.T) {
 	ctx := context.Background()
 
-	localDB, err := sql.Open("sqlite3", "file:foobar0?mode=memory&cache=shared")
-	if err != nil {
-		log.Panic(err)
-	}
-	db.Setup(localDB)
-
-	apiClient, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
-	defer closeClient()
+	apiClient, closer, err := setup()
+	require.NoError(t, err)
+	defer closer()
 
 	projectName := "test_randuploaddownload"
 	addProjectResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
@@ -194,21 +228,14 @@ func TestClient_RandUploadDownload(t *testing.T) {
 			uploadFile(pair.Target.Data)
 		})
 	}
-
-	closeClient()
 }
 
 func TestClient_UploadDownload(t *testing.T) {
 	ctx := context.Background()
 
-	localDB, err := sql.Open("sqlite3", "file:foobar0?mode=memory&cache=shared")
-	if err != nil {
-		log.Panic(err)
-	}
-	db.Setup(localDB)
-
-	apiClient, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
-	defer closeClient()
+	apiClient, closer, err := setup()
+	require.NoError(t, err)
+	defer closer()
 
 	projectName := "test"
 
@@ -287,8 +314,6 @@ func TestClient_UploadDownload(t *testing.T) {
 			require.Equal(t, currData, result.Bytes())
 		})
 	}
-
-	closeClient()
 }
 
 func benchmarkUpload(b *testing.B, client *Client, projectName string, filePath string, content content) {
@@ -332,16 +357,9 @@ func benchmarkDownload(b *testing.B, client *Client, projectId uint64, changeId 
 }
 
 func BenchmarkRandUploadDownload(b *testing.B) {
-	ctx := context.Background()
-
-	localDB, err := sql.Open("sqlite3", "file:foobar0?mode=memory&cache=shared")
-	if err != nil {
-		log.Panic(err)
-	}
-	db.Setup(localDB)
-
-	apiClient, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
-	defer closeClient()
+	apiClient, closer, err := setup()
+	require.NoError(b, err)
+	defer closer()
 
 	projectName := "bench_randuploaddownload"
 	addProjResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
@@ -399,27 +417,18 @@ func BenchmarkRandUploadDownload(b *testing.B) {
 			benchmarkUpload(b, client, projectName, pair.FilePath, testContent)
 		})
 
-		b.Run(pair.Description+"DL", func(b *testing.B) {
-			testContent := content
-			testContent.Len *= pair.Multi
-			benchmarkDownload(b, client, addProjResp.GetProjectId(), ^uint64(0), pair.FilePath, testContent)
-		})
+		// b.Run(pair.Description+"DL", func(b *testing.B) {
+		// 	testContent := content
+		// 	testContent.Len *= pair.Multi
+		// 	benchmarkDownload(b, client, addProjResp.GetProjectId(), ^uint64(0), pair.FilePath, testContent)
+		// })
 	}
-
-	closeClient()
 }
 
 func TestGetFileListDiff(t *testing.T) {
 	ctx := context.Background()
-
-	localDB, err := sql.Open("sqlite3", "file:foobar0?mode=memory&cache=shared")
-	if err != nil {
-		log.Panic(err)
-	}
-	db.Setup(localDB)
-
-	apiClient, closeClient := server.NewLocalServer(ctx, localDB, store.NewMemoryStore())
-	defer closeClient()
+	apiClient, closeClient, err := server.New()
+	require.NoError(t, err)
 
 	projectName := "test_getfilelistdiff"
 	addProjectResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{

@@ -4,11 +4,10 @@ import (
 	"context"
 
 	"github.com/zdgeier/jamsync/gen/pb"
-	"github.com/zdgeier/jamsync/internal/db"
 )
 
 func (s JamsyncServer) AddProject(ctx context.Context, in *pb.AddProjectRequest) (*pb.AddProjectResponse, error) {
-	projectId, err := db.AddProject(s.db, in.GetProjectName())
+	projectId, err := s.db.AddProject(in.GetProjectName())
 	if err != nil {
 		return nil, err
 	}
@@ -19,7 +18,7 @@ func (s JamsyncServer) AddProject(ctx context.Context, in *pb.AddProjectRequest)
 }
 
 func (s JamsyncServer) ListProjects(ctx context.Context, in *pb.ListProjectsRequest) (*pb.ListProjectsResponse, error) {
-	projects, err := db.ListProjects(s.db)
+	projects, err := s.db.ListProjects()
 	if err != nil {
 		return nil, err
 	}
@@ -33,12 +32,12 @@ func (s JamsyncServer) ListProjects(ctx context.Context, in *pb.ListProjectsRequ
 }
 
 func (s JamsyncServer) GetProjectConfig(ctx context.Context, in *pb.GetProjectConfigRequest) (*pb.ProjectConfig, error) {
-	projectId, err := db.GetProjectId(s.db, in.GetProjectName())
+	projectId, err := s.db.GetProjectId(in.GetProjectName())
 	if err != nil {
 		return nil, err
 	}
 
-	changeId, _, err := db.GetCurrentChange(s.db, projectId)
+	changeId, _, err := s.changestore.GetCurrentChange(projectId)
 	if err != nil {
 		return nil, err
 	}
