@@ -10,9 +10,12 @@
             "request": "launch",
             "mode": "test",
             "program": "${workspaceFolder}/internal/client/",
+            "env": {
+                "JAMENV": "memory",
+            },
             "args": [
-                "-test.run",
-                "TestUploadDownload"
+                "-test.bench",
+                "BenchmarkRandUploadDownload"
             ]
         },
     ]

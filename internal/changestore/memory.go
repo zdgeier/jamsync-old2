@@ -65,12 +65,12 @@ func (s MemoryChangeStore) ListCommittedChanges(projectId uint64, pathHash uint6
 	}
 	return listCommittedChanges(db, pathHash, timestamp)
 }
-func (s MemoryChangeStore) AddOperationLocation(data *pb.OperationLocation) (uint64, error) {
-	db, err := s.getMemoryProjectDB(data.ProjectId)
+func (s MemoryChangeStore) InsertOperationLocations(opLocs []*pb.OperationLocation) error {
+	db, err := s.getMemoryProjectDB(opLocs[0].ProjectId)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	return addOperationLocation(db, data.ChangeId, data.PathHash, data.Offset, data.Length)
+	return insertOperationLocations(db, opLocs)
 }
 func (s MemoryChangeStore) ListOperationLocations(projectId uint64, pathHash uint64, changeId uint64) ([]*pb.OperationLocation, error) {
 	db, err := s.getMemoryProjectDB(projectId)

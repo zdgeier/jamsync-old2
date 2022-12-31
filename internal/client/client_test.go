@@ -3,11 +3,10 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"math/rand"
-	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -16,8 +15,6 @@ import (
 	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/jamenv"
 	"github.com/zdgeier/jamsync/internal/server"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -83,41 +80,28 @@ func min(a, b int) int {
 	return b
 }
 
-var apiClient pb.JamsyncAPIClient
+var serverRunning = false
 
 func setup() (pb.JamsyncAPIClient, func(), error) {
-	if apiClient == nil {
-		apiClient, _, err := server.New()
-		if err != nil {
-			return nil, nil, err
+	if !serverRunning {
+		if jamenv.Env() == jamenv.Local {
+			err := os.RemoveAll("jb/")
+			if err != nil {
+				log.Fatal(err)
+			}
+			err = os.RemoveAll("jamsync.db")
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
-		return apiClient, nil, err
+		_, err := server.New()
+		if err != nil {
+			panic(err)
+		}
+		serverRunning = true
 	}
-	conn, err := grpc.Dial(jamenv.PublicAPIAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		raddr, err := net.ResolveTCPAddr("tcp", jamenv.PublicAPIAddress())
-		if err != nil {
-			return nil, err
-		}
 
-		conn, err := net.DialTCP("tcp", nil, raddr)
-		if err != nil {
-			return nil, err
-		}
-
-		file, err := conn.File()
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println("Connection", file.Name())
-
-		return conn, err
-	}))
-	closer := func() {
-		if err := conn.Close(); err != nil {
-			log.Panic("could not close connection", err)
-		}
-	}
-	return pb.NewJamsyncAPIClient(conn), closer, err
+	return server.Connect()
 }
 
 func TestClient_RandUploadDownload(t *testing.T) {
@@ -427,8 +411,9 @@ func BenchmarkRandUploadDownload(b *testing.B) {
 
 func TestGetFileListDiff(t *testing.T) {
 	ctx := context.Background()
-	apiClient, closeClient, err := server.New()
+	apiClient, closeClient, err := setup()
 	require.NoError(t, err)
+	defer closeClient()
 
 	projectName := "test_getfilelistdiff"
 	addProjectResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{

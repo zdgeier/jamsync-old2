@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 
@@ -23,17 +24,9 @@ type JamsyncServer struct {
 	pb.UnimplementedJamsyncAPIServer
 }
 
-func Addr() string {
-	switch jamenv.Env() {
-	case jamenv.Memory:
-		panic("trying to get address of inmemory server")
-	default:
-		return "0.0.0.0:14357"
-	}
-}
+var memBuffer *bufconn.Listener
 
-func New() (client pb.JamsyncAPIClient, closer func(), err error) {
-	var lis *bufconn.Listener
+func New() (closer func(), err error) {
 	jamsyncServer := JamsyncServer{
 		db:          db.New(),
 		opstore:     opstore.New(),
@@ -46,56 +39,74 @@ func New() (client pb.JamsyncAPIClient, closer func(), err error) {
 
 	switch jamenv.Env() {
 	case jamenv.Prod, jamenv.Dev, jamenv.Local:
-		tcplis, err := net.Listen("tcp", Addr())
+		tcplis, err := net.Listen("tcp", "0.0.0.0:14357")
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		go func() {
 			if err := server.Serve(tcplis); err != nil {
 				log.Printf("error serving server: %v", err)
 			}
 		}()
-
-		conn, err := grpc.Dial(Addr(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			log.Panicf("could not connect to jamsync server: %s", err)
-		}
-		defer conn.Close()
-		client = pb.NewJamsyncAPIClient(conn)
-
-		closer = func() {
-			err := tcplis.Close()
-			if err != nil {
-				log.Printf("error closing listener: %v", err)
-			}
-			server.Stop()
-		}
 	case jamenv.Memory:
 		buffer := 101024 * 1024
-		lis = bufconn.Listen(buffer)
+		memBuffer = bufconn.Listen(buffer)
 		go func() {
-			if err := server.Serve(lis); err != nil {
+			if err := server.Serve(memBuffer); err != nil {
 				log.Printf("error serving server: %v", err)
 			}
 		}()
+	}
 
+	return func() { server.Stop() }, nil
+}
+
+func Connect() (client pb.JamsyncAPIClient, closer func(), err error) {
+	switch jamenv.Env() {
+	case jamenv.Memory:
 		conn, err := grpc.DialContext(context.Background(), "",
 			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-				return lis.Dial()
+				return memBuffer.Dial()
 			}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Printf("error connecting to server: %v", err)
 		}
 		client = pb.NewJamsyncAPIClient(conn)
-
 		closer = func() {
-			// err := lis.Close()
-			// if err != nil {
-			// 	log.Printf("error closing listener: %v", err)
-			// }
-			server.Stop()
+			if err := conn.Close(); err != nil {
+				log.Panic("could not close server connection")
+			}
+		}
+	default:
+		conn, err := grpc.Dial(jamenv.PublicAPIAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			raddr, err := net.ResolveTCPAddr("tcp", jamenv.PublicAPIAddress())
+			if err != nil {
+				return nil, err
+			}
+
+			conn, err := net.DialTCP("tcp", nil, raddr)
+			if err != nil {
+				return nil, err
+			}
+
+			file, err := conn.File()
+			if err != nil {
+				return nil, err
+			}
+			fmt.Println("Connection", file.Name())
+
+			return conn, err
+		}))
+		if err != nil {
+			log.Panicf("could not connect to jamsync server: %s", err)
+		}
+		client = pb.NewJamsyncAPIClient(conn)
+		closer = func() {
+			if err := conn.Close(); err != nil {
+				log.Panic("could not close server connection")
+			}
 		}
 	}
 
-	return client, closer, nil
+	return client, closer, err
 }

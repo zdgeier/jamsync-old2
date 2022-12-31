@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	_, closer, err := server.New()
+	closer, err := server.New()
 	if err != nil {
 		log.Fatal(err)
 	}

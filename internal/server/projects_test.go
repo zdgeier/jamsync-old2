@@ -54,7 +54,11 @@ func TestJamsyncServer_AddListProjects(t *testing.T) {
 		},
 	}
 
-	client, closer, err := New()
+	closer, err := New()
+	require.NoError(t, err)
+	defer closer()
+
+	client, closer, err := Connect()
 	require.NoError(t, err)
 	defer closer()
 

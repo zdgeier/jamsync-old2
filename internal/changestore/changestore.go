@@ -1,6 +1,7 @@
 package changestore
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"time"
@@ -14,7 +15,7 @@ type ChangeStore interface {
 	GetCurrentChange(projectId uint64) (uint64, time.Time, error)
 	CommitChange(projectId uint64, changeId uint64) error
 	ListCommittedChanges(projectId uint64, pathHash uint64, timestamp time.Time) ([]uint64, error)
-	AddOperationLocation(data *pb.OperationLocation) (uint64, error)
+	InsertOperationLocations(opLocs []*pb.OperationLocation) error
 	ListOperationLocations(projectId uint64, pathHash uint64, changeId uint64) ([]*pb.OperationLocation, error)
 }
 
@@ -34,10 +35,12 @@ func setup(db *sql.DB) error {
 	CREATE TABLE IF NOT EXISTS committed_changes (change_id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
 	CREATE TABLE IF NOT EXISTS changes (id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
 	CREATE TABLE IF NOT EXISTS operation_locations (change_id INTEGER, path_hash INTEGER, offset INTEGER, length INTEGER);
+	CREATE INDEX IF NOT EXISTS idx_operation_locations ON operation_locations (change_id, path_hash);
 	`
 	_, err := db.Exec(sqlStmt)
 	return err
 }
+
 func getCurrentChange(db *sql.DB) (uint64, time.Time, error) {
 	row := db.QueryRow("SELECT c.id, c.timestamp FROM changes AS c ORDER BY c.id DESC LIMIT 1")
 	if row.Err() != nil {
@@ -53,18 +56,22 @@ func getCurrentChange(db *sql.DB) (uint64, time.Time, error) {
 	return id, timestamp, err
 }
 
-func addOperationLocation(db *sql.DB, changeId, pathHash, offset, length uint64) (uint64, error) {
-	res, err := db.Exec("INSERT INTO operation_locations(change_id, path_hash, offset, length) VALUES(?, ?, ?, ?)", changeId, int64(pathHash), offset, length)
+func insertOperationLocations(db *sql.DB, opLocs []*pb.OperationLocation) error {
+	ctx := context.Background()
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
-		return 0, err
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, opLoc := range opLocs {
+		_, err := tx.ExecContext(ctx, "INSERT INTO operation_locations(change_id, path_hash, offset, length) VALUES(?, ?, ?, ?)", opLoc.ChangeId, int64(opLoc.PathHash), opLoc.Offset, opLoc.Length)
+		if err != nil {
+			return err
+		}
 	}
 
-	var id int64
-	if id, err = res.LastInsertId(); err != nil {
-		return 0, err
-	}
-
-	return uint64(id), nil
+	return tx.Commit()
 }
 
 func addChange(db *sql.DB) (uint64, error) {

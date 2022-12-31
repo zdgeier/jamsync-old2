@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/fs"
 	"log"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -19,39 +18,17 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/pb"
 	jam "github.com/zdgeier/jamsync/internal/client"
-	"github.com/zdgeier/jamsync/internal/jamenv"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"github.com/zdgeier/jamsync/internal/server"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func main() {
-	conn, err := grpc.Dial(jamenv.PublicAPIAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		raddr, err := net.ResolveTCPAddr("tcp", jamenv.PublicAPIAddress())
-		if err != nil {
-			return nil, err
-		}
-
-		conn, err := net.DialTCP("tcp", nil, raddr)
-		if err != nil {
-			return nil, err
-		}
-
-		file, err := conn.File()
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println("Connection", file.Name())
-
-		return conn, err
-	}))
+	apiClient, closer, err := server.Connect()
 	if err != nil {
-		log.Panicf("could not connect to jamsync server: %s", err)
+		log.Panic(err)
 	}
-	defer conn.Close()
-
-	apiClient := pb.NewJamsyncAPIClient(conn)
+	defer closer()
 
 	currentPath, err := os.Getwd()
 	if err != nil {

@@ -71,12 +71,13 @@ func (s LocalChangeStore) ListCommittedChanges(projectId uint64, pathHash uint64
 	}
 	return listCommittedChanges(db, pathHash, timestamp)
 }
-func (s LocalChangeStore) AddOperationLocation(data *pb.OperationLocation) (uint64, error) {
-	db, err := s.getLocalProjectDB(data.ProjectId)
+func (s LocalChangeStore) InsertOperationLocations(opLocs []*pb.OperationLocation) error {
+	db, err := s.getLocalProjectDB(opLocs[0].ProjectId)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	return addOperationLocation(db, data.ChangeId, data.PathHash, data.Offset, data.Length)
+
+	return insertOperationLocations(db, opLocs)
 }
 func (s LocalChangeStore) ListOperationLocations(projectId uint64, pathHash uint64, changeId uint64) ([]*pb.OperationLocation, error) {
 	db, err := s.getLocalProjectDB(projectId)

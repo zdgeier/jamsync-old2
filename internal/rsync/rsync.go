@@ -17,7 +17,7 @@ import (
 )
 
 // If no BlockSize is specified in the RSync instance, this value is used.
-const DefaultBlockSize = 1024 * 6
+const DefaultBlockSize = 1024 * 12
 const DefaultMaxDataOp = DefaultBlockSize * 10
 
 // Internal constant used in rolling checksum.

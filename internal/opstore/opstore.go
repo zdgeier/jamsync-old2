@@ -33,7 +33,8 @@ func New() OpStore {
 }
 
 type LocalStore struct {
-	directory string
+	directory     string
+	openFileCache map[string]*os.File
 }
 
 func NewLocalStore(directory string) LocalStore {
@@ -49,9 +50,13 @@ func (s LocalStore) filePath(projectId uint64, changeId uint64, pathHash uint64)
 	return fmt.Sprintf("%s/%d.jb", s.changeDirectory(projectId), pathHash)
 }
 func (s LocalStore) Read(projectId uint64, changeId uint64, pathHash uint64, offset uint64, length uint64) (data []byte, err error) {
-	currFile, err := os.OpenFile(s.filePath(projectId, changeId, pathHash), os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, err
+	filePath := s.filePath(projectId, changeId, pathHash)
+	currFile, cached := s.openFileCache[filePath]
+	if !cached {
+		currFile, err = os.OpenFile(filePath, os.O_RDONLY, 0644)
+		if err != nil {
+			return nil, err
+		}
 	}
 	b := make([]byte, length)
 	_, err = currFile.ReadAt(b, int64(offset))
@@ -65,10 +70,13 @@ func (s LocalStore) Write(projectId uint64, changeId uint64, pathHash uint64, da
 	if err != nil {
 		return 0, 0, err
 	}
-
-	currFile, err := os.OpenFile(s.filePath(projectId, changeId, pathHash), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return 0, 0, err
+	filePath := s.filePath(projectId, changeId, pathHash)
+	currFile, cached := s.openFileCache[filePath]
+	if !cached {
+		currFile, err = os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return 0, 0, err
+		}
 	}
 	info, err := currFile.Stat()
 	if err != nil {

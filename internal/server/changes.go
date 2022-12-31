@@ -23,6 +23,7 @@ func (s JamsyncServer) CreateChange(ctx context.Context, in *pb.CreateChangeRequ
 }
 
 func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStreamServer) error {
+	opLocs := make([]*pb.OperationLocation, 0)
 	for {
 		in, err := srv.Recv()
 		if err == io.EOF {
@@ -46,10 +47,11 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 			Offset:    offset,
 			Length:    length,
 		}
-		_, err = s.changestore.AddOperationLocation(operationLocation)
-		if err != nil {
-			return err
-		}
+		opLocs = append(opLocs, operationLocation)
+	}
+	err := s.changestore.InsertOperationLocations(opLocs)
+	if err != nil {
+		return err
 	}
 
 	return srv.SendAndClose(&pb.WriteOperationStreamResponse{})
