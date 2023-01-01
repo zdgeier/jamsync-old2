@@ -39,7 +39,8 @@ type LocalStore struct {
 
 func NewLocalStore(directory string) LocalStore {
 	return LocalStore{
-		directory: directory,
+		directory:     directory,
+		openFileCache: make(map[string]*os.File),
 	}
 }
 
@@ -53,10 +54,11 @@ func (s LocalStore) Read(projectId uint64, changeId uint64, pathHash uint64, off
 	filePath := s.filePath(projectId, changeId, pathHash)
 	currFile, cached := s.openFileCache[filePath]
 	if !cached {
-		currFile, err = os.OpenFile(filePath, os.O_RDONLY, 0644)
+		currFile, err = os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 		if err != nil {
 			return nil, err
 		}
+		s.openFileCache[filePath] = currFile
 	}
 	b := make([]byte, length)
 	_, err = currFile.ReadAt(b, int64(offset))
@@ -73,10 +75,11 @@ func (s LocalStore) Write(projectId uint64, changeId uint64, pathHash uint64, da
 	filePath := s.filePath(projectId, changeId, pathHash)
 	currFile, cached := s.openFileCache[filePath]
 	if !cached {
-		currFile, err = os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		currFile, err = os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 		if err != nil {
 			return 0, 0, err
 		}
+		s.openFileCache[filePath] = currFile
 	}
 	info, err := currFile.Stat()
 	if err != nil {

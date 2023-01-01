@@ -10,6 +10,7 @@ import (
 	"github.com/zdgeier/jamsync/internal/changestore"
 	"github.com/zdgeier/jamsync/internal/db"
 	"github.com/zdgeier/jamsync/internal/jamenv"
+	"github.com/zdgeier/jamsync/internal/oplocstore"
 	"github.com/zdgeier/jamsync/internal/opstore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -20,6 +21,7 @@ import (
 type JamsyncServer struct {
 	db          db.JamsyncDb
 	opstore     opstore.OpStore
+	oplocstore  oplocstore.OpLocStore
 	changestore changestore.ChangeStore
 	pb.UnimplementedJamsyncAPIServer
 }
@@ -30,6 +32,7 @@ func New() (closer func(), err error) {
 	jamsyncServer := JamsyncServer{
 		db:          db.New(),
 		opstore:     opstore.New(),
+		oplocstore:  oplocstore.New(),
 		changestore: changestore.New(),
 	}
 

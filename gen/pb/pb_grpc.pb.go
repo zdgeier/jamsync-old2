@@ -25,7 +25,6 @@ type JamsyncAPIClient interface {
 	CreateChange(ctx context.Context, in *CreateChangeRequest, opts ...grpc.CallOption) (*CreateChangeResponse, error)
 	WriteOperationStream(ctx context.Context, opts ...grpc.CallOption) (JamsyncAPI_WriteOperationStreamClient, error)
 	CommitChange(ctx context.Context, in *CommitChangeRequest, opts ...grpc.CallOption) (*CommitChangeResponse, error)
-	ReadOperationStream(ctx context.Context, opts ...grpc.CallOption) (JamsyncAPI_ReadOperationStreamClient, error)
 	ReadBlockHashes(ctx context.Context, in *ReadBlockHashesRequest, opts ...grpc.CallOption) (*ReadBlockHashesResponse, error)
 	ReadFile(ctx context.Context, in *ReadFileRequest, opts ...grpc.CallOption) (JamsyncAPI_ReadFileClient, error)
 	AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error)
@@ -95,37 +94,6 @@ func (c *jamsyncAPIClient) CommitChange(ctx context.Context, in *CommitChangeReq
 	return out, nil
 }
 
-func (c *jamsyncAPIClient) ReadOperationStream(ctx context.Context, opts ...grpc.CallOption) (JamsyncAPI_ReadOperationStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &JamsyncAPI_ServiceDesc.Streams[1], "/pb.JamsyncAPI/ReadOperationStream", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &jamsyncAPIReadOperationStreamClient{stream}
-	return x, nil
-}
-
-type JamsyncAPI_ReadOperationStreamClient interface {
-	Send(*OperationLocation) error
-	Recv() (*Operation, error)
-	grpc.ClientStream
-}
-
-type jamsyncAPIReadOperationStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *jamsyncAPIReadOperationStreamClient) Send(m *OperationLocation) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *jamsyncAPIReadOperationStreamClient) Recv() (*Operation, error) {
-	m := new(Operation)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *jamsyncAPIClient) ReadBlockHashes(ctx context.Context, in *ReadBlockHashesRequest, opts ...grpc.CallOption) (*ReadBlockHashesResponse, error) {
 	out := new(ReadBlockHashesResponse)
 	err := c.cc.Invoke(ctx, "/pb.JamsyncAPI/ReadBlockHashes", in, out, opts...)
@@ -136,7 +104,7 @@ func (c *jamsyncAPIClient) ReadBlockHashes(ctx context.Context, in *ReadBlockHas
 }
 
 func (c *jamsyncAPIClient) ReadFile(ctx context.Context, in *ReadFileRequest, opts ...grpc.CallOption) (JamsyncAPI_ReadFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &JamsyncAPI_ServiceDesc.Streams[2], "/pb.JamsyncAPI/ReadFile", opts...)
+	stream, err := c.cc.NewStream(ctx, &JamsyncAPI_ServiceDesc.Streams[1], "/pb.JamsyncAPI/ReadFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +187,6 @@ type JamsyncAPIServer interface {
 	CreateChange(context.Context, *CreateChangeRequest) (*CreateChangeResponse, error)
 	WriteOperationStream(JamsyncAPI_WriteOperationStreamServer) error
 	CommitChange(context.Context, *CommitChangeRequest) (*CommitChangeResponse, error)
-	ReadOperationStream(JamsyncAPI_ReadOperationStreamServer) error
 	ReadBlockHashes(context.Context, *ReadBlockHashesRequest) (*ReadBlockHashesResponse, error)
 	ReadFile(*ReadFileRequest, JamsyncAPI_ReadFileServer) error
 	AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error)
@@ -242,9 +209,6 @@ func (UnimplementedJamsyncAPIServer) WriteOperationStream(JamsyncAPI_WriteOperat
 }
 func (UnimplementedJamsyncAPIServer) CommitChange(context.Context, *CommitChangeRequest) (*CommitChangeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CommitChange not implemented")
-}
-func (UnimplementedJamsyncAPIServer) ReadOperationStream(JamsyncAPI_ReadOperationStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method ReadOperationStream not implemented")
 }
 func (UnimplementedJamsyncAPIServer) ReadBlockHashes(context.Context, *ReadBlockHashesRequest) (*ReadBlockHashesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadBlockHashes not implemented")
@@ -340,32 +304,6 @@ func _JamsyncAPI_CommitChange_Handler(srv interface{}, ctx context.Context, dec 
 		return srv.(JamsyncAPIServer).CommitChange(ctx, req.(*CommitChangeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
-}
-
-func _JamsyncAPI_ReadOperationStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(JamsyncAPIServer).ReadOperationStream(&jamsyncAPIReadOperationStreamServer{stream})
-}
-
-type JamsyncAPI_ReadOperationStreamServer interface {
-	Send(*Operation) error
-	Recv() (*OperationLocation, error)
-	grpc.ServerStream
-}
-
-type jamsyncAPIReadOperationStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *jamsyncAPIReadOperationStreamServer) Send(m *Operation) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *jamsyncAPIReadOperationStreamServer) Recv() (*OperationLocation, error) {
-	m := new(OperationLocation)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func _JamsyncAPI_ReadBlockHashes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -541,12 +479,6 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "WriteOperationStream",
 			Handler:       _JamsyncAPI_WriteOperationStream_Handler,
-			ClientStreams: true,
-		},
-		{
-			StreamName:    "ReadOperationStream",
-			Handler:       _JamsyncAPI_ReadOperationStream_Handler,
-			ServerStreams: true,
 			ClientStreams: true,
 		},
 		{

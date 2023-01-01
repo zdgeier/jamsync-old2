@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"time"
-
-	"github.com/zdgeier/jamsync/gen/pb"
 )
 
 type LocalChangeStore struct {
@@ -64,25 +62,10 @@ func (s LocalChangeStore) CommitChange(projectId uint64, changeId uint64) error 
 	}
 	return commitChange(db, changeId)
 }
-func (s LocalChangeStore) ListCommittedChanges(projectId uint64, pathHash uint64, timestamp time.Time) ([]uint64, error) {
+func (s LocalChangeStore) ListCommittedChanges(projectId uint64, timestamp time.Time) ([]uint64, error) {
 	db, err := s.getLocalProjectDB(projectId)
 	if err != nil {
 		return nil, err
 	}
-	return listCommittedChanges(db, pathHash, timestamp)
-}
-func (s LocalChangeStore) InsertOperationLocations(opLocs []*pb.OperationLocation) error {
-	db, err := s.getLocalProjectDB(opLocs[0].ProjectId)
-	if err != nil {
-		return err
-	}
-
-	return insertOperationLocations(db, opLocs)
-}
-func (s LocalChangeStore) ListOperationLocations(projectId uint64, pathHash uint64, changeId uint64) ([]*pb.OperationLocation, error) {
-	db, err := s.getLocalProjectDB(projectId)
-	if err != nil {
-		return nil, err
-	}
-	return listOperationLocations(db, projectId, pathHash, changeId)
+	return listCommittedChanges(db, timestamp)
 }

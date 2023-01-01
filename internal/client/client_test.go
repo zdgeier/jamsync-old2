@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -102,6 +103,92 @@ func setup() (pb.JamsyncAPIClient, func(), error) {
 	}
 
 	return server.Connect()
+}
+
+func TestClient_UploadDownload(t *testing.T) {
+	ctx := context.Background()
+
+	apiClient, closer, err := setup()
+	require.NoError(t, err)
+	defer closer()
+
+	projectName := "test"
+
+	addProjectResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
+		ProjectName: projectName,
+	})
+	require.NoError(t, err)
+
+	client := NewClient(apiClient, addProjectResp.ProjectId, 1)
+
+	fileOperations := []struct {
+		name        string
+		filePath    string
+		data        []byte
+		randContent content
+	}{
+		{
+			name:     "test1",
+			filePath: "test",
+			data:     []byte("this is a test!"),
+		},
+		{
+			name:     "test2",
+			filePath: "test2",
+			data:     []byte("this is a test!"),
+		},
+		{
+			name:     "new path",
+			filePath: "this/is/a/path.txt",
+			data:     []byte("this is a test!this is a test!this is a test!this is a test!this is a test!this is a test!"),
+		},
+		{
+			name:     "reused path",
+			filePath: "this/is/a/path.txt",
+			data:     []byte("xthis is a test!this is a test!this is a test!this is a test!this is a test!this is a test!"),
+		},
+		{
+			name:     "reused path",
+			filePath: "this/is/a/path.txt",
+			data:     []byte("this is a test!this is a test!this is a test!this is a test!this is a test!this is a test!x"),
+		},
+		{
+			name:     "reused path",
+			filePath: "this/is/a/path.txt",
+			data:     []byte("this is a test!this is a test!this is a test!this is a test!this is a test!this is a test!!this is a test!"),
+		},
+		{
+			name:     "reused path",
+			filePath: "this/is/a/path.txt",
+			data:     []byte("this is a test!this is a test!this is a test!this is a test!this is a test!this is a test!!this is a test!"),
+		},
+	}
+
+	for _, fileOperation := range fileOperations {
+		t.Run(fileOperation.name, func(t *testing.T) {
+			err := client.CreateChange()
+			require.NoError(t, err)
+
+			var currData []byte
+			if fileOperation.data != nil {
+				currData = fileOperation.data
+			} else {
+				fileOperation.randContent.Fill()
+				currData = fileOperation.randContent.Data
+			}
+			err = client.UploadFile(ctx, fileOperation.filePath, bytes.NewReader(currData))
+			require.NoError(t, err)
+
+			client.CommitChange()
+			require.NoError(t, err)
+
+			result := new(bytes.Buffer)
+			err = client.DownloadFile(ctx, fileOperation.filePath, bytes.NewReader(currData), result)
+			require.NoError(t, err)
+
+			require.Equal(t, currData, result.Bytes())
+		})
+	}
 }
 
 func TestClient_RandUploadDownload(t *testing.T) {
@@ -214,92 +301,6 @@ func TestClient_RandUploadDownload(t *testing.T) {
 	}
 }
 
-func TestClient_UploadDownload(t *testing.T) {
-	ctx := context.Background()
-
-	apiClient, closer, err := setup()
-	require.NoError(t, err)
-	defer closer()
-
-	projectName := "test"
-
-	addProjectResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
-		ProjectName: projectName,
-	})
-	require.NoError(t, err)
-
-	client := NewClient(apiClient, addProjectResp.ProjectId, 1)
-
-	fileOperations := []struct {
-		name        string
-		filePath    string
-		data        []byte
-		randContent content
-	}{
-		{
-			name:     "test1",
-			filePath: "test",
-			data:     []byte("this is a test!"),
-		},
-		{
-			name:     "test2",
-			filePath: "test2",
-			data:     []byte("this is a test!"),
-		},
-		{
-			name:     "new path",
-			filePath: "this/is/a/path.txt",
-			data:     []byte("this is a test!this is a test!this is a test!this is a test!this is a test!this is a test!"),
-		},
-		{
-			name:     "reused path",
-			filePath: "this/is/a/path.txt",
-			data:     []byte("xthis is a test!this is a test!this is a test!this is a test!this is a test!this is a test!"),
-		},
-		{
-			name:     "reused path",
-			filePath: "this/is/a/path.txt",
-			data:     []byte("this is a test!this is a test!this is a test!this is a test!this is a test!this is a test!x"),
-		},
-		{
-			name:     "reused path",
-			filePath: "this/is/a/path.txt",
-			data:     []byte("this is a test!this is a test!this is a test!this is a test!this is a test!this is a test!!this is a test!"),
-		},
-		{
-			name:     "reused path",
-			filePath: "this/is/a/path.txt",
-			data:     []byte("this is a test!this is a test!this is a test!this is a test!this is a test!this is a test!!this is a test!"),
-		},
-	}
-
-	for _, fileOperation := range fileOperations {
-		t.Run(fileOperation.name, func(t *testing.T) {
-			err := client.CreateChange()
-			require.NoError(t, err)
-
-			var currData []byte
-			if fileOperation.data != nil {
-				currData = fileOperation.data
-			} else {
-				fileOperation.randContent.Fill()
-				currData = fileOperation.randContent.Data
-			}
-			err = client.UploadFile(ctx, fileOperation.filePath, bytes.NewReader(currData))
-			require.NoError(t, err)
-
-			client.CommitChange()
-			require.NoError(t, err)
-
-			result := new(bytes.Buffer)
-			err = client.DownloadFile(ctx, fileOperation.filePath, bytes.NewReader(currData), result)
-			require.NoError(t, err)
-
-			require.Equal(t, currData, result.Bytes())
-		})
-	}
-}
-
 func benchmarkUpload(b *testing.B, client *Client, projectName string, filePath string, content content) {
 	for n := 0; n < b.N; n++ {
 		ctx := context.Background()
@@ -308,7 +309,7 @@ func benchmarkUpload(b *testing.B, client *Client, projectName string, filePath 
 			err := client.CreateChange()
 			require.NoError(b, err)
 
-			err = client.UploadFile(ctx, filePath, bytes.NewReader(data))
+			err = client.UploadFile(ctx, filePath+fmt.Sprint(n), bytes.NewReader(data))
 			require.NoError(b, err)
 
 			err = client.CommitChange()
@@ -326,7 +327,7 @@ func benchmarkDownload(b *testing.B, client *Client, projectId uint64, changeId 
 
 		downloadFile := func(data []byte) {
 			result := new(bytes.Buffer)
-			err := client.DownloadFile(ctx, filePath, bytes.NewReader(data), result)
+			err := client.DownloadFile(ctx, filePath+fmt.Sprint(n), bytes.NewReader(data), result)
 			require.NoError(b, err)
 
 			resultBytes, err := io.ReadAll(result)
@@ -346,11 +347,6 @@ func BenchmarkRandUploadDownload(b *testing.B) {
 	defer closer()
 
 	projectName := "bench_randuploaddownload"
-	addProjResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
-		ProjectName: projectName,
-	})
-	require.NoError(b, err)
-	client := NewClient(apiClient, addProjResp.ProjectId, 0)
 
 	content := content{Len: 1, Seed: 42, Alter: 0}
 	var pairs = []struct {
@@ -394,7 +390,13 @@ func BenchmarkRandUploadDownload(b *testing.B) {
 		},
 	}
 
-	for _, pair := range pairs {
+	for i, pair := range pairs {
+		addProjResp, err := apiClient.AddProject(context.Background(), &pb.AddProjectRequest{
+			ProjectName: projectName + fmt.Sprint(i),
+		})
+		require.NoError(b, err)
+		client := NewClient(apiClient, addProjResp.ProjectId, 0)
+
 		b.Run(pair.Description, func(b *testing.B) {
 			testContent := content
 			testContent.Len *= pair.Multi

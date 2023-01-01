@@ -2,14 +2,56 @@ package server
 
 import (
 	"context"
+	"log"
+	"os"
 	"testing"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 	"github.com/zdgeier/jamsync/gen/pb"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	"google.golang.org/protobuf/proto"
 )
+
+var serverRunning = false
+
+func setup() (pb.JamsyncAPIClient, func(), error) {
+	if !serverRunning {
+		if jamenv.Env() == jamenv.Local {
+			err := os.RemoveAll("jb/")
+			if err != nil {
+				log.Fatal(err)
+			}
+			err = os.RemoveAll("jamsync.db")
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		_, err := New()
+		if err != nil {
+			panic(err)
+		}
+		serverRunning = true
+	}
+
+	client, closer, err := Connect()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return client, func() {
+		closer()
+		err := os.RemoveAll("jb/")
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = os.RemoveAll("jamsync.db")
+		if err != nil {
+			log.Fatal(err)
+		}
+	}, nil
+}
 
 func TestJamsyncServer_AddListProjects(t *testing.T) {
 	type args struct {
@@ -53,14 +95,9 @@ func TestJamsyncServer_AddListProjects(t *testing.T) {
 			wantErr: true,
 		},
 	}
-
-	closer, err := New()
+	client, teardown, err := setup()
 	require.NoError(t, err)
-	defer closer()
-
-	client, closer, err := Connect()
-	require.NoError(t, err)
-	defer closer()
+	defer teardown()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

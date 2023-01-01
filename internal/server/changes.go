@@ -23,7 +23,8 @@ func (s JamsyncServer) CreateChange(ctx context.Context, in *pb.CreateChangeRequ
 }
 
 func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStreamServer) error {
-	opLocs := make([]*pb.OperationLocation, 0)
+	var projectId, changeId, pathHash uint64
+	opLocs := make([]*pb.OperationLocations_OperationLocation, 0)
 	for {
 		in, err := srv.Recv()
 		if err == io.EOF {
@@ -40,47 +41,26 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 		if err != nil {
 			return err
 		}
-		operationLocation := &pb.OperationLocation{
-			ProjectId: in.GetProjectId(),
-			ChangeId:  in.GetChangeId(),
-			PathHash:  in.GetPathHash(),
-			Offset:    offset,
-			Length:    length,
+		operationLocation := &pb.OperationLocations_OperationLocation{
+			Offset: offset,
+			Length: length,
 		}
+		projectId = in.GetProjectId()
+		changeId = in.GetChangeId()
+		pathHash = in.GetPathHash()
 		opLocs = append(opLocs, operationLocation)
 	}
-	err := s.changestore.InsertOperationLocations(opLocs)
+	err := s.oplocstore.InsertOperationLocations(&pb.OperationLocations{
+		ProjectId: projectId,
+		ChangeId:  changeId,
+		PathHash:  pathHash,
+		OpLocs:    opLocs,
+	})
 	if err != nil {
 		return err
 	}
 
 	return srv.SendAndClose(&pb.WriteOperationStreamResponse{})
-}
-
-func (s JamsyncServer) ReadOperationStream(srv pb.JamsyncAPI_ReadOperationStreamServer) error {
-	for {
-		in, err := srv.Recv()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		b, err := s.opstore.Read(in.GetProjectId(), in.GetChangeId(), in.GetPathHash(), in.GetOffset(), in.GetLength())
-		if err != nil {
-			return err
-		}
-
-		op := new(pb.Operation)
-		err = proto.Unmarshal(b, op)
-		if err != nil {
-			return err
-		}
-		err = srv.Send(op)
-		if err != nil {
-			return err
-		}
-	}
 }
 
 func (s JamsyncServer) ReadBlockHashes(ctx context.Context, in *pb.ReadBlockHashesRequest) (*pb.ReadBlockHashesResponse, error) {
@@ -105,7 +85,7 @@ func (s JamsyncServer) ReadBlockHashes(ctx context.Context, in *pb.ReadBlockHash
 }
 
 func (s JamsyncServer) regenFile(projectId uint64, pathHash uint64, modTime time.Time) (*bytes.Reader, error) {
-	changeIds, err := s.changestore.ListCommittedChanges(projectId, pathHash, modTime)
+	changeIds, err := s.changestore.ListCommittedChanges(projectId, modTime)
 	if err != nil {
 		return nil, err
 	}
@@ -118,34 +98,26 @@ func (s JamsyncServer) regenFile(projectId uint64, pathHash uint64, modTime time
 	rs := rsync.RSync{UniqueHasher: xxhash.New()}
 	targetBuffer := bytes.NewBuffer([]byte{})
 	result := new(bytes.Buffer)
-	appliedChanges := make(map[uint64]interface{}, 0)
 	for _, changeId := range changeIds {
-		if _, found := appliedChanges[changeId]; found {
-			continue
-		}
-		appliedChanges[changeId] = nil
-		operationLocations, err := s.changestore.ListOperationLocations(projectId, pathHash, changeId)
+		operationLocations, err := s.oplocstore.ListOperationLocations(projectId, pathHash, changeId)
 		if err != nil {
 			return nil, err
 		}
-		ops := make(chan rsync.Operation)
-		go func() {
-			for _, loc := range operationLocations {
-				b, err := s.opstore.Read(projectId, loc.GetChangeId(), loc.GetPathHash(), loc.GetOffset(), loc.GetLength())
-				if err != nil {
-					panic(err)
-				}
-
-				op := new(pb.Operation)
-				err = proto.Unmarshal(b, op)
-				if err != nil {
-					panic(err)
-				}
-				ops <- PbOperationToRsync(op)
+		ops := make([]rsync.Operation, 0, len(operationLocations.GetOpLocs()))
+		for _, loc := range operationLocations.GetOpLocs() {
+			b, err := s.opstore.Read(projectId, operationLocations.ChangeId, pathHash, loc.GetOffset(), loc.GetLength())
+			if err != nil {
+				panic(err)
 			}
-			close(ops)
-		}()
-		err = rs.ApplyDelta(result, bytes.NewReader(targetBuffer.Bytes()), ops)
+
+			op := new(pb.Operation)
+			err = proto.Unmarshal(b, op)
+			if err != nil {
+				panic(err)
+			}
+			ops = append(ops, PbOperationToRsync(op))
+		}
+		err = rs.ApplyDeltaBatch(result, bytes.NewReader(targetBuffer.Bytes()), ops)
 		if err != nil {
 			panic(err)
 		}
@@ -166,7 +138,7 @@ func (s JamsyncServer) ReadFile(in *pb.ReadFileRequest, srv pb.JamsyncAPI_ReadFi
 	//fmt.Println("READING", in.PathHash, string(a))
 	//sourceBuffer.Seek(0, 0)
 
-	opsOut := make(chan *rsync.Operation)
+	opsOut := make(chan *rsync.Operation, 1000)
 	rsDelta := &rsync.RSync{UniqueHasher: xxhash.New()}
 	go func() {
 		var blockCt, blockRangeCt, dataCt, bytes int

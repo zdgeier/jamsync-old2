@@ -8,7 +8,6 @@ service JamsyncAPI {
     rpc CreateChange(CreateChangeRequest) returns (CreateChangeResponse);
     rpc WriteOperationStream(stream Operation) returns (WriteOperationStreamResponse);
     rpc CommitChange(CommitChangeRequest) returns (CommitChangeResponse);
-    rpc ReadOperationStream(stream OperationLocation) returns (stream Operation);
     rpc ReadBlockHashes(ReadBlockHashesRequest) returns (ReadBlockHashesResponse);
     rpc ReadFile(ReadFileRequest) returns (stream Operation);
 
@@ -61,12 +60,15 @@ message ReadBlockHashesResponse {
     repeated BlockHash block_hashes = 1;
 }
 
-message OperationLocation {
+message OperationLocations {
     uint64 project_id = 1;
     uint64 change_id = 2;
     uint64 path_hash = 3;
-    uint64 offset = 4;
-    uint64 length = 5;
+    message OperationLocation {
+        uint64 offset = 4;
+        uint64 length = 5;
+    }
+    repeated OperationLocation opLocs = 4;
 }
 
 message CommitChangeRequest {

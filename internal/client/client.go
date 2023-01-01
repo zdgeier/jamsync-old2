@@ -57,7 +57,7 @@ func (c *Client) UploadFile(ctx context.Context, filePath string, sourceReader i
 		return err
 	}
 
-	opsOut := make(chan *rsync.Operation)
+	opsOut := make(chan *rsync.Operation, 1000)
 	rsDelta := &rsync.RSync{UniqueHasher: xxhash.New()}
 	go func() {
 		var blockCt, blockRangeCt, dataCt, bytes int
@@ -276,7 +276,7 @@ func (c *Client) DownloadFile(ctx context.Context, filePath string, localReader 
 	}
 
 	numOps := 0
-	ops := make(chan rsync.Operation)
+	ops := make(chan rsync.Operation, 1000)
 	go func() {
 		for {
 			in, err := readFileClient.Recv()

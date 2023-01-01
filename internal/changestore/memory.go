@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
-
-	"github.com/zdgeier/jamsync/gen/pb"
 )
 
 type MemoryChangeStore struct {
@@ -58,24 +56,10 @@ func (s MemoryChangeStore) CommitChange(projectId uint64, changeId uint64) error
 	}
 	return commitChange(db, changeId)
 }
-func (s MemoryChangeStore) ListCommittedChanges(projectId uint64, pathHash uint64, timestamp time.Time) ([]uint64, error) {
+func (s MemoryChangeStore) ListCommittedChanges(projectId uint64, timestamp time.Time) ([]uint64, error) {
 	db, err := s.getMemoryProjectDB(projectId)
 	if err != nil {
 		return nil, err
 	}
-	return listCommittedChanges(db, pathHash, timestamp)
-}
-func (s MemoryChangeStore) InsertOperationLocations(opLocs []*pb.OperationLocation) error {
-	db, err := s.getMemoryProjectDB(opLocs[0].ProjectId)
-	if err != nil {
-		return err
-	}
-	return insertOperationLocations(db, opLocs)
-}
-func (s MemoryChangeStore) ListOperationLocations(projectId uint64, pathHash uint64, changeId uint64) ([]*pb.OperationLocation, error) {
-	db, err := s.getMemoryProjectDB(projectId)
-	if err != nil {
-		return nil, err
-	}
-	return listOperationLocations(db, projectId, pathHash, changeId)
+	return listCommittedChanges(db, timestamp)
 }
