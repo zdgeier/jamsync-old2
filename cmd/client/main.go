@@ -291,7 +291,10 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 			file.Close()
 		}
 	}
-	client.CommitChange()
+	err = client.CommitChange()
+	if err != nil {
+		return err
+	}
 	log.Println("Uploading file list...")
 
 	err = client.UploadFileList(ctx, fileMetadata)

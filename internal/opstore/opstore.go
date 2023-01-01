@@ -16,11 +16,11 @@ func New() OpStore {
 	var opStore OpStore
 	switch jamenv.Env() {
 	case jamenv.Prod:
-		opStore = NewLocalStore("jbprod")
+		opStore = NewLocalStore("jb")
 	case jamenv.Dev:
-		opStore = NewLocalStore("jbdev")
+		opStore = NewLocalStore("jb")
 	case jamenv.Local:
-		opStore = NewLocalStore("jblocal")
+		opStore = NewLocalStore("jb")
 	case jamenv.Memory:
 		opStore = NewMemoryStore()
 	}

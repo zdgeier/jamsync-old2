@@ -129,7 +129,7 @@ func Test_GenData(t *testing.T) {
 		if err != nil {
 			t.Errorf("Failed to create signature: %s", err)
 		}
-		opsOut := make(chan Operation, 1000)
+		opsOut := make(chan Operation)
 		go func() {
 			var blockCt, blockRangeCt, dataCt, bytes int
 			defer close(opsOut)
