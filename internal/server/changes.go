@@ -24,7 +24,40 @@ func (s JamsyncServer) CreateChange(ctx context.Context, in *pb.CreateChangeRequ
 
 func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStreamServer) error {
 	var projectId, changeId, pathHash uint64
+
+	ops := make(chan *pb.Operation, 100)
+	results := make(chan error, 100)
+
 	opLocs := make([]*pb.OperationLocations_OperationLocation, 0)
+	worker := func(id int, ops <-chan *pb.Operation, results chan<- error) {
+		for in := range ops {
+			data, err := proto.Marshal(in)
+			if err != nil {
+				results <- err
+				return
+			}
+			offset, length, err := s.opstore.Write(in.GetProjectId(), in.GetChangeId(), in.GetPathHash(), data)
+			if err != nil {
+				results <- err
+				return
+			}
+			operationLocation := &pb.OperationLocations_OperationLocation{
+				Offset: offset,
+				Length: length,
+			}
+			projectId = in.GetProjectId()
+			changeId = in.GetChangeId()
+			pathHash = in.GetPathHash()
+			opLocs = append(opLocs, operationLocation)
+			results <- nil
+		}
+	}
+
+	for w := 1; w <= 10; w++ {
+		go worker(w, ops, results)
+	}
+
+	numJobs := 0
 	for {
 		in, err := srv.Recv()
 		if err == io.EOF {
@@ -33,22 +66,14 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 		if err != nil {
 			return err
 		}
-		data, err := proto.Marshal(in)
-		if err != nil {
-			return err
-		}
-		offset, length, err := s.opstore.Write(in.GetProjectId(), in.GetChangeId(), in.GetPathHash(), data)
-		if err != nil {
-			return err
-		}
-		operationLocation := &pb.OperationLocations_OperationLocation{
-			Offset: offset,
-			Length: length,
-		}
-		projectId = in.GetProjectId()
-		changeId = in.GetChangeId()
-		pathHash = in.GetPathHash()
-		opLocs = append(opLocs, operationLocation)
+
+		ops <- in
+		numJobs += 1
+	}
+	close(ops)
+
+	for a := 1; a <= numJobs; a++ {
+		<-results
 	}
 	err := s.oplocstore.InsertOperationLocations(&pb.OperationLocations{
 		ProjectId: projectId,

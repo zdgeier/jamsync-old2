@@ -43,7 +43,7 @@ func Env() JamEnv {
 func PublicAPIAddress() string {
 	switch Env() {
 	case Prod:
-		return "18.216.248.73:14357"
+		return "18.188.17.102:14357"
 		//return "jamsync.dev:14357"
 	case Dev:
 		return "TODO"
