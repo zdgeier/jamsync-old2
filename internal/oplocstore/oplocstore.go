@@ -53,14 +53,10 @@ func (s LocalOpLocStore) InsertOperationLocations(opLocs *pb.OperationLocations)
 		return err
 	}
 	filePath := s.filePath(opLocs.GetProjectId(), opLocs.GetChangeId(), opLocs.GetPathHash())
-	// currFile, cached := s.openFileCache[filePath]
-	// if !cached {
 	currFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
-	//s.openFileCache[filePath] = currFile
-	//}
 	bytes, err := proto.Marshal(opLocs)
 	if err != nil {
 		return err
@@ -73,16 +69,12 @@ func (s LocalOpLocStore) ListOperationLocations(projectId uint64, pathHash uint6
 
 	_, err = os.Stat(filePath)
 	if err != nil && errors.Is(err, os.ErrNotExist) {
-		return opLocs, nil
+		return nil, nil
 	}
-	// currFile, cached := s.openFileCache[filePath]
-	// if !cached {
 	currFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
-	//s.openFileCache[filePath] = currFile
-	//}
 	buf := bytes.NewBuffer(nil)
 	currFile.Seek(0, 0)
 	_, err = io.Copy(buf, currFile)

@@ -103,6 +103,9 @@ func (s JamsyncServer) regenFile(projectId uint64, pathHash uint64, modTime time
 		if err != nil {
 			return nil, err
 		}
+		if operationLocations == nil {
+			continue
+		}
 		ops := make([]rsync.Operation, 0, len(operationLocations.GetOpLocs()))
 		for _, loc := range operationLocations.GetOpLocs() {
 			b, err := s.opstore.Read(projectId, operationLocations.ChangeId, pathHash, loc.GetOffset(), loc.GetLength())

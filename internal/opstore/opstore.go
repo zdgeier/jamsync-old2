@@ -15,11 +15,7 @@ type OpStore interface {
 func New() OpStore {
 	var opStore OpStore
 	switch jamenv.Env() {
-	case jamenv.Prod:
-		opStore = NewLocalStore("jb")
-	case jamenv.Dev:
-		opStore = NewLocalStore("jb")
-	case jamenv.Local:
+	case jamenv.Prod, jamenv.Dev, jamenv.Local:
 		opStore = NewLocalStore("jb")
 	case jamenv.Memory:
 		opStore = NewMemoryStore()
