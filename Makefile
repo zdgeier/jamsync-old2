@@ -7,6 +7,9 @@ clean:
 web:
 	cd cmd/web/; go run main.go
 
+webprod:
+	cd cmd/web/; go run main.go --useenv
+
 buildweb:
 	go build -o build/jamweb cmd/web/main.go; cp -R cmd/web/static build; cp -R cmd/web/template build; 
 

@@ -29,8 +29,7 @@ func New() OpLocStore {
 }
 
 type LocalOpLocStore struct {
-	directory     string
-	openFileCache map[string]*os.File
+	directory string
 }
 
 func (s LocalOpLocStore) opLocDirectory(projectId uint64, changeId uint64) string {
@@ -43,7 +42,6 @@ func (s LocalOpLocStore) filePath(projectId uint64, changeId uint64, pathHash ui
 func NewLocalOpLocStore(directory string) LocalOpLocStore {
 	return LocalOpLocStore{
 		directory: directory,
-		//openFileCache: make(map[string]*os.File),
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/zdgeier/jamsync/gen/pb"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	"github.com/zdgeier/jamsync/internal/web/api"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 	"github.com/zdgeier/jamsync/internal/web/callback"
@@ -24,7 +25,7 @@ import (
 	"github.com/zdgeier/jamsync/internal/web/userprojects"
 )
 
-var serverAddr = flag.String("addr", "localhost:14357", "The server address in the format of host:port")
+var useEnv = flag.Bool("useenv", false, "The server address in the format of host:port")
 
 // New registers the routes and returns the router.
 func New(auth *authenticator.Authenticator) *gin.Engine {
@@ -73,7 +74,15 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 		ctx.File("static/robots.txt")
 	})
 
-	conn, err := grpc.Dial(*serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	flag.Parse()
+	var serverAddr string
+	if *useEnv {
+		serverAddr = jamenv.PublicAPIAddress()
+	} else {
+		serverAddr = jamenv.LocalAPIAddress
+	}
+
+	conn, err := grpc.Dial(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Panicf("could not connect to jamsync server: %s", err)
 	}
