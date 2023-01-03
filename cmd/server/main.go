@@ -7,7 +7,7 @@ import (
 	"syscall"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/zdgeier/jamsync/internal/server"
+	"github.com/zdgeier/jamsync/internal/server/server"
 )
 
 func main() {
@@ -15,12 +15,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	log.Println("The server is running...")
+	log.Println("Jamsync server is running...")
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 	<-done
+
+	log.Println("Jamsync server is stopping...")
 
 	closer()
 }

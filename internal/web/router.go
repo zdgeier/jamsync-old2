@@ -2,7 +2,9 @@ package web
 
 import (
 	"encoding/gob"
+	"errors"
 	"flag"
+	"html/template"
 	"log"
 	"net/http"
 
@@ -29,6 +31,9 @@ var useEnv = flag.Bool("useenv", false, "The server address in the format of hos
 
 // New registers the routes and returns the router.
 func New(auth *authenticator.Authenticator) *gin.Engine {
+	if jamenv.Env() == jamenv.Prod {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	router := gin.Default()
 
 	// To store custom types in our cookies,
@@ -39,6 +44,23 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	router.Use(sessions.Sessions("auth-session", store))
 
 	router.Static("/public", "static")
+
+	router.SetFuncMap(template.FuncMap{
+		"args": func(kvs ...interface{}) (map[string]interface{}, error) {
+			if len(kvs)%2 != 0 {
+				return nil, errors.New("args requires even number of arguments")
+			}
+			m := make(map[string]interface{})
+			for i := 0; i < len(kvs); i += 2 {
+				s, ok := kvs[i].(string)
+				if !ok {
+					return nil, errors.New("even args to args must be strings")
+				}
+				m[s] = kvs[i+1]
+			}
+			return m, nil
+		},
+	})
 	router.LoadHTMLGlob("template/*")
 
 	router.GET("/", func(ctx *gin.Context) {
@@ -92,10 +114,11 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	router.GET("/callback", callback.Handler(auth, client))
 	router.GET("/logout", logout.Handler)
 
-	router.GET("/api/projects", middleware.IsAuthenticated, api.UserProjectsHandler(client))
-	router.GET("/api/projects/:projectName", middleware.IsAuthenticated, api.ProjectBrowseHandler(client))
-	router.GET("/api/projects/:projectName/files/*path", middleware.IsAuthenticated, api.ProjectBrowseHandler(client))
-	router.GET("/api/projects/:projectName/file/*path", middleware.IsAuthenticated, api.GetFileHandler(client))
+	router.GET("/api/projects", api.ProjectsHandler(client))
+	router.GET("/api/userprojects", api.UserProjectsHandler(client))
+	router.GET("/api/projects/:projectName", api.ProjectBrowseHandler(client))
+	router.GET("/api/projects/:projectName/files/*path", api.ProjectBrowseHandler(client))
+	router.GET("/api/projects/:projectName/file/*path", api.GetFileHandler(client))
 
 	router.GET("/:username/projects", middleware.IsAuthenticated, userprojects.Handler)
 	router.GET("/:username/:project/file/*path", middleware.IsAuthenticated, file.Handler)

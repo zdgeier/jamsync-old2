@@ -1,175 +1,11 @@
-<!DOCTYPE html>
-
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="description" content="Jamsync is a next generation version control system that is currently under development."/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <link rel="canonical" href="https://jamsync.io/" />
-    <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <title>Next-gen version control</title>
-    <style>
-        @font-face {
-            font-display: swap;
-            font-family: 'Fira Code';
-            font-style: normal;
-            font-weight: 400;
-            src: url("/public/FiraCode-Regular.woff2") format("woff2")
-        }
-
-        @font-face {
-            font-display: swap;
-            font-family: 'Fira Code';
-            font-style: normal;
-            font-weight: 800;
-            src: url("/public/FiraCode-Bold.woff2") format("woff2")
-        }
-        :root {
-            --bright-pink: #ff007f;
-            --pink: #D24079;
-            --purple: rebeccapurple;
-            --tan: antiquewhite;
-            --dark-blue: #222129;
-            background-color: var(--dark-blue);
-            color: white;
-            margin: 0;
-            padding: 0;
-            font-family: 'Fira Code', Monaco, Consolas, Ubuntu Mono, monospace;
-            font-size: 1rem;
-            line-height: 1.54;
-            letter-spacing: -0.02em;
-            text-rendering: optimizeLegibility;
-            -webkit-font-smoothing: antialiased;
-            font-feature-settings: "liga", "tnum", "zero", "ss01", "locl";
-            font-variant-ligatures: contextual;
-            -webkit-overflow-scrolling: touch;
-            -webkit-text-size-adjust: 100%;
-
-            @media ($phone) {
-                font-size: 1rem;
-            }
-        }
-        * {
-            box-sizing: border-box;
-        }
-        html {
-            display: flex;
-            align-items: center;
-            flex-direction: column;
-            height: 100%;
-        }
-        body {
-            border-left: 1px solid rgba(255,255,255,0.1);
-            border-right: 1px solid rgba(255,255,255,0.1);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            flex-grow: 1;
-        }
-        h1 {
-            font-weight: 700;
-        }
-        ul {
-            list-style: none;
-            padding-left: none;
-        }
-        a {
-            color: var(--bright-pink);
-        }
-
-        .Header-top {
-            padding: 32px 32px 0 32px;
-            display: flex;
-            font-size: 1.2rem;
-            width: 100%;
-            max-width: 800px;
-        }
-        .Header-top a {
-            --primary: var(--dark-blue);
-            --secondary: var(--bright-pink);
-            text-decoration: none;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 3px 8px;
-        }
-        .Header-top a:hover {
-            --primary: var(--bright-pink);
-            --secondary: var(--dark-blue);
-        }
-       
-        a.Header-homeLink {
-            color: var(--primary);
-            background-color: var(--secondary);
-            border: 2px solid var(--bright-pink);
-            margin-right: 10px;
-        }
-        .Header-topLeft {
-            width: 100%;
-            display: flex;
-        }
-        .Header-topLeft::after {
-            content: '';
-            background: repeating-linear-gradient(90deg, var(--bright-pink), var(--bright-pink), 2px, transparent 0, transparent 10px);
-            display: block;
-            width: 100%;
-            right: 10px;
-        }
-        a.Header-login {
-            color: var(--secondary);
-            border: 2px solid var(--bright-pink);
-            background-color: var(--primary);
-            margin-left: 10px;
-            display: flex;
-            align-items: center;
-        }
-        .Header-bottom {
-            padding: 32px;
-        }
-        .Header-bottom a {
-            color: white;
-        }
-
-        main {
-            padding: 32px;
-            width: 100%;
-            max-width: 800px;
-        }
-    </style>
-    <script defer data-domain="jamsync.io" src="https://plausible.io/js/plausible.js"></script>
-</head>
-
+{{template "head.html"}}
 <body>
-    <header class="Header">
-        <div class="Header-top">
-            <div class="Header-topLeft">
-                <a class="Header-homeLink" href="/">
-                    <span class="Header-homeText">Jamsync</span>
-                </a>
-            </div>
-            {{if .email}}
-                <a class="Header-login" href="/logout">Logout</a>
-            {{else}}
-                <a class="Header-login" href="/login">Login</a>
-            {{end}}
-        </div>
-        <div class="Header-bottom">
-            <a href="/about">About</a>
-            <a href="/browse">Browse</a>
-            <a href="/download">Download</a>
-            {{if .email}}
-                <a href="/{{.email}}/projects">Projects</a>
-            {{end}}
-        </div>
-    </header>
+    {{template "header.html" args "email" .email}}
     <main>
         <svg id="a" width="55px" height="55px" version="1.1" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
             <g stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2.8">
                 <path d="m220.45 14.531c-23.261-1.2646-41.24 16.834-58.42 44.842-1.3476 2.1975-.64013 5.0602 1.58 6.3938 2.22 1.3339 10.692 8.9196 12.04 6.7219 8.1343-25.31 31.513-31.681 51.345-36.795 0 0-2.1438-20.924-6.5446-21.163z" color="#000000" fill="#007a0b" stroke-width="11.269"/>
-                <g fill="#d24079" stroke-width="11.269">
+                <g fill="#ff007f" stroke-width="11.269">
                     <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-189.16" cy="-105.54" rx="36.007" ry="41.807"/>
                     <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-152.84" cy="-68.797" rx="36.007" ry="41.807"/>
                     <ellipse transform="matrix(-.73717 -.67571 .68316 -.73027 0 0)" cx="-212.42" cy="-62.836" rx="36.007" ry="41.807"/>
@@ -183,16 +19,17 @@
         </svg>
         <section class="Hero">
             <div class="Hero-content">
-                <h1 class="Hero-title">Version control for fast-moving projects.</h1>
+                <h1 class="Hero-title">Better software, faster.</h1>
             </div>
         </section>
         <section class="About">
-            <h2>Currently under development</h2>
+            <p>Jamsync is a version control system desinged for speed and collaboration</p>
+            <h2>Reduce development and deployment time by up to 50%</h2>
             <p class="About-description">
                 Check back here for more information in a bit. Feel free to email zach@jamsync.io for more info.
             </p>
         </section>
     </main>
+    {{template "footer.html"}}
 </body>
-
-</html>
+{{template "foot.html"}}

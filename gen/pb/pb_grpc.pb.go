@@ -29,6 +29,7 @@ type JamsyncAPIClient interface {
 	ReadFile(ctx context.Context, in *ReadFileRequest, opts ...grpc.CallOption) (JamsyncAPI_ReadFileClient, error)
 	AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error)
 	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
+	ListUserProjects(ctx context.Context, in *ListUserProjectsRequest, opts ...grpc.CallOption) (*ListUserProjectsResponse, error)
 	GetProjectConfig(ctx context.Context, in *GetProjectConfigRequest, opts ...grpc.CallOption) (*ProjectConfig, error)
 	UserInfo(ctx context.Context, in *UserInfoRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
 	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error)
@@ -153,6 +154,15 @@ func (c *jamsyncAPIClient) ListProjects(ctx context.Context, in *ListProjectsReq
 	return out, nil
 }
 
+func (c *jamsyncAPIClient) ListUserProjects(ctx context.Context, in *ListUserProjectsRequest, opts ...grpc.CallOption) (*ListUserProjectsResponse, error) {
+	out := new(ListUserProjectsResponse)
+	err := c.cc.Invoke(ctx, "/pb.JamsyncAPI/ListUserProjects", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *jamsyncAPIClient) GetProjectConfig(ctx context.Context, in *GetProjectConfigRequest, opts ...grpc.CallOption) (*ProjectConfig, error) {
 	out := new(ProjectConfig)
 	err := c.cc.Invoke(ctx, "/pb.JamsyncAPI/GetProjectConfig", in, out, opts...)
@@ -191,6 +201,7 @@ type JamsyncAPIServer interface {
 	ReadFile(*ReadFileRequest, JamsyncAPI_ReadFileServer) error
 	AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error)
 	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
+	ListUserProjects(context.Context, *ListUserProjectsRequest) (*ListUserProjectsResponse, error)
 	GetProjectConfig(context.Context, *GetProjectConfigRequest) (*ProjectConfig, error)
 	UserInfo(context.Context, *UserInfoRequest) (*UserInfoResponse, error)
 	CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error)
@@ -221,6 +232,9 @@ func (UnimplementedJamsyncAPIServer) AddProject(context.Context, *AddProjectRequ
 }
 func (UnimplementedJamsyncAPIServer) ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListProjects not implemented")
+}
+func (UnimplementedJamsyncAPIServer) ListUserProjects(context.Context, *ListUserProjectsRequest) (*ListUserProjectsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListUserProjects not implemented")
 }
 func (UnimplementedJamsyncAPIServer) GetProjectConfig(context.Context, *GetProjectConfigRequest) (*ProjectConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetProjectConfig not implemented")
@@ -381,6 +395,24 @@ func _JamsyncAPI_ListProjects_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _JamsyncAPI_ListUserProjects_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListUserProjectsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JamsyncAPIServer).ListUserProjects(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.JamsyncAPI/ListUserProjects",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JamsyncAPIServer).ListUserProjects(ctx, req.(*ListUserProjectsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _JamsyncAPI_GetProjectConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetProjectConfigRequest)
 	if err := dec(in); err != nil {
@@ -461,6 +493,10 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListProjects",
 			Handler:    _JamsyncAPI_ListProjects_Handler,
+		},
+		{
+			MethodName: "ListUserProjects",
+			Handler:    _JamsyncAPI_ListUserProjects_Handler,
 		},
 		{
 			MethodName: "GetProjectConfig",

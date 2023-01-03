@@ -17,18 +17,33 @@ import (
 	"github.com/cespare/xxhash"
 	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/pb"
-	jam "github.com/zdgeier/jamsync/internal/client"
-	"github.com/zdgeier/jamsync/internal/server"
+	jam "github.com/zdgeier/jamsync/internal/server/client"
+	"github.com/zdgeier/jamsync/internal/server/clientauth"
+	"github.com/zdgeier/jamsync/internal/server/server"
+	"golang.org/x/oauth2"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func main() {
-	apiClient, closer, err := server.Connect()
+	accessToken, err := clientauth.InitConfig()
+	if err != nil {
+		log.Panic(err)
+	}
+	apiClient, closer, err := server.Connect(&oauth2.Token{
+		AccessToken: accessToken,
+	})
 	if err != nil {
 		log.Panic(err)
 	}
 	defer closer()
+
+	_, err = apiClient.GetProjectConfig(context.Background(), &pb.GetProjectConfigRequest{
+		ProjectName: "jamsync",
+	})
+	if err != nil {
+		log.Panic(err)
+	}
 
 	currentPath, err := os.Getwd()
 	if err != nil {

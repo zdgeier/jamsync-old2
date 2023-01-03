@@ -13,6 +13,7 @@ service JamsyncAPI {
 
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+    rpc ListUserProjects(ListUserProjectsRequest) returns (ListUserProjectsResponse);
     rpc GetProjectConfig(GetProjectConfigRequest) returns (ProjectConfig);
 
     rpc UserInfo(UserInfoRequest) returns (UserInfoResponse);
@@ -112,9 +113,21 @@ message FileMetadata {
 
 message AddProjectRequest {
     string project_name = 1;
+    string owner = 2;
 }
 message AddProjectResponse {
     uint64 project_id = 1;
+}
+
+message ListUserProjectsRequest {
+    string owner = 1;
+}
+message ListUserProjectsResponse {
+    message Project {
+        string name = 1;
+        uint64 id = 2;
+    }
+    repeated Project projects = 1;
 }
 
 message ListProjectsRequest {}

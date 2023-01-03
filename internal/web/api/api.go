@@ -3,14 +3,27 @@ package api
 import (
 	"bytes"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/zdgeier/jamsync/gen/pb"
-	"github.com/zdgeier/jamsync/internal/client"
+	"github.com/zdgeier/jamsync/internal/server/client"
 )
+
+func ProjectsHandler(client pb.JamsyncAPIClient) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		resp, err := client.ListProjects(ctx, &pb.ListProjectsRequest{})
+		if err != nil {
+			ctx.Error(err)
+			return
+		}
+		ctx.JSON(200, resp)
+	}
+}
 
 func UserProjectsHandler(client pb.JamsyncAPIClient) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		resp, err := client.ListProjects(ctx, &pb.ListProjectsRequest{})
+		profile := sessions.Default(ctx).Get("profile").(map[string]interface{})
+		resp, err := client.ListUserProjects(ctx, &pb.ListUserProjectsRequest{Owner: profile["email"].(string)})
 		if err != nil {
 			ctx.Error(err)
 			return
@@ -60,6 +73,5 @@ func GetFileHandler(apiClient pb.JamsyncAPIClient) gin.HandlerFunc {
 		// 	ctx.Error(err)
 		// 	return
 		// }
-		// ctx.Data(200, "", []byte(""))
 	}
 }

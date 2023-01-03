@@ -54,3 +54,43 @@ func PublicAPIAddress() string {
 	}
 	panic("could not get server address for JAMENV " + Env().String())
 }
+
+func Auth0ClientID() string {
+	switch Env() {
+	case Prod:
+		return "287nBofX8C9oAm08ysKXcms0PKf9lns7"
+	case Local, Dev:
+		return "pEBqAnFPPaONbdST1zuXlxlmZjsnfysr"
+	}
+	panic("could not get auth0 client id for JAMENV " + Env().String())
+}
+
+func Auth0Domain() string {
+	switch Env() {
+	case Prod:
+		return "jamsync.us.auth0.com"
+	case Local, Dev:
+		return "dev-dzb-qyan.us.auth0.com"
+	}
+	panic("could not get auth0 domain for JAMENV " + Env().String())
+}
+
+func Auth0RedirectUrl() string {
+	switch Env() {
+	case Prod:
+		return "jamsync.dev"
+	case Local, Dev:
+		return "http://localhost:8082/callback"
+	}
+	panic("could not get auth0 redirect url for JAMENV " + Env().String())
+}
+
+func UseAuth() bool {
+	switch Env() {
+	case Prod, Local, Dev:
+		return true
+	case Memory:
+		return false
+	}
+	panic("could not get auth value for JAMENV " + Env().String())
+}
