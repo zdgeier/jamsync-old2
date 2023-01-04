@@ -3,8 +3,15 @@
     {{template "header.html" args "email" .Email}}
     <main>
         <section class="Projects">
-            <h2>Your Projects</h2>
-            <p>Currently all projects are public on jamsync.dev</p>
+            <div class="Projects-top">
+                <h2>Your Projects</h2>
+                <form id="js-create-project" class="Projects-createForm" action="#" method="POST">
+                <label class="Projects-create">
+                    <span class="Projects-createText">Create(</span><input class="Projects-createInput" type="text" name="projectName" onInput="this.parentNode.dataset.value = this.value" size="3" placeholder="...">
+                </label>
+                <span class="Projects-createText">)</span>
+                </form>
+            </div>
             <ul class="Projects-list is-hidden" id="projects">
             </ul>
             <div>
@@ -13,6 +20,10 @@
         </section>
     </main>
     <script>
+        let email = `{{.Email}}`.replaceAll('\"', '')
+
+        document.querySelector('#js-create-project').setAttribute('action', `/${email}/projects`)
+
         async function populateProjectListEl() {
             let projectsResp = await fetch("/api/userprojects");
             let projectsJson = await projectsResp.json();
@@ -25,7 +36,6 @@
             for (let project of projectsJson.projects) {
                 let temp = document.createElement("li");
                 let projectLink = document.createElement("a");
-                let email = `{{.Email}}`.replaceAll('\"', '')
                 projectLink.href = `/${email}/${project.name}`;
                 projectLink.innerHTML = project.name;
                 temp.appendChild(projectLink);

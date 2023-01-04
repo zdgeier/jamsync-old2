@@ -6,19 +6,14 @@
     </main>
     <script async type="module">
          async function setup() {
-             let splitPath = window.location.pathname.split("/")
-             let projectName = splitPath[2];
-             let currentPath = splitPath.slice(4).join('/');
-
+            let splitPath = window.location.pathname.split("/")
+            let projectName = splitPath[2];
+            let currentPath = splitPath.slice(4).join('/');
 
             let filesResp = await fetch(`/api/projects/${projectName}/file/${currentPath}`);
             let fileText = await filesResp.text();
 
             let outerDiv = document.getElementById("js-file-location");
-            if (currentPath.endsWith('.go')) {
-                outerDiv.classList.add('language-go');
-            }
-
             outerDiv.data = `/api/projects/${projectName}/file/${currentPath}`;
             outerDiv.innerHTML = fileText
         }
