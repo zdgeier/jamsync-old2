@@ -66,7 +66,7 @@ func (s JamsyncServer) GetProjectConfig(ctx context.Context, in *pb.GetProjectCo
 		return nil, err
 	}
 
-	changeId, _, err := s.changestore.GetCurrentChange(projectId)
+	changeId, _, err := s.changestore.GetCurrentChange(projectId, userId)
 	if err != nil {
 		return nil, err
 	}

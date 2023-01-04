@@ -25,9 +25,9 @@ import (
 
 type JamsyncServer struct {
 	db          db.JamsyncDb
-	opstore     opstore.OpStore
-	oplocstore  oplocstore.OpLocStore
-	changestore changestore.ChangeStore
+	opstore     opstore.LocalStore
+	oplocstore  oplocstore.LocalOpLocStore
+	changestore changestore.LocalChangeStore
 	pb.UnimplementedJamsyncAPIServer
 }
 
@@ -38,9 +38,9 @@ var (
 func New() (closer func(), err error) {
 	jamsyncServer := JamsyncServer{
 		db:          db.New(),
-		opstore:     opstore.New(),
-		oplocstore:  oplocstore.New(),
-		changestore: changestore.New(),
+		opstore:     opstore.NewLocalStore("jb"),
+		oplocstore:  oplocstore.NewLocalOpLocStore("jb"),
+		changestore: changestore.NewLocalChangeStore(),
 	}
 
 	cert, err := tls.LoadX509KeyPair("/etc/jamsync/x509/publickey.cer", "/etc/jamsync/x509/private.key")

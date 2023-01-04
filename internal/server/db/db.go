@@ -64,6 +64,17 @@ func (j JamsyncDb) AddProject(projectName string, owner string) (uint64, error) 
 	return uint64(id), nil
 }
 
+func (j JamsyncDb) GetProjectOwner(projectId uint64) (string, error) {
+	row := j.db.QueryRow("SELECT owner FROM projects WHERE rowid = ?", projectId)
+	if row.Err() != nil {
+		return "", row.Err()
+	}
+
+	var owner string
+	err := row.Scan(&owner)
+	return owner, err
+}
+
 func (j JamsyncDb) GetProjectId(projectName string, owner string) (uint64, error) {
 	row := j.db.QueryRow("SELECT rowid FROM projects WHERE name = ?", projectName)
 	if row.Err() != nil {

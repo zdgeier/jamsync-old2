@@ -103,7 +103,6 @@ func setup() (pb.JamsyncAPIClient, func(), error) {
 			}
 		}
 		_, err := server.New()
-		fmt.Println("EERR", err.Error())
 		if err != nil && !strings.Contains(err.Error(), "bind: address already in use") {
 			return nil, nil, err
 		}

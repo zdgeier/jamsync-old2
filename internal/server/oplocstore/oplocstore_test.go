@@ -10,13 +10,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func teardown() {
-	err := os.RemoveAll("jbtest/")
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func TestOpLocStore(t *testing.T) {
 	type fields struct {
 		directory     string
@@ -35,12 +28,13 @@ func TestOpLocStore(t *testing.T) {
 		{
 			name: "Sanity",
 			fields: fields{
-				directory:     "jbtest",
+				directory:     "jb",
 				openFileCache: make(map[string]*os.File),
 			},
 			args: args{
 				opLocs: &pb.OperationLocations{
 					ProjectId: 3,
+					OwnerId:   "testowner",
 					ChangeId:  4,
 					PathHash:  123,
 					OpLocs: []*pb.OperationLocations_OperationLocation{
@@ -58,6 +52,7 @@ func TestOpLocStore(t *testing.T) {
 			wantErr: false,
 			want: &pb.OperationLocations{
 				ProjectId: 3,
+				OwnerId:   "testowner",
 				ChangeId:  4,
 				PathHash:  123,
 				OpLocs: []*pb.OperationLocations_OperationLocation{
@@ -82,21 +77,22 @@ func TestOpLocStore(t *testing.T) {
 				t.Errorf("LocalOpLocStore.InsertOperationLocations() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			got, err := s.ListOperationLocations(tt.args.opLocs.GetProjectId(), tt.args.opLocs.GetPathHash(), tt.args.opLocs.GetChangeId())
+			got, err := s.ListOperationLocations(tt.args.opLocs.GetProjectId(), tt.args.opLocs.GetOwnerId(), tt.args.opLocs.GetPathHash(), tt.args.opLocs.GetChangeId())
 			require.NoError(t, err)
 			require.True(t, proto.Equal(tt.want, got))
 
-			m := MemoryOpLocStore{
-				opLocs: make(map[uint64]map[uint64]map[uint64]*pb.OperationLocations),
-			}
+			m := NewLocalOpLocStore(tt.fields.directory)
 			if err := m.InsertOperationLocations(tt.args.opLocs); (err != nil) != tt.wantErr {
 				t.Errorf("MemoryOpLocStore.InsertOperationLocations() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			got, err = m.ListOperationLocations(tt.args.opLocs.GetProjectId(), tt.args.opLocs.GetPathHash(), tt.args.opLocs.GetChangeId())
+			got, err = m.ListOperationLocations(tt.args.opLocs.GetProjectId(), tt.args.opLocs.GetOwnerId(), tt.args.opLocs.GetPathHash(), tt.args.opLocs.GetChangeId())
 			require.NoError(t, err)
 			require.True(t, proto.Equal(tt.want, got))
 		})
 	}
-	teardown()
+	err := os.RemoveAll("jb")
+	if err != nil {
+		log.Fatal(err)
+	}
 }
