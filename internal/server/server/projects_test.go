@@ -19,6 +19,11 @@ import (
 var serverRunning = false
 
 func setup() (pb.JamsyncAPIClient, func(), error) {
+	err := jamenv.LoadFile()
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if !serverRunning {
 		if jamenv.Env() == jamenv.Local {
 			err := os.RemoveAll("jb/")

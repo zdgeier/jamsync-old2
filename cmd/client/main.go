@@ -17,6 +17,7 @@ import (
 	"github.com/cespare/xxhash"
 	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/pb"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	jam "github.com/zdgeier/jamsync/internal/server/client"
 	"github.com/zdgeier/jamsync/internal/server/clientauth"
 	"github.com/zdgeier/jamsync/internal/server/server"
@@ -26,6 +27,11 @@ import (
 )
 
 func main() {
+	err := jamenv.LoadFile()
+	if err != nil {
+		log.Panic(err)
+	}
+
 	accessToken, err := clientauth.InitConfig()
 	if err != nil {
 		log.Panic(err)
@@ -37,13 +43,6 @@ func main() {
 		log.Panic(err)
 	}
 	defer closer()
-
-	_, err = apiClient.GetProjectConfig(context.Background(), &pb.GetProjectConfigRequest{
-		ProjectName: "jamsync",
-	})
-	if err != nil {
-		log.Panic(err)
-	}
 
 	currentPath, err := os.Getwd()
 	if err != nil {

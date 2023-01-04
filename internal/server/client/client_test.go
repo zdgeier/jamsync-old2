@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,6 +87,10 @@ func min(a, b int) int {
 var serverRunning = false
 
 func setup() (pb.JamsyncAPIClient, func(), error) {
+	err := jamenv.LoadFile()
+	if err != nil {
+		return nil, nil, err
+	}
 	if !serverRunning {
 		if jamenv.Env() == jamenv.Local {
 			err := os.RemoveAll("jb/")
@@ -98,7 +103,8 @@ func setup() (pb.JamsyncAPIClient, func(), error) {
 			}
 		}
 		_, err := server.New()
-		if err != nil && err.Error() != "bind: address already in use" {
+		fmt.Println("EERR", err.Error())
+		if err != nil && !strings.Contains(err.Error(), "bind: address already in use") {
 			return nil, nil, err
 		}
 		serverRunning = true

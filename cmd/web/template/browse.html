@@ -3,7 +3,7 @@
     "canonical" "about" 
 }}
 <body>
-    {{template "header.html" args "email" .email}}
+    {{template "header.html" args "email" .Email}}
     <main>
         <section class="Projects">
             <h2>Browse Projects</h2>
@@ -28,7 +28,7 @@
             for (let project of projectsJson.projects) {
                 let temp = document.createElement("li");
                 let projectLink = document.createElement("a");
-                let email = `{{.email}}`.replaceAll('\"', '')
+                let email = `{{.Email}}`.replaceAll('\"', '')
                 projectLink.href = `/${email}/${project.name}`;
                 projectLink.innerHTML = project.name;
                 temp.appendChild(projectLink);

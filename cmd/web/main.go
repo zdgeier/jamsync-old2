@@ -6,14 +6,15 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/joho/godotenv"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	"github.com/zdgeier/jamsync/internal/web"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatalf("Failed to load the env vars: %v", err)
+	err := jamenv.LoadFile()
+	if err != nil {
+		log.Panic(err)
 	}
 
 	auth, err := authenticator.New()

@@ -113,15 +113,12 @@ message FileMetadata {
 
 message AddProjectRequest {
     string project_name = 1;
-    string owner = 2;
 }
 message AddProjectResponse {
     uint64 project_id = 1;
 }
 
-message ListUserProjectsRequest {
-    string owner = 1;
-}
+message ListUserProjectsRequest {}
 message ListUserProjectsResponse {
     message Project {
         string name = 1;

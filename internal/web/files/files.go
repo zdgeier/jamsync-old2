@@ -10,7 +10,10 @@ import (
 // Handler for our logged-in user page.
 func Handler(ctx *gin.Context) {
 	session := sessions.Default(ctx)
-	profile := session.Get("profile")
-
-	ctx.HTML(http.StatusOK, "files.html", profile)
+	type templateParams struct {
+		Email interface{}
+	}
+	ctx.HTML(http.StatusOK, "files.html", templateParams{
+		Email: session.Get("email"),
+	})
 }

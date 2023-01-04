@@ -10,6 +10,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
+	"golang.org/x/oauth2"
 )
 
 // Handler for our login.
@@ -21,6 +22,14 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 			return
 		}
 
+		// authorizationURL := fmt.Sprintf(
+		// 	"https://%s/authorize?audience=api.jamsync.dev"+
+		// 		"&scope=write:projects"+
+		// 		"&response_type=code&client_id=%s"+
+		// 		"&code_challenge=%s"+
+		// 		"&code_challenge_method=S256&redirect_uri=%s&state=%s",
+		// 	jamenv.Auth0Domain(), jamenv.Auth0ClientID(), auth.CodeVerifier.CodeChallengeS256(), jamenv.Auth0RedirectUrl(), state)
+
 		// Save the state inside the session.
 		session := sessions.Default(ctx)
 		session.Set("state", state)
@@ -29,7 +38,8 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 			return
 		}
 
-		ctx.Redirect(http.StatusTemporaryRedirect, auth.AuthCodeURL(state))
+		ctx.Redirect(http.StatusTemporaryRedirect, auth.AuthCodeURL(state, oauth2.SetAuthURLParam("audience", "api.jamsync.dev")))
+		// ctx.Redirect(http.StatusTemporaryRedirect, authorizationURL)
 	}
 }
 

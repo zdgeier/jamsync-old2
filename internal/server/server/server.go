@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 
 	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/jamenv"
@@ -17,13 +16,10 @@ import (
 	"github.com/zdgeier/jamsync/internal/server/serverauth"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/oauth"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
-	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -36,31 +32,8 @@ type JamsyncServer struct {
 }
 
 var (
-	memBuffer          *bufconn.Listener
-	errMissingMetadata = status.Errorf(codes.InvalidArgument, "missing metadata")
-	errInvalidToken    = status.Errorf(codes.Unauthenticated, "invalid token")
+	memBuffer *bufconn.Listener
 )
-
-func ensureValidToken(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, errMissingMetadata
-	}
-
-	authorizationHeader := md.Get("authorization")
-	if len(authorizationHeader) < 1 || authorizationHeader[0] == "" {
-		return nil, errInvalidToken
-	}
-
-	token := strings.TrimPrefix(authorizationHeader[0], "Bearer ")
-	claims, err := serverauth.EnsureValidToken(token)
-	if err != nil {
-		return nil, errInvalidToken
-	}
-	fmt.Println(claims)
-
-	return handler(ctx, req)
-}
 
 func New() (closer func(), err error) {
 	jamsyncServer := JamsyncServer{
@@ -75,7 +48,7 @@ func New() (closer func(), err error) {
 		log.Fatalf("failed to load key pair: %s", err)
 	}
 	opts := []grpc.ServerOption{
-		grpc.UnaryInterceptor(ensureValidToken),
+		grpc.UnaryInterceptor(serverauth.EnsureValidToken),
 		grpc.Creds(credentials.NewServerTLSFromCert(&cert)),
 	}
 	server := grpc.NewServer(opts...)

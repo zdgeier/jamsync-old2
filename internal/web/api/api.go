@@ -2,16 +2,27 @@ package api
 
 import (
 	"bytes"
+	"net/http"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/server/client"
+	"github.com/zdgeier/jamsync/internal/server/server"
+	"golang.org/x/oauth2"
 )
 
-func ProjectsHandler(client pb.JamsyncAPIClient) gin.HandlerFunc {
+func ProjectsHandler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		resp, err := client.ListProjects(ctx, &pb.ListProjectsRequest{})
+		accessToken := sessions.Default(ctx).Get("access_token").(string)
+		tempClient, closer, err := server.Connect(&oauth2.Token{AccessToken: accessToken})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		defer closer()
+
+		resp, err := tempClient.ListProjects(ctx, &pb.ListProjectsRequest{})
 		if err != nil {
 			ctx.Error(err)
 			return
@@ -20,10 +31,17 @@ func ProjectsHandler(client pb.JamsyncAPIClient) gin.HandlerFunc {
 	}
 }
 
-func UserProjectsHandler(client pb.JamsyncAPIClient) gin.HandlerFunc {
+func UserProjectsHandler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		profile := sessions.Default(ctx).Get("profile").(map[string]interface{})
-		resp, err := client.ListUserProjects(ctx, &pb.ListUserProjectsRequest{Owner: profile["email"].(string)})
+		accessToken := sessions.Default(ctx).Get("access_token").(string)
+		tempClient, closer, err := server.Connect(&oauth2.Token{AccessToken: accessToken})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		defer closer()
+
+		resp, err := tempClient.ListUserProjects(ctx, &pb.ListUserProjectsRequest{})
 		if err != nil {
 			ctx.Error(err)
 			return
@@ -32,16 +50,24 @@ func UserProjectsHandler(client pb.JamsyncAPIClient) gin.HandlerFunc {
 	}
 }
 
-func ProjectBrowseHandler(apiClient pb.JamsyncAPIClient) gin.HandlerFunc {
+func ProjectBrowseHandler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		config, err := apiClient.GetProjectConfig(ctx, &pb.GetProjectConfigRequest{
+		accessToken := sessions.Default(ctx).Get("access_token").(string)
+		tempClient, closer, err := server.Connect(&oauth2.Token{AccessToken: accessToken})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		defer closer()
+
+		config, err := tempClient.GetProjectConfig(ctx, &pb.GetProjectConfigRequest{
 			ProjectName: ctx.Param("projectName"),
 		})
 		if err != nil {
 			ctx.Error(err)
 			return
 		}
-		client := client.NewClient(apiClient, config.GetProjectId(), config.GetCurrentChange())
+		client := client.NewClient(tempClient, config.GetProjectId(), config.GetCurrentChange())
 		resp, err := client.BrowseProject(ctx.Param("path")[1:])
 		if err != nil {
 			ctx.Error(err)
@@ -51,10 +77,17 @@ func ProjectBrowseHandler(apiClient pb.JamsyncAPIClient) gin.HandlerFunc {
 	}
 }
 
-func GetFileHandler(apiClient pb.JamsyncAPIClient) gin.HandlerFunc {
+func GetFileHandler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		accessToken := sessions.Default(ctx).Get("access_token").(string)
+		tempClient, closer, err := server.Connect(&oauth2.Token{AccessToken: accessToken})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		defer closer()
 
-		config, err := apiClient.GetProjectConfig(ctx, &pb.GetProjectConfigRequest{
+		config, err := tempClient.GetProjectConfig(ctx, &pb.GetProjectConfigRequest{
 			ProjectName: ctx.Param("projectName"),
 		})
 		if err != nil {
@@ -62,16 +95,8 @@ func GetFileHandler(apiClient pb.JamsyncAPIClient) gin.HandlerFunc {
 			return
 		}
 
-		client := client.NewClient(apiClient, config.GetProjectId(), config.GetCurrentChange())
+		client := client.NewClient(tempClient, config.GetProjectId(), config.GetCurrentChange())
 
 		client.DownloadFile(ctx, ctx.Param("path")[1:], bytes.NewReader([]byte{}), ctx.Writer)
-		// resp, err := client.GetFile(ctx, &pb.GetFileRequest{
-		// 	ProjectName: ctx.Param("projectName"),
-		// 	Path:        ctx.Param("path")[1:],
-		// })
-		// if err != nil {
-		// 	ctx.Error(err)
-		// 	return
-		// }
 	}
 }

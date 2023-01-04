@@ -4,10 +4,16 @@ import (
 	"context"
 
 	"github.com/zdgeier/jamsync/gen/pb"
+	"github.com/zdgeier/jamsync/internal/server/serverauth"
 )
 
 func (s JamsyncServer) AddProject(ctx context.Context, in *pb.AddProjectRequest) (*pb.AddProjectResponse, error) {
-	projectId, err := s.db.AddProject(in.GetProjectName(), in.GetOwner())
+	id, err := serverauth.ParseIdFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	projectId, err := s.db.AddProject(in.GetProjectName(), id)
 	if err != nil {
 		return nil, err
 	}
@@ -18,7 +24,12 @@ func (s JamsyncServer) AddProject(ctx context.Context, in *pb.AddProjectRequest)
 }
 
 func (s JamsyncServer) ListUserProjects(ctx context.Context, in *pb.ListUserProjectsRequest) (*pb.ListUserProjectsResponse, error) {
-	projects, err := s.db.ListUserProjects(in.GetOwner())
+	id, err := serverauth.ParseIdFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	projects, err := s.db.ListUserProjects(id)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +57,11 @@ func (s JamsyncServer) ListProjects(ctx context.Context, in *pb.ListProjectsRequ
 }
 
 func (s JamsyncServer) GetProjectConfig(ctx context.Context, in *pb.GetProjectConfigRequest) (*pb.ProjectConfig, error) {
-	projectId, err := s.db.GetProjectId(in.GetProjectName())
+	userId, err := serverauth.ParseIdFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	projectId, err := s.db.GetProjectId(in.GetProjectName(), userId)
 	if err != nil {
 		return nil, err
 	}

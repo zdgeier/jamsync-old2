@@ -1,6 +1,10 @@
 package jamenv
 
-import "os"
+import (
+	"os"
+
+	"github.com/joho/godotenv"
+)
 
 type JamEnv int
 
@@ -10,6 +14,10 @@ const (
 	Local
 	Memory
 )
+
+func LoadFile() error {
+	return godotenv.Load("/etc/jamsync/.env")
+}
 
 func (e JamEnv) String() string {
 	switch e {
@@ -75,12 +83,22 @@ func Auth0Domain() string {
 	panic("could not get auth0 domain for JAMENV " + Env().String())
 }
 
-func Auth0RedirectUrl() string {
+func Auth0LocalRedirectUrl() string {
 	switch Env() {
 	case Prod:
 		return "jamsync.dev"
 	case Local, Dev:
 		return "http://localhost:8082/callback"
+	}
+	panic("could not get auth0 redirect url for JAMENV " + Env().String())
+}
+
+func Auth0RedirectUrl() string {
+	switch Env() {
+	case Prod:
+		return "jamsync.dev"
+	case Local, Dev:
+		return "http://localhost:8081/callback"
 	}
 	panic("could not get auth0 redirect url for JAMENV " + Env().String())
 }

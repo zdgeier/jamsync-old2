@@ -12,7 +12,6 @@
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <title>{{$.title}}</title>
-    <link href="/public/prism.css" rel="stylesheet" />
     <style>
         @font-face {
             font-display: swap;
@@ -167,14 +166,6 @@
             color: var(--bright-pink);
         }
     </style>
-    <script>
-        document.addEventListener("DOMContentLoaded", function(){
-            document.querySelector('.js-logout').addEventListener('click', () => {
-                console.log('clearing')
-                document.cookie = 'auth-session=; Max-Age=0'
-            })
-        });
-    </script>
-    <script defer data-domain="jamsync.io" src="https://plausible.io/js/plausible.js"></script>
+    <script defer data-domain="jamsync.dev" src="https://plausible.io/js/script.js"></script>
 </head>
 {{end}}

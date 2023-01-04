@@ -30,7 +30,7 @@ func New() (jamsyncDB JamsyncDb) {
 	}
 
 	sqlStmt := `
-	CREATE TABLE IF NOT EXISTS users (username TEXT);
+	CREATE TABLE IF NOT EXISTS users (username TEXT, user_id TEXT, UNIQUE(username, user_id));
 	CREATE TABLE IF NOT EXISTS projects (name TEXT, owner TEXT);
 	`
 	_, err := db.Exec(sqlStmt)
@@ -46,7 +46,7 @@ type Project struct {
 }
 
 func (j JamsyncDb) AddProject(projectName string, owner string) (uint64, error) {
-	_, err := j.GetProjectId(projectName)
+	_, err := j.GetProjectId(projectName, owner)
 	if !errors.Is(sql.ErrNoRows, err) {
 		return 0, fmt.Errorf("project already exists")
 	}
@@ -64,7 +64,7 @@ func (j JamsyncDb) AddProject(projectName string, owner string) (uint64, error) 
 	return uint64(id), nil
 }
 
-func (j JamsyncDb) GetProjectId(projectName string) (uint64, error) {
+func (j JamsyncDb) GetProjectId(projectName string, owner string) (uint64, error) {
 	row := j.db.QueryRow("SELECT rowid FROM projects WHERE name = ?", projectName)
 	if row.Err() != nil {
 		return 0, row.Err()
@@ -113,16 +113,7 @@ func (j JamsyncDb) ListProjects() ([]Project, error) {
 	return data, err
 }
 
-func (j JamsyncDb) CreateUser(username string) (uint64, error) {
-	res, err := j.db.Exec("INSERT INTO users(username) VALUES (?)", username)
-	if err != nil {
-		return 0, err
-	}
-
-	var id int64
-	if id, err = res.LastInsertId(); err != nil {
-		return 0, err
-	}
-
-	return uint64(id), nil
+func (j JamsyncDb) CreateUser(username, userId string) error {
+	_, err := j.db.Exec("INSERT OR IGNORE INTO users(username, user_id) VALUES (?, ?)", username, userId)
+	return err
 }

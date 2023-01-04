@@ -3,18 +3,13 @@ package web
 import (
 	"encoding/gob"
 	"errors"
-	"flag"
 	"html/template"
-	"log"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/jamenv"
 	"github.com/zdgeier/jamsync/internal/web/api"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
@@ -27,7 +22,9 @@ import (
 	"github.com/zdgeier/jamsync/internal/web/userprojects"
 )
 
-var useEnv = flag.Bool("useenv", false, "The server address in the format of host:port")
+type templateParams struct {
+	Email interface{}
+}
 
 // New registers the routes and returns the router.
 func New(auth *authenticator.Authenticator) *gin.Engine {
@@ -65,23 +62,27 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 
 	router.GET("/", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
-		profile := session.Get("profile")
-		ctx.HTML(http.StatusOK, "home.html", profile)
+		ctx.HTML(http.StatusOK, "home.html", templateParams{
+			Email: session.Get("email"),
+		})
 	})
 	router.GET("/about", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
-		profile := session.Get("profile")
-		ctx.HTML(http.StatusOK, "about.html", profile)
+		ctx.HTML(http.StatusOK, "about.html", templateParams{
+			Email: session.Get("email"),
+		})
 	})
 	router.GET("/browse", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
-		profile := session.Get("profile")
-		ctx.HTML(http.StatusOK, "browse.html", profile)
+		ctx.HTML(http.StatusOK, "browse.html", templateParams{
+			Email: session.Get("email"),
+		})
 	})
 	router.GET("/download", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
-		profile := session.Get("profile")
-		ctx.HTML(http.StatusOK, "download.html", profile)
+		ctx.HTML(http.StatusOK, "download.html", templateParams{
+			Email: session.Get("email"),
+		})
 	})
 	router.GET("/favicon.ico", func(ctx *gin.Context) {
 		ctx.Header("Content-Type", "image/svg+xml")
@@ -96,29 +97,15 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 		ctx.File("static/robots.txt")
 	})
 
-	flag.Parse()
-	var serverAddr string
-	if *useEnv {
-		serverAddr = jamenv.PublicAPIAddress()
-	} else {
-		serverAddr = jamenv.LocalAPIAddress
-	}
-
-	conn, err := grpc.Dial(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Panicf("could not connect to jamsync server: %s", err)
-	}
-	client := pb.NewJamsyncAPIClient(conn)
-
 	router.GET("/login", login.Handler(auth))
-	router.GET("/callback", callback.Handler(auth, client))
+	router.GET("/callback", callback.Handler(auth))
 	router.GET("/logout", logout.Handler)
 
-	router.GET("/api/projects", api.ProjectsHandler(client))
-	router.GET("/api/userprojects", api.UserProjectsHandler(client))
-	router.GET("/api/projects/:projectName", api.ProjectBrowseHandler(client))
-	router.GET("/api/projects/:projectName/files/*path", api.ProjectBrowseHandler(client))
-	router.GET("/api/projects/:projectName/file/*path", api.GetFileHandler(client))
+	router.GET("/api/projects", api.ProjectsHandler())
+	router.GET("/api/userprojects", api.UserProjectsHandler())
+	router.GET("/api/projects/:projectName", api.ProjectBrowseHandler())
+	router.GET("/api/projects/:projectName/files/*path", api.ProjectBrowseHandler())
+	router.GET("/api/projects/:projectName/file/*path", api.GetFileHandler())
 
 	router.GET("/:username/projects", middleware.IsAuthenticated, userprojects.Handler)
 	router.GET("/:username/:project/file/*path", middleware.IsAuthenticated, file.Handler)

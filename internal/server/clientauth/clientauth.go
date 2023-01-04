@@ -12,20 +12,18 @@ import (
 	"os"
 	"strings"
 
-	"github.com/joho/godotenv"
 	cv "github.com/nirasan/go-oauth-pkce-code-verifier"
 	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/viper"
 	"github.com/zdgeier/jamsync/internal/jamenv"
 )
 
+// TODO: fix error output in this file
+
 // AuthorizeUser implements the PKCE OAuth2 flow.
 func AuthorizeUser() {
 	// initialize the code verifier
 	var CodeVerifier, _ = cv.CreateCodeVerifier()
-
-	// Create code_challenge with S256 method
-	codeChallenge := CodeVerifier.CodeChallengeS256()
 
 	// construct the authorization URL (with Auth0 as the authorization provider)
 	authorizationURL := fmt.Sprintf(
@@ -34,11 +32,10 @@ func AuthorizeUser() {
 			"&response_type=code&client_id=%s"+
 			"&code_challenge=%s"+
 			"&code_challenge_method=S256&redirect_uri=%s",
-		jamenv.Auth0Domain(), jamenv.Auth0ClientID(), codeChallenge, jamenv.Auth0RedirectUrl())
-	fmt.Println(authorizationURL)
+		jamenv.Auth0Domain(), jamenv.Auth0ClientID(), CodeVerifier.CodeChallengeS256(), jamenv.Auth0LocalRedirectUrl())
 
 	// start a web server to listen on a callback URL
-	server := &http.Server{Addr: jamenv.Auth0RedirectUrl()}
+	server := &http.Server{Addr: jamenv.Auth0LocalRedirectUrl()}
 
 	// define a handler that will get the authorization code, call the token endpoint, and close the HTTP server
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +52,7 @@ func AuthorizeUser() {
 
 		// trade the authorization code and the code verifier for an access token
 		codeVerifier := CodeVerifier.String()
-		token, err := getAccessToken(jamenv.Auth0ClientID(), codeVerifier, code, jamenv.Auth0RedirectUrl())
+		token, err := getAccessToken(jamenv.Auth0ClientID(), codeVerifier, code, jamenv.Auth0LocalRedirectUrl())
 		if err != nil {
 			log.Println("could not get access token")
 			io.WriteString(w, "Error: could not retrieve access token\n")
@@ -175,7 +172,7 @@ func AuthorizeUser() {
 	})
 
 	// parse the redirect URL for the port number
-	u, err := url.Parse(jamenv.Auth0RedirectUrl())
+	u, err := url.Parse(jamenv.Auth0LocalRedirectUrl())
 	if err != nil {
 		fmt.Printf("snap: bad redirect URL: %s\n", err)
 		os.Exit(1)
@@ -215,7 +212,6 @@ func getAccessToken(clientID string, codeVerifier string, authorizationCode stri
 
 	// create the request and execute it
 	req, _ := http.NewRequest("POST", url, payload)
-	fmt.Println("REquest url", url, data)
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -227,7 +223,6 @@ func getAccessToken(clientID string, codeVerifier string, authorizationCode stri
 	defer res.Body.Close()
 	var responseData map[string]interface{}
 	body, _ := ioutil.ReadAll(res.Body)
-	fmt.Println(string(body))
 
 	// unmarshal the json into a string map
 	err = json.Unmarshal(body, &responseData)
@@ -249,10 +244,6 @@ func cleanup(server *http.Server) {
 }
 
 func InitConfig() (string, error) {
-	if err := godotenv.Load("/etc/jamsync/.env"); err != nil {
-		log.Fatalf("Failed to load the env vars: %v", err)
-	}
-
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err

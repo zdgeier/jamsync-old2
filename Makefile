@@ -8,31 +8,25 @@ web:
 	cd cmd/web/; go run main.go
 
 webprod:
-	cd cmd/web/; go run main.go --useenv
+	cd cmd/web/; JAMENV=prod go run main.go --useenv
 
 buildweb:
 	go build -o build/jamweb cmd/web/main.go; cp -R cmd/web/static build; cp -R cmd/web/template build; 
 
 server:
-	go run cmd/server/main.go
+	JAMENV=local go run cmd/server/main.go
 
 buildserver:
 	go build -o build/jamserver cmd/server/main.go 
 
 client:
-	go run cmd/client/main.go 
+	JAMENV=local go run cmd/client/main.go 
 
 buildclient:
 	go build -o build/jam cmd/client/main.go
 
 installclient:
 	cp build/jam ~/bin/jam
-
-store:
-	go run cmd/store/main.go
-
-buildstore:
-	go build -o build/jamstore cmd/store/main.go 
 
 build: buildserver buildclient buildweb
 

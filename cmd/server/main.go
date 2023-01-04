@@ -7,10 +7,15 @@ import (
 	"syscall"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	"github.com/zdgeier/jamsync/internal/server/server"
 )
 
 func main() {
+	err := jamenv.LoadFile()
+	if err != nil {
+		log.Panic(err)
+	}
 	closer, err := server.New()
 	if err != nil {
 		log.Fatal(err)

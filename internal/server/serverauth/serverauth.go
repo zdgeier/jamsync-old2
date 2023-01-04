@@ -10,12 +10,42 @@ import (
 
 	"github.com/auth0/go-jwt-middleware/v2/jwks"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 var provider *jwks.CachingProvider
 
+var (
+	errMissingMetadata = status.Errorf(codes.InvalidArgument, "missing metadata")
+	errInvalidToken    = status.Errorf(codes.Unauthenticated, "invalid token")
+	errUnauthorized    = status.Errorf(codes.Unauthenticated, "unauthorized")
+)
+
+func EnsureValidToken(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, errMissingMetadata
+	}
+
+	authorizationHeader := md.Get("authorization")
+	if len(authorizationHeader) < 1 || authorizationHeader[0] == "" {
+		return nil, errInvalidToken
+	}
+
+	token := strings.TrimPrefix(authorizationHeader[0], "Bearer ")
+	_, err := ensureValidToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	return handler(ctx, req)
+}
+
 // EnsureValidToken is a middleware that will check the validity of our JWT.
-func EnsureValidToken(token string) (interface{}, error) {
+func ensureValidToken(token string) (*validator.ValidatedClaims, error) {
 	issuerURL, err := url.Parse("https://" + os.Getenv("AUTH0_DOMAIN") + "/")
 	if err != nil {
 		log.Fatalf("Failed to parse the issuer url: %v", err)
@@ -40,12 +70,12 @@ func EnsureValidToken(token string) (interface{}, error) {
 		log.Fatalf("Failed to set up the jwt validator")
 	}
 
-	validatedClaims, err := jwtValidator.ValidateToken(context.TODO(), token)
+	rawValidatedClaims, err := jwtValidator.ValidateToken(context.TODO(), token)
 	if err != nil {
 		return nil, err
 	}
 
-	return validatedClaims, nil
+	return rawValidatedClaims.(*validator.ValidatedClaims), nil
 }
 
 // CustomClaims contains custom data we want from the token.
@@ -68,4 +98,24 @@ func (c CustomClaims) HasScope(expectedScope string) bool {
 	}
 
 	return false
+}
+
+func ParseIdFromCtx(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", errMissingMetadata
+	}
+
+	authorizationHeader := md.Get("authorization")
+	if len(authorizationHeader) < 1 || authorizationHeader[0] == "" {
+		return "", errInvalidToken
+	}
+
+	token := strings.TrimPrefix(authorizationHeader[0], "Bearer ")
+	validatedClaims, err := ensureValidToken(token)
+	if err != nil {
+		return "", err
+	}
+
+	return validatedClaims.RegisteredClaims.Subject, nil
 }

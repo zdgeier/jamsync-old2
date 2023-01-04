@@ -8,11 +8,12 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/zdgeier/jamsync/gen/pb"
+	"github.com/zdgeier/jamsync/internal/server/server"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 )
 
 // Handler for our callback.
-func Handler(auth *authenticator.Authenticator, client pb.JamsyncAPIClient) gin.HandlerFunc {
+func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		if ctx.Query("state") != session.Get("state") {
@@ -23,10 +24,9 @@ func Handler(auth *authenticator.Authenticator, client pb.JamsyncAPIClient) gin.
 		// Exchange an authorization code for a token.
 		token, err := auth.Exchange(ctx.Request.Context(), ctx.Query("code"))
 		if err != nil {
-			ctx.String(http.StatusUnauthorized, "Failed to exchange an authorization code for a token.")
+			ctx.String(http.StatusUnauthorized, "Failed to exchange an authorization code for a token.", err)
 			return
 		}
-
 		idToken, err := auth.VerifyIDToken(ctx.Request.Context(), token)
 		if err != nil {
 			ctx.String(http.StatusInternalServerError, "Failed to verify ID Token.")
@@ -40,13 +40,24 @@ func Handler(auth *authenticator.Authenticator, client pb.JamsyncAPIClient) gin.
 		}
 
 		session.Set("access_token", token.AccessToken)
-		session.Set("profile", profile)
+		session.Set("email", profile["email"])
 		if err := session.Save(); err != nil {
 			ctx.String(http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		_, err = client.CreateUser(ctx, &pb.CreateUserRequest{Username: profile["email"].(string)})
+		// Use a temp client here so we dont have to do anything complicated to validate the user
+		// We'll do user validation on the API side so users can only create their own accounts
+		tempClient, closer, err := server.Connect(token)
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		defer closer()
+
+		_, err = tempClient.CreateUser(ctx, &pb.CreateUserRequest{
+			Username: profile["email"].(string),
+		})
 		if err != nil {
 			ctx.String(http.StatusInternalServerError, err.Error())
 			return

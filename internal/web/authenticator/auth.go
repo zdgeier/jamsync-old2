@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	cv "github.com/nirasan/go-oauth-pkce-code-verifier"
 	"golang.org/x/oauth2"
 )
 
@@ -15,6 +16,7 @@ import (
 type Authenticator struct {
 	*oidc.Provider
 	oauth2.Config
+	CodeVerifier *cv.CodeVerifier
 }
 
 // New instantiates the *Authenticator.
@@ -32,12 +34,18 @@ func New() (*Authenticator, error) {
 		ClientSecret: os.Getenv("AUTH0_CLIENT_SECRET"),
 		RedirectURL:  os.Getenv("AUTH0_CALLBACK_URL"),
 		Endpoint:     provider.Endpoint(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile email"},
+		Scopes:       []string{oidc.ScopeOpenID, "profile email add:projects"},
+	}
+
+	codeVerifier, err := cv.CreateCodeVerifier()
+	if err != nil {
+		return nil, err
 	}
 
 	return &Authenticator{
-		Provider: provider,
-		Config:   conf,
+		Provider:     provider,
+		Config:       conf,
+		CodeVerifier: codeVerifier,
 	}, nil
 }
 

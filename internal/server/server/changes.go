@@ -9,10 +9,25 @@ import (
 	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/rsync"
+	"github.com/zdgeier/jamsync/internal/server/serverauth"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )
 
 func (s JamsyncServer) CreateChange(ctx context.Context, in *pb.CreateChangeRequest) (*pb.CreateChangeResponse, error) {
+	owner, err := s.db.GetProjectOwner(in.GetProjectId())
+	if err != nil {
+		return nil, err
+	}
+	userId, err := serverauth.ParseIdFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if owner != userId {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthorized")
+	}
+
 	changeId, err := s.changestore.AddChange(in.GetProjectId())
 	if err != nil {
 		return nil, err
@@ -23,6 +38,12 @@ func (s JamsyncServer) CreateChange(ctx context.Context, in *pb.CreateChangeRequ
 }
 
 func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStreamServer) error {
+	userId, err := serverauth.ParseIdFromCtx(srv.Context())
+	if err != nil {
+		return err
+	}
+
+	operationProject := uint64(0)
 	var projectId, changeId, pathHash uint64
 	opLocs := make([]*pb.OperationLocations_OperationLocation, 0)
 	for {
@@ -37,7 +58,25 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 		if err != nil {
 			return err
 		}
-		offset, length, err := s.opstore.Write(in.GetProjectId(), in.GetChangeId(), in.GetPathHash(), data)
+		projectId = in.GetProjectId()
+		changeId = in.GetChangeId()
+		pathHash = in.GetPathHash()
+		if operationProject == 0 {
+			owner, err := s.db.GetProjectOwner(projectId)
+			if err != nil {
+				return err
+			}
+			if userId != owner {
+				return status.Errorf(codes.Unauthenticated, "unauthorized")
+			}
+			operationProject = projectId
+		}
+
+		if operationProject != projectId {
+			return status.Errorf(codes.Unauthenticated, "unauthorized")
+		}
+
+		offset, length, err := s.opstore.Write(projectId, changeId, pathHash, data)
 		if err != nil {
 			return err
 		}
@@ -45,12 +84,9 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 			Offset: offset,
 			Length: length,
 		}
-		projectId = in.GetProjectId()
-		changeId = in.GetChangeId()
-		pathHash = in.GetPathHash()
 		opLocs = append(opLocs, operationLocation)
 	}
-	err := s.oplocstore.InsertOperationLocations(&pb.OperationLocations{
+	err = s.oplocstore.InsertOperationLocations(&pb.OperationLocations{
 		ProjectId: projectId,
 		ChangeId:  changeId,
 		PathHash:  pathHash,
@@ -64,6 +100,18 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 }
 
 func (s JamsyncServer) ReadBlockHashes(ctx context.Context, in *pb.ReadBlockHashesRequest) (*pb.ReadBlockHashesResponse, error) {
+	owner, err := s.db.GetProjectOwner(in.GetProjectId())
+	if err != nil {
+		return nil, err
+	}
+	userId, err := serverauth.ParseIdFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if owner != userId {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthorized")
+	}
+
 	targetBuffer, err := s.regenFile(in.GetProjectId(), in.GetPathHash(), in.GetModTime().AsTime())
 	if err != nil {
 		return nil, err
@@ -132,6 +180,18 @@ func (s JamsyncServer) regenFile(projectId uint64, pathHash uint64, modTime time
 }
 
 func (s JamsyncServer) ReadFile(in *pb.ReadFileRequest, srv pb.JamsyncAPI_ReadFileServer) error {
+	owner, err := s.db.GetProjectOwner(in.GetProjectId())
+	if err != nil {
+		return err
+	}
+	userId, err := serverauth.ParseIdFromCtx(srv.Context())
+	if err != nil {
+		return err
+	}
+	if owner != userId {
+		return status.Errorf(codes.Unauthenticated, "unauthorized")
+	}
+
 	sourceBuffer, err := s.regenFile(in.GetProjectId(), in.GetPathHash(), in.GetModTime().AsTime())
 	if err != nil {
 		return err
@@ -198,7 +258,19 @@ func (s JamsyncServer) ReadFile(in *pb.ReadFileRequest, srv pb.JamsyncAPI_ReadFi
 }
 
 func (s JamsyncServer) CommitChange(ctx context.Context, in *pb.CommitChangeRequest) (*pb.CommitChangeResponse, error) {
-	err := s.changestore.CommitChange(in.GetProjectId(), in.GetChangeId())
+	owner, err := s.db.GetProjectOwner(in.GetProjectId())
+	if err != nil {
+		return nil, err
+	}
+	userId, err := serverauth.ParseIdFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if owner != userId {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthorized")
+	}
+
+	err = s.changestore.CommitChange(in.GetProjectId(), in.GetChangeId())
 	if err != nil {
 		return nil, err
 	}
