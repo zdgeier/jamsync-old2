@@ -116,6 +116,12 @@ func GetFileHandler() gin.HandlerFunc {
 		}
 		defer closer()
 
+		changeId, err := strconv.Atoi(ctx.Query("commitId"))
+		if err != nil {
+			ctx.String(http.StatusBadRequest, err.Error())
+			return
+		}
+
 		config, err := tempClient.GetProjectConfig(ctx, &pb.GetProjectConfigRequest{
 			ProjectName: ctx.Param("projectName"),
 		})
@@ -124,7 +130,7 @@ func GetFileHandler() gin.HandlerFunc {
 			return
 		}
 
-		client := client.NewClient(tempClient, config.GetProjectId(), config.GetCurrentChange())
+		client := client.NewClient(tempClient, config.GetProjectId(), uint64(changeId))
 
 		client.DownloadFile(ctx, ctx.Param("path")[1:], bytes.NewReader([]byte{}), ctx.Writer)
 	}

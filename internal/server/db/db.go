@@ -106,7 +106,7 @@ func (j JamsyncDb) ListUserProjects(owner string) ([]Project, error) {
 }
 
 func (j JamsyncDb) ListProjects() ([]Project, error) {
-	rows, err := j.db.Query("SELECT rowid, name FROM projects")
+	rows, err := j.db.Query("SELECT rowid, name FROM projects WHERE owner = auth0|63b5ad0c396bd87d2aff62df")
 	if err != nil {
 		return nil, err
 	}

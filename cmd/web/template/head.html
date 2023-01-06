@@ -106,10 +106,6 @@
             color: white;
         }
 
-        header {
-            position: sticky;
-            top: 0;
-        }
         .Header-top {
             padding: 32px 32px 0 32px;
             display: flex;
@@ -178,7 +174,6 @@
         code {
             font-family: 'Fira Code', Monaco, Consolas, Ubuntu Mono, monospace;
         }
-
         .Files a {
             color: white;
             text-decoration: none;
@@ -235,6 +230,58 @@
             align-items: center;
             color: var(--bright-pink);
             background-color: var(--dark-blue);
+        }
+
+        #projectname {
+            font-size: 24px;
+            overflow-wrap: break-word;
+        }
+        .slidecontainer {
+            width: 100%;
+        }
+
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            background: grey;
+            opacity: 0.5;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+        }
+
+        .slider:hover {
+            opacity: 1;
+            cursor: pointer;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 0;
+            background: var(--bright-pink);
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            background: var(--pink);
+            cursor: pointer;
+        }
+        .slider-steps {
+            background-color: pink;
+            color: pink;
+        }
+
+        .Location {
+            font-size: 20px;
+        }
+
+        pre {
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: scroll;
         }
     </style>
     <script defer data-domain="jamsync.dev" src="https://plausible.io/js/script.js"></script>
