@@ -5,7 +5,7 @@ clean:
 	rm -r gen/
 
 web:
-	cd cmd/web/; go run main.go
+	cd cmd/web/; JAMENV=local go run main.go
 
 webprod:
 	cd cmd/web/; JAMENV=prod go run main.go --useenv

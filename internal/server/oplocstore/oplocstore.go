@@ -16,7 +16,7 @@ type LocalOpLocStore struct {
 }
 
 func (s LocalOpLocStore) opLocDirectory(projectId uint64, ownerId string, changeId uint64) string {
-	return fmt.Sprintf("%s/%d/oplocs/%d", s.directory, projectId, changeId)
+	return fmt.Sprintf("%s/%s/%d/oplocs/%d", s.directory, ownerId, projectId, changeId)
 }
 func (s LocalOpLocStore) filePath(projectId uint64, ownerId string, changeId uint64, pathHash uint64) string {
 	return fmt.Sprintf("%s/%d.locs", s.opLocDirectory(projectId, ownerId, changeId), pathHash)

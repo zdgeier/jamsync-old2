@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"time"
 
 	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/pb"
@@ -101,7 +100,7 @@ func (s JamsyncServer) ReadBlockHashes(ctx context.Context, in *pb.ReadBlockHash
 		return nil, err
 	}
 
-	targetBuffer, err := s.regenFile(in.GetProjectId(), userId, in.GetPathHash(), in.GetModTime().AsTime())
+	targetBuffer, err := s.regenFile(in.GetProjectId(), userId, in.GetPathHash(), in.GetChangeId())
 	if err != nil {
 		return nil, err
 	}
@@ -121,22 +120,12 @@ func (s JamsyncServer) ReadBlockHashes(ctx context.Context, in *pb.ReadBlockHash
 	}, err
 }
 
-func (s JamsyncServer) regenFile(projectId uint64, userId string, pathHash uint64, modTime time.Time) (*bytes.Reader, error) {
-	changeIds, err := s.changestore.ListCommittedChanges(projectId, userId, modTime)
-	if err != nil {
-		return nil, err
-	}
-
-	uniqueChangeIds := make(map[uint64]interface{}, 0)
-	for _, id := range changeIds {
-		uniqueChangeIds[id] = nil
-	}
-
+func (s JamsyncServer) regenFile(projectId uint64, userId string, pathHash uint64, changeId uint64) (*bytes.Reader, error) {
 	rs := rsync.RSync{UniqueHasher: xxhash.New()}
 	targetBuffer := bytes.NewBuffer([]byte{})
 	result := new(bytes.Buffer)
-	for _, changeId := range changeIds {
-		operationLocations, err := s.oplocstore.ListOperationLocations(projectId, userId, pathHash, changeId)
+	for i := uint64(0); i < changeId; i++ {
+		operationLocations, err := s.oplocstore.ListOperationLocations(projectId, userId, pathHash, i)
 		if err != nil {
 			return nil, err
 		}
@@ -174,14 +163,10 @@ func (s JamsyncServer) ReadFile(in *pb.ReadFileRequest, srv pb.JamsyncAPI_ReadFi
 		return err
 	}
 
-	sourceBuffer, err := s.regenFile(in.GetProjectId(), userId, in.GetPathHash(), in.GetModTime().AsTime())
+	sourceBuffer, err := s.regenFile(in.GetProjectId(), userId, in.GetPathHash(), in.GetChangeId())
 	if err != nil {
 		return err
 	}
-
-	//a, _ := io.ReadAll(sourceBuffer)
-	//fmt.Println("READING", in.PathHash, string(a))
-	//sourceBuffer.Seek(0, 0)
 
 	opsOut := make(chan *rsync.Operation)
 	rsDelta := &rsync.RSync{UniqueHasher: xxhash.New()}
@@ -250,4 +235,25 @@ func (s JamsyncServer) CommitChange(ctx context.Context, in *pb.CommitChangeRequ
 		return nil, err
 	}
 	return &pb.CommitChangeResponse{}, nil
+}
+
+func (s JamsyncServer) ListCommittedChanges(ctx context.Context, in *pb.ListCommittedChangesRequest) (*pb.ListCommittedChangesResponse, error) {
+	userId, err := serverauth.ParseIdFromCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	projectId, err := s.db.GetProjectId(in.GetProjectName(), userId)
+	if err != nil {
+		return nil, err
+	}
+
+	changeIds, err := s.changestore.ListCommittedChanges(projectId, userId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ListCommittedChangesResponse{
+		ChangeIds: changeIds,
+	}, nil
 }

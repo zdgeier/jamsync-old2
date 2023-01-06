@@ -102,7 +102,7 @@ func main() {
 	// starting at the root of the project, walk each file/directory searching for
 	// directories
 	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-		if d.Name() == ".jamsync" || path == "." || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") || strings.HasPrefix(path, "jamsync.db") {
+		if d.Name() == ".jamsync" || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") || strings.HasPrefix(path, "jamsync.db") {
 			return nil
 		}
 		return watcher.Add(path)
@@ -128,7 +128,7 @@ func main() {
 				log.Println(path + " deleted")
 				err := watcher.Remove(path)
 				if err != nil {
-					log.Fatal(err)
+					//log.Fatal(err) TODO maybe add back, was getting "cant't remove non-existent watcher error"
 				}
 			} else if stat.IsDir() {
 				if err := filepath.WalkDir(path, func(path string, d fs.DirEntry, _ error) error {
@@ -292,7 +292,8 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 
 	log.Println("Uploading files...")
 	for path, diff := range fileMetadataDiff.GetDiffs() {
-		if diff.Type != pb.FileMetadataDiff_NoOp && !diff.File.Dir {
+		fmt.Println("DIFF", path, diff)
+		if diff.GetType() != pb.FileMetadataDiff_NoOp && diff.GetType() != pb.FileMetadataDiff_Delete && !diff.GetFile().GetDir() {
 			//log.Println("Uploading " + path)
 			file, err := os.OpenFile(path, os.O_RDONLY, 0755)
 			if err != nil {

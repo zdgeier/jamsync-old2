@@ -14,6 +14,7 @@ service JamsyncAPI {
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
     rpc ListUserProjects(ListUserProjectsRequest) returns (ListUserProjectsResponse);
+    rpc ListCommittedChanges(ListCommittedChangesRequest) returns (ListCommittedChangesResponse);
     rpc GetProjectConfig(GetProjectConfigRequest) returns (ProjectConfig);
 
     rpc UserInfo(UserInfoRequest) returns (UserInfoResponse);
@@ -175,4 +176,12 @@ message GetProjectConfigRequest {
 message ProjectConfig {
     uint64 projectId = 1;
     uint64 current_change = 2;
+}
+
+message ListCommittedChangesRequest {
+    string project_name = 1;
+}
+
+message ListCommittedChangesResponse {
+    repeated uint64 change_ids = 1;
 }

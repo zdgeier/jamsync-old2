@@ -62,10 +62,10 @@ func (s LocalChangeStore) CommitChange(projectId uint64, ownerId string, changeI
 	}
 	return commitChange(db, changeId)
 }
-func (s LocalChangeStore) ListCommittedChanges(projectId uint64, ownerId string, timestamp time.Time) ([]uint64, error) {
+func (s LocalChangeStore) ListCommittedChanges(projectId uint64, ownerId string) ([]uint64, error) {
 	db, err := s.getLocalProjectDB(projectId, ownerId)
 	if err != nil {
 		return nil, err
 	}
-	return listCommittedChanges(db, timestamp)
+	return listCommittedChanges(db)
 }

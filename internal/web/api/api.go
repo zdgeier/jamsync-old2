@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func ProjectsHandler() gin.HandlerFunc {
 
 		resp, err := tempClient.ListProjects(ctx, &pb.ListProjectsRequest{})
 		if err != nil {
-			ctx.Error(err)
+			ctx.String(http.StatusInternalServerError, err.Error())
 			return
 		}
 		ctx.JSON(200, resp)
@@ -42,6 +43,27 @@ func UserProjectsHandler() gin.HandlerFunc {
 		defer closer()
 
 		resp, err := tempClient.ListUserProjects(ctx, &pb.ListUserProjectsRequest{})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		ctx.JSON(200, resp)
+	}
+}
+
+func ListCommittedChanges() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		accessToken := sessions.Default(ctx).Get("access_token").(string)
+		tempClient, closer, err := server.Connect(&oauth2.Token{AccessToken: accessToken})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		defer closer()
+
+		resp, err := tempClient.ListCommittedChanges(ctx, &pb.ListCommittedChangesRequest{
+			ProjectName: ctx.Param("projectName"),
+		})
 		if err != nil {
 			ctx.Error(err)
 			return
@@ -64,10 +86,17 @@ func ProjectBrowseHandler() gin.HandlerFunc {
 			ProjectName: ctx.Param("projectName"),
 		})
 		if err != nil {
-			ctx.Error(err)
+			ctx.String(http.StatusInternalServerError, err.Error())
 			return
 		}
-		client := client.NewClient(tempClient, config.GetProjectId(), config.GetCurrentChange())
+
+		changeId, err := strconv.Atoi(ctx.Query("commitId"))
+		if err != nil {
+			ctx.String(http.StatusBadRequest, err.Error())
+			return
+		}
+
+		client := client.NewClient(tempClient, config.GetProjectId(), uint64(changeId))
 		resp, err := client.BrowseProject(ctx.Param("path")[1:])
 		if err != nil {
 			ctx.Error(err)

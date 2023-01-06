@@ -53,8 +53,9 @@ func commitChange(db *sql.DB, changeId uint64) error {
 	return err
 }
 
-func listCommittedChanges(db *sql.DB, timestamp time.Time) ([]uint64, error) {
-	rows, err := db.Query("SELECT c.change_id FROM committed_changes AS c WHERE timestamp < ? ORDER BY c.timestamp ASC", timestamp)
+func listCommittedChanges(db *sql.DB) ([]uint64, error) {
+	//rows, err := db.Query("SELECT c.change_id FROM committed_changes AS c WHERE timestamp < ? ORDER BY c.timestamp ASC", timestamp)
+	rows, err := db.Query("SELECT change_id FROM committed_changes ORDER BY timestamp ASC")
 	if err != nil {
 		return nil, err
 	}

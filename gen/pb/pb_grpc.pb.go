@@ -30,6 +30,7 @@ type JamsyncAPIClient interface {
 	AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error)
 	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
 	ListUserProjects(ctx context.Context, in *ListUserProjectsRequest, opts ...grpc.CallOption) (*ListUserProjectsResponse, error)
+	ListCommittedChanges(ctx context.Context, in *ListCommittedChangesRequest, opts ...grpc.CallOption) (*ListCommittedChangesResponse, error)
 	GetProjectConfig(ctx context.Context, in *GetProjectConfigRequest, opts ...grpc.CallOption) (*ProjectConfig, error)
 	UserInfo(ctx context.Context, in *UserInfoRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
 	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error)
@@ -163,6 +164,15 @@ func (c *jamsyncAPIClient) ListUserProjects(ctx context.Context, in *ListUserPro
 	return out, nil
 }
 
+func (c *jamsyncAPIClient) ListCommittedChanges(ctx context.Context, in *ListCommittedChangesRequest, opts ...grpc.CallOption) (*ListCommittedChangesResponse, error) {
+	out := new(ListCommittedChangesResponse)
+	err := c.cc.Invoke(ctx, "/pb.JamsyncAPI/ListCommittedChanges", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *jamsyncAPIClient) GetProjectConfig(ctx context.Context, in *GetProjectConfigRequest, opts ...grpc.CallOption) (*ProjectConfig, error) {
 	out := new(ProjectConfig)
 	err := c.cc.Invoke(ctx, "/pb.JamsyncAPI/GetProjectConfig", in, out, opts...)
@@ -202,6 +212,7 @@ type JamsyncAPIServer interface {
 	AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error)
 	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
 	ListUserProjects(context.Context, *ListUserProjectsRequest) (*ListUserProjectsResponse, error)
+	ListCommittedChanges(context.Context, *ListCommittedChangesRequest) (*ListCommittedChangesResponse, error)
 	GetProjectConfig(context.Context, *GetProjectConfigRequest) (*ProjectConfig, error)
 	UserInfo(context.Context, *UserInfoRequest) (*UserInfoResponse, error)
 	CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error)
@@ -235,6 +246,9 @@ func (UnimplementedJamsyncAPIServer) ListProjects(context.Context, *ListProjects
 }
 func (UnimplementedJamsyncAPIServer) ListUserProjects(context.Context, *ListUserProjectsRequest) (*ListUserProjectsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListUserProjects not implemented")
+}
+func (UnimplementedJamsyncAPIServer) ListCommittedChanges(context.Context, *ListCommittedChangesRequest) (*ListCommittedChangesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCommittedChanges not implemented")
 }
 func (UnimplementedJamsyncAPIServer) GetProjectConfig(context.Context, *GetProjectConfigRequest) (*ProjectConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetProjectConfig not implemented")
@@ -413,6 +427,24 @@ func _JamsyncAPI_ListUserProjects_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _JamsyncAPI_ListCommittedChanges_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCommittedChangesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JamsyncAPIServer).ListCommittedChanges(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.JamsyncAPI/ListCommittedChanges",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JamsyncAPIServer).ListCommittedChanges(ctx, req.(*ListCommittedChangesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _JamsyncAPI_GetProjectConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetProjectConfigRequest)
 	if err := dec(in); err != nil {
@@ -497,6 +529,10 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListUserProjects",
 			Handler:    _JamsyncAPI_ListUserProjects_Handler,
+		},
+		{
+			MethodName: "ListCommittedChanges",
+			Handler:    _JamsyncAPI_ListCommittedChanges_Handler,
 		},
 		{
 			MethodName: "GetProjectConfig",
