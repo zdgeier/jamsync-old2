@@ -5,6 +5,7 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -36,6 +37,7 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	// To store custom types in our cookies,
 	// we must first register them using gob.Register
 	gob.Register(map[string]interface{}{})
+	gob.Register(time.Time{})
 
 	store := cookie.NewStore([]byte("secret"))
 	router.Use(sessions.Sessions("auth-session", store))
@@ -60,25 +62,25 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	})
 	router.LoadHTMLGlob("template/*")
 
-	router.GET("/", func(ctx *gin.Context) {
+	router.GET("/", middleware.Reauthenticate, func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		ctx.HTML(http.StatusOK, "home.html", templateParams{
 			Email: session.Get("email"),
 		})
 	})
-	router.GET("/about", func(ctx *gin.Context) {
+	router.GET("/about", middleware.Reauthenticate, func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		ctx.HTML(http.StatusOK, "about.html", templateParams{
 			Email: session.Get("email"),
 		})
 	})
-	router.GET("/browse", func(ctx *gin.Context) {
+	router.GET("/browse", middleware.Reauthenticate, func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		ctx.HTML(http.StatusOK, "browse.html", templateParams{
 			Email: session.Get("email"),
 		})
 	})
-	router.GET("/download", func(ctx *gin.Context) {
+	router.GET("/download", middleware.Reauthenticate, func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		ctx.HTML(http.StatusOK, "download.html", templateParams{
 			Email: session.Get("email"),
@@ -108,10 +110,10 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	router.GET("/api/projects/:projectName/files/*path", api.ProjectBrowseHandler())
 	router.GET("/api/projects/:projectName/file/*path", api.GetFileHandler())
 
-	router.POST("/:username/projects", middleware.IsAuthenticated, userprojects.CreateHandler, userprojects.Handler)
-	router.GET("/:username/projects", middleware.IsAuthenticated, userprojects.Handler)
-	router.GET("/:username/:project/file/*path", middleware.IsAuthenticated, file.Handler)
-	router.GET("/:username/:project/files/*path", middleware.IsAuthenticated, files.Handler)
-	router.GET("/:username/:project", middleware.IsAuthenticated, files.Handler)
+	router.POST("/:username/projects", middleware.IsAuthenticated, middleware.Reauthenticate, userprojects.CreateHandler)
+	router.GET("/:username/projects", middleware.IsAuthenticated, middleware.Reauthenticate, userprojects.Handler)
+	router.GET("/:username/:project/file/*path", middleware.IsAuthenticated, middleware.Reauthenticate, file.Handler)
+	router.GET("/:username/:project/files/*path", middleware.IsAuthenticated, middleware.Reauthenticate, files.Handler)
+	router.GET("/:username/:project", middleware.IsAuthenticated, middleware.Reauthenticate, files.Handler)
 	return router
 }

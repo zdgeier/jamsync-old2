@@ -39,6 +39,7 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 			return
 		}
 
+		session.Set("exp", token.Expiry)
 		session.Set("access_token", token.AccessToken)
 		session.Set("email", profile["email"])
 		if err := session.Save(); err != nil {

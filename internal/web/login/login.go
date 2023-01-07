@@ -22,14 +22,6 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 			return
 		}
 
-		// authorizationURL := fmt.Sprintf(
-		// 	"https://%s/authorize?audience=api.jamsync.dev"+
-		// 		"&scope=write:projects"+
-		// 		"&response_type=code&client_id=%s"+
-		// 		"&code_challenge=%s"+
-		// 		"&code_challenge_method=S256&redirect_uri=%s&state=%s",
-		// 	jamenv.Auth0Domain(), jamenv.Auth0ClientID(), auth.CodeVerifier.CodeChallengeS256(), jamenv.Auth0RedirectUrl(), state)
-
 		// Save the state inside the session.
 		session := sessions.Default(ctx)
 		session.Set("state", state)

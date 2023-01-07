@@ -292,7 +292,6 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 
 	log.Println("Uploading files...")
 	for path, diff := range fileMetadataDiff.GetDiffs() {
-		fmt.Println("DIFF", path, diff)
 		if diff.GetType() != pb.FileMetadataDiff_NoOp && diff.GetType() != pb.FileMetadataDiff_Delete && !diff.GetFile().GetDir() {
 			//log.Println("Uploading " + path)
 			file, err := os.OpenFile(path, os.O_RDONLY, 0755)

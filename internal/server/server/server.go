@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"embed"
 	"fmt"
 	"log"
 	"net"
@@ -22,6 +24,9 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/test/bufconn"
 )
+
+//go:embed publickey.cer
+var f embed.FS
 
 type JamsyncServer struct {
 	db          db.JamsyncDb
@@ -97,6 +102,11 @@ func Connect(accessToken *oauth2.Token) (client pb.JamsyncAPIClient, closer func
 		}
 	default:
 		perRPC := oauth.TokenSource{TokenSource: oauth2.StaticTokenSource(accessToken)}
+
+		data, _ := f.ReadFile("publickey.crt")
+		cp := x509.NewCertPool()
+		cp.AppendCertsFromPEM(data)
+		credentials.NewClientTLSFromCert(cp, "jamsync.dev")
 		creds, err := credentials.NewClientTLSFromFile("/etc/jamsync/x509/publickey.cer", "jamsync.dev")
 		if err != nil {
 			log.Fatalf("failed to load credentials: %v", err)

@@ -47,7 +47,9 @@ func CreateHandler(ctx *gin.Context) {
 	}
 	_, err = tempClient.AddProject(ctx, &pb.AddProjectRequest{ProjectName: addProject.ProjectName})
 	if err != nil {
-		ctx.Error(err)
+		ctx.String(http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	ctx.Redirect(http.StatusSeeOther, ctx.Request.URL.Path)
 }

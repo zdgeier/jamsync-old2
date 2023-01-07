@@ -27,8 +27,6 @@ func (e JamEnv) String() string {
 		return "dev"
 	case Local:
 		return "local"
-	case Memory:
-		return "memory"
 	}
 	return "unknown"
 }
@@ -36,16 +34,13 @@ func (e JamEnv) String() string {
 func Env() JamEnv {
 	jamEnvString := os.Getenv("JAMENV")
 	switch jamEnvString {
-	case "prod":
-		return Prod
 	case "dev":
 		return Dev
 	case "local":
 		return Local
-	case "memory":
-		return Memory
+	default:
+		return Prod
 	}
-	panic("invalid JAMENV environment variable")
 }
 
 var LocalAPIAddress = "0.0.0.0:14357"
@@ -101,14 +96,4 @@ func Auth0RedirectUrl() string {
 		return "http://localhost:8081/callback"
 	}
 	panic("could not get auth0 redirect url for JAMENV " + Env().String())
-}
-
-func UseAuth() bool {
-	switch Env() {
-	case Prod, Local, Dev:
-		return true
-	case Memory:
-		return false
-	}
-	panic("could not get auth value for JAMENV " + Env().String())
 }
