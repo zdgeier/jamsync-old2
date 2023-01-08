@@ -11,13 +11,13 @@ webprod:
 	cd cmd/web/; JAM_ENV=prod go run main.go --useenv
 
 buildweb:
-	go build -o build/jamweb cmd/web/main.go; cp -R cmd/web/static build; cp -R cmd/web/template build; 
+	GOOS=linux GOARCH=arm64 go build -o build/jamweb cmd/web/main.go; cp -R cmd/web/static build; cp -R cmd/web/template build; 
 
 server:
 	JAM_ENV=local go run cmd/server/main.go
 
 buildserver:
-	go build -o build/jamserver cmd/server/main.go 
+	GOOS=linux GOARCH=arm64 go build -o build/jamserver cmd/server/main.go 
 
 client:
 	JAM_ENV=local go run cmd/client/main.go 
@@ -34,7 +34,10 @@ installclient:
 zipself:
 	mkdir -p ./build/static && zip -r build/static/jamsync-source.zip . -x .git/\*
 
-build: clean zipself buildserver buildclients buildweb 
+zipbuild:
+	zip -r jamsync-build.zip build/
+
+build: clean zipself buildserver buildclients buildweb zipbuild
 
 test:
 	go test ./...
