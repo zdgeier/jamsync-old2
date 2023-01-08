@@ -5,28 +5,28 @@ clean:
 	rm -r build
 
 web:
-	cd cmd/web/; JAMENV=local go run main.go
+	cd cmd/web/; JAM_ENV=local go run main.go
 
 webprod:
-	cd cmd/web/; JAMENV=prod go run main.go --useenv
+	cd cmd/web/; JAM_ENV=prod go run main.go --useenv
 
 buildweb:
 	go build -o build/jamweb cmd/web/main.go; cp -R cmd/web/static build; cp -R cmd/web/template build; 
 
 server:
-	JAMENV=local go run cmd/server/main.go
+	JAM_ENV=local go run cmd/server/main.go
 
 buildserver:
 	go build -o build/jamserver cmd/server/main.go 
 
 client:
-	JAMENV=local go run cmd/client/main.go 
+	JAM_ENV=local go run cmd/client/main.go 
 
 buildclient:
 	go build -o build/jam cmd/client/main.go 
 
 buildclients:
-	./buildclients.sh
+	./allclients.sh
 
 installclient:
 	cp build/jam ~/bin/jam

@@ -19,6 +19,7 @@ import (
 )
 
 // TODO: fix error output in this file
+var redirectUrl = "http://localhost:8082/callback"
 
 // AuthorizeUser implements the PKCE OAuth2 flow.
 func AuthorizeUser() {
@@ -32,10 +33,10 @@ func AuthorizeUser() {
 			"&response_type=code&client_id=%s"+
 			"&code_challenge=%s"+
 			"&code_challenge_method=S256&redirect_uri=%s",
-		jamenv.Auth0Domain(), jamenv.Auth0ClientID(), CodeVerifier.CodeChallengeS256(), jamenv.Auth0LocalRedirectUrl())
+		jamenv.Auth0Domain(), jamenv.Auth0ClientID(), CodeVerifier.CodeChallengeS256(), redirectUrl)
 
 	// start a web server to listen on a callback URL
-	server := &http.Server{Addr: jamenv.Auth0LocalRedirectUrl()}
+	server := &http.Server{Addr: redirectUrl}
 
 	// define a handler that will get the authorization code, call the token endpoint, and close the HTTP server
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +53,7 @@ func AuthorizeUser() {
 
 		// trade the authorization code and the code verifier for an access token
 		codeVerifier := CodeVerifier.String()
-		token, err := getAccessToken(jamenv.Auth0ClientID(), codeVerifier, code, jamenv.Auth0LocalRedirectUrl())
+		token, err := getAccessToken(jamenv.Auth0ClientID(), codeVerifier, code, redirectUrl)
 		if err != nil {
 			log.Println("could not get access token")
 			io.WriteString(w, "Error: could not retrieve access token\n")
@@ -172,7 +173,7 @@ func AuthorizeUser() {
 	})
 
 	// parse the redirect URL for the port number
-	u, err := url.Parse(jamenv.Auth0LocalRedirectUrl())
+	u, err := url.Parse(redirectUrl)
 	if err != nil {
 		fmt.Printf("snap: bad redirect URL: %s\n", err)
 		os.Exit(1)

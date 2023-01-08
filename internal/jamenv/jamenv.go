@@ -32,7 +32,7 @@ func (e JamEnv) String() string {
 }
 
 func Env() JamEnv {
-	jamEnvString := os.Getenv("JAMENV")
+	jamEnvString := os.Getenv("JAM_ENV")
 	switch jamEnvString {
 	case "dev":
 		return Dev
@@ -44,54 +44,22 @@ func Env() JamEnv {
 }
 
 func PublicAPIAddress() string {
-	switch Env() {
-	case Prod:
+	if Env() == Prod {
 		return "18.188.17.102:14357"
-		//return "jamsync.dev:14357"
-	case Dev:
-		return "TODO"
-	case Local:
-		return "0.0.0.0:14357"
 	}
-	panic("could not get server address for JAMENV " + Env().String())
+	return os.Getenv("JAM_SERVER_IP")
 }
 
 func Auth0ClientID() string {
-	switch Env() {
-	case Prod:
+	if Env() == Prod {
 		return "287nBofX8C9oAm08ysKXcms0PKf9lns7"
-	case Local, Dev:
-		return "pEBqAnFPPaONbdST1zuXlxlmZjsnfysr"
 	}
-	panic("could not get auth0 client id for JAMENV " + Env().String())
+	return os.Getenv("AUTH0_CLIENT_ID")
 }
 
 func Auth0Domain() string {
-	switch Env() {
-	case Prod:
+	if Env() == Prod {
 		return "jamsync.us.auth0.com"
-	case Local, Dev:
-		return "dev-dzb-qyan.us.auth0.com"
 	}
-	panic("could not get auth0 domain for JAMENV " + Env().String())
-}
-
-func Auth0LocalRedirectUrl() string {
-	switch Env() {
-	case Prod:
-		return "jamsync.dev"
-	case Local, Dev:
-		return "http://localhost:8082/callback"
-	}
-	panic("could not get auth0 redirect url for JAMENV " + Env().String())
-}
-
-func Auth0RedirectUrl() string {
-	switch Env() {
-	case Prod:
-		return "jamsync.dev"
-	case Local, Dev:
-		return "http://localhost:8081/callback"
-	}
-	panic("could not get auth0 redirect url for JAMENV " + Env().String())
+	return os.Getenv("AUTH0_DOMAIN")
 }
