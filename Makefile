@@ -32,9 +32,9 @@ installclient:
 	cp build/jam ~/bin/jam
 
 zipself:
-	zip -r jamsync-source.zip .
+	mkdir -p ./build/static && zip -r build/static/jamsync-source.zip . -x .git/\*
 
-build: clean buildserver buildclients buildweb zipself 
+build: clean zipself buildserver buildclients buildweb 
 
 test:
 	go test ./...
