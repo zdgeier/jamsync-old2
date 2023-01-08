@@ -2,7 +2,7 @@ gen:
 	mkdir -p gen/go && protoc --proto_path=proto --go_out=gen/go --go_opt=paths=source_relative --go-grpc_out=gen/go --go-grpc_opt=paths=source_relative proto/*.proto
 
 clean:
-	rm -r gen/
+	rm -r build
 
 web:
 	cd cmd/web/; JAMENV=local go run main.go
@@ -23,12 +23,15 @@ client:
 	JAMENV=local go run cmd/client/main.go 
 
 buildclient:
-	go build -o build/jam cmd/client/main.go
+	go build -o build/jam cmd/client/main.go 
+
+buildclients:
+	./buildclients.sh
 
 installclient:
 	cp build/jam ~/bin/jam
 
-build: buildserver buildclient buildweb
+build: clean buildserver buildclients buildweb
 
 test:
 	go test ./...

@@ -188,6 +188,21 @@
             color: var(--bright-pink);
         }
 
+        .File-wrapper {
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 32px;
+            overflow: scroll;
+        }
+        .File-wrapper:focus-within {
+            border: 1px solid white; 
+        }
+        .File-wrapper.Files-wrapper--editing {
+            border-color: rgba(255, 0, 127,0.5);
+        }
+        .Files-wrapper--editing:focus-within {
+            border-color: var(--bright-pink);
+        }
+
         .Projects-top {
             display: flex;
             flex-wrap: wrap;
@@ -280,15 +295,6 @@
 
         .Location {
             font-size: 20px;
-        }
-
-        pre {
-            border: 1px solid rgba(255,255,255,0.1);
-            padding: 32px;
-            overflow: scroll;
-        }
-        pre:focus-within {
-            border: 1px solid white; 
         }
 
         code {

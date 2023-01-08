@@ -70,7 +70,7 @@ func ensureValidToken(token string) (*validator.ValidatedClaims, error) {
 		log.Fatalf("Failed to set up the jwt validator")
 	}
 
-	rawValidatedClaims, err := jwtValidator.ValidateToken(context.TODO(), token)
+	rawValidatedClaims, err := jwtValidator.ValidateToken(context.Background(), token)
 	if err != nil {
 		return nil, err
 	}

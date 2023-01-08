@@ -12,10 +12,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/cespare/xxhash"
-	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/jamenv"
 	jam "github.com/zdgeier/jamsync/internal/server/client"
@@ -96,75 +94,14 @@ func main() {
 		}
 	}
 
-	watcher, _ := fsnotify.NewWatcher()
-	defer watcher.Close()
-
-	// starting at the root of the project, walk each file/directory searching for
-	// directories
-	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-		if d.Name() == ".jamsync" || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") || strings.HasPrefix(path, "jamsync.db") {
-			return nil
-		}
-		return watcher.Add(path)
-	}); err != nil {
-		log.Panic("Could not walk directory tree to watch files", err)
+	fileMetadata := readLocalFileList()
+	fileMetadataDiff, err := client.DiffLocalToRemote(context.Background(), fileMetadata)
+	if err != nil {
+		log.Panic(err)
 	}
-
-	// This is a test2
-
-	for {
-		select {
-		case event := <-watcher.Events:
-			if event.Op == fsnotify.Chmod {
-				continue
-			}
-
-			// TODO: Wait for VS code by default, we should test with other editors
-			time.Sleep(time.Millisecond * 250)
-
-			path := event.Name
-
-			if stat, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-				log.Println(path + " deleted")
-				err := watcher.Remove(path)
-				if err != nil {
-					//log.Fatal(err) TODO maybe add back, was getting "cant't remove non-existent watcher error"
-				}
-			} else if stat.IsDir() {
-				if err := filepath.WalkDir(path, func(path string, d fs.DirEntry, _ error) error {
-					if d.IsDir() {
-						log.Println(path + " directory changed")
-					} else {
-						log.Println(path + " changed")
-					}
-
-					return watcher.Add(path)
-				}); err != nil {
-					log.Panic("Could not walk directory tree to watch files")
-				}
-			} else {
-				log.Println(path + " changed ")
-				err := watcher.Add(path)
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-
-			fileMetadata := readLocalFileList()
-			fileMetadataDiff, err := client.DiffLocalToRemote(context.Background(), fileMetadata)
-			if err != nil {
-				log.Panic(err)
-			}
-			err = pushFileListDiff(fileMetadata, fileMetadataDiff, client)
-			if err != nil {
-				log.Panic(err)
-			}
-		case err, ok := <-watcher.Errors:
-			if !ok {
-				return
-			}
-			log.Println("error:", err)
-		}
+	err = pushFileListDiff(fileMetadata, fileMetadataDiff, client)
+	if err != nil {
+		log.Panic(err)
 	}
 }
 
@@ -268,7 +205,7 @@ func readLocalFileList() *pb.FileMetadata {
 }
 
 func downloadExistingProject(client *jam.Client) error {
-	resp, err := client.DiffRemoteToLocal(context.TODO(), &pb.FileMetadata{})
+	resp, err := client.DiffRemoteToLocal(context.Background(), &pb.FileMetadata{})
 	if err != nil {
 		return err
 	}
@@ -283,7 +220,7 @@ func downloadExistingProject(client *jam.Client) error {
 }
 
 func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client) error {
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	err := client.CreateChange()
 	if err != nil {
@@ -321,7 +258,7 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 }
 
 func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client) error {
-	ctx := context.TODO()
+	ctx := context.Background()
 	log.Println("Creating directories...")
 	for path, diff := range fileMetadataDiff.GetDiffs() {
 		if diff.GetType() != pb.FileMetadataDiff_NoOp && diff.GetFile().GetDir() {

@@ -327,7 +327,7 @@ func (c *Client) ProjectConfig() *pb.ProjectConfig {
 }
 
 func (c *Client) BrowseProject(path string) (*pb.BrowseProjectResponse, error) {
-	ctx := context.TODO()
+	ctx := context.Background()
 	metadataResult := new(bytes.Buffer)
 	err := c.DownloadFile(ctx, ".jamsyncfilelist", bytes.NewReader([]byte{}), metadataResult)
 	if err != nil {

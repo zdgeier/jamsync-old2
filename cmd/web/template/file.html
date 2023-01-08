@@ -11,7 +11,7 @@
                 <datalist class="slider-steps" id="steplist">
                 </datalist>                
             </div>
-            <pre><code id="js-file-location" contenteditable="true"></code></pre>
+            <pre id="js-file-location-wrapper" class="File-wrapper"><code id="js-file-location" contenteditable="true"></code></pre>
             </ol>
         </section>
     </main>
@@ -23,14 +23,17 @@
         let projectNameEl = document.getElementById("projectname");
         projectNameEl.innerHTML = "$ " + projectName + "/" + currentPath;
 
-        function debounce(func, timeout = 1000){
+        function debounce(func, timeout = 2000){
             let timer;
             return (...args) => {
+                let wrapper = document.getElementById("js-file-location-wrapper");
+                wrapper.classList.add('Files-wrapper--editing');
                 clearTimeout(timer);
                 timer = setTimeout(() => { func.apply(this, args); }, timeout);
             };
         }
-        let putNewFile = debounce(async(event) => {
+
+        let put = async () => {
             let outerDiv = document.getElementById("js-file-location");
             let fileResp = await fetch(`/api/projects/${projectName}/file/${currentPath}`, {method: 'PUT', body: outerDiv.innerText});
             let fileRespJson = await fileResp.json();
@@ -41,8 +44,10 @@
             commitIdInput.value = fileRespJson.commitId;
             queryParams.set("commitId", fileRespJson.commitId);
             history.replaceState(null, null, "?"+queryParams.toString());
-            // await setupSlider();
-        })
+            let wrapper = document.getElementById("js-file-location-wrapper");
+            wrapper.classList.remove('Files-wrapper--editing');
+        }
+        let putNewFile = debounce(put)
 
         async function updateFile(commitId) {
             let fileResp = await fetch(`/api/projects/${projectName}/file/${currentPath}?commitId=${commitId}`);

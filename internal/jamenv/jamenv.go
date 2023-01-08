@@ -43,8 +43,6 @@ func Env() JamEnv {
 	}
 }
 
-var LocalAPIAddress = "0.0.0.0:14357"
-
 func PublicAPIAddress() string {
 	switch Env() {
 	case Prod:
@@ -53,7 +51,7 @@ func PublicAPIAddress() string {
 	case Dev:
 		return "TODO"
 	case Local:
-		return LocalAPIAddress
+		return "0.0.0.0:14357"
 	}
 	panic("could not get server address for JAMENV " + Env().String())
 }

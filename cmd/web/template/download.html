@@ -5,9 +5,18 @@
 <body>
     {{template "header.html" args "email" .Email}}
     <main>
-        <div>
-            This is the download page. You'll be able to download the source and binaries here.
-        </div>
+        <section class="Download">
+            <h1>Download</h1>
+            <p>Download the binary for your architecture below or build from source</p>
+            <ul>
+                <li><a class="Download-link" href="/public/jam_darwin_arm64.zip">darwin/arm64</a></li>
+                <li><a class="Download-link" href="/public/jam_darwin_amd64.zip">darwin/amd64</a></li>
+                <li><a class="Download-link" href="/public/jam_linux_arm64.zip">linux/arm64</a></li>
+                <li><a class="Download-link" href="/public/jam_linux_amd64.zip">linux/amd64</a></li>
+                <li><a class="Download-link" href="/public/jam_windows_amd64.zip">windows/amd64</a></li>
+                <li><a class="Download-link" href="/public/jam_windows_arm64.zip">windows/arm64</a></li>
+            </ul>
+        </section>
     </main>
     {{template "footer.html"}}
 </body>

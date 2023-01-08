@@ -5,6 +5,7 @@
         <div>
             <h1 id="projectname"></h1><div class="ChangeList js-changelist"></div>
         </div>
+        <div class="is-hidden" id="js-no-files">No files here, <a href="/download">download the CLI</a> to get started!</div>
         <section class="Files" id="filescontainer">
             <div class="slidecontainer">
                 <input class="slider is-hidden" type="range" min="1" max="10" value="1" id="commitIdInput" step="1">
@@ -27,6 +28,12 @@
             let projectMetadataResp = await fetch(`/api/committedchanges/${projectName}`);
             let projectMetadataJson = await projectMetadataResp.json();
             const queryParams = new URLSearchParams(window.location.search);
+            console.log(projectMetadataJson)
+            if (!projectMetadataJson.change_ids) {
+                let noFiles = document.getElementById("js-no-files");
+                noFiles.classList.remove('is-hidden');
+                return
+            }
             let maxCommitId = Math.max(...projectMetadataJson.change_ids);
             let selectedCommitId = queryParams.get("commitId") ? queryParams.get("commitId") : maxCommitId;
             if (maxCommitId > 1) {
@@ -98,40 +105,6 @@
                 }
             }
 
-            let counter = 0;
-            allFilesTempEl.addEventListener('dragenter', () => {
-                counter++;
-                allFilesTempEl.classList.add('Files-table--dragging');
-            });
-            allFilesTempEl.addEventListener('dragleave', () => {
-                counter--;
-                if (counter === 0) {
-                    allFilesTempEl.classList.remove('Files-table--dragging');
-                }
-            });
-            allFilesTempEl.addEventListener('dragover',function(event){
-                event.preventDefault();
-            })
-            allFilesTempEl.addEventListener('drop', (event) => {
-                event.preventDefault();
-                if (event.dataTransfer.items) {
-                    // Use DataTransferItemList interface to access the file(s)
-                    [...event.dataTransfer.items].forEach((item, i) => {
-                    // If dropped items aren't files, reject them
-                    if (item.kind === 'file') {
-                        const file = item.getAsFile();
-                        console.log(file)
-
-                        file.arrayBuffer().then((buf) => {
-                            let fileResp = fetch(`/api/projects/${projectName}/file/${currentPath}`, {method: 'PUT', body: buf});
-                            console.log(`… file[${i}].name = ${file.name}`);
-                        })
-                    }
-                    });
-                }
-                allFilesTempEl.classList.remove('Files-table--dragging');
-                counter = 0;
-            });
             let allFilesEl = document.getElementById("files");
             allFilesEl.remove();
             document.getElementById('filescontainer').appendChild(allFilesTempEl);
