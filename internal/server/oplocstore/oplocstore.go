@@ -43,6 +43,7 @@ func (s LocalOpLocStore) InsertOperationLocations(opLocs *pb.OperationLocations)
 		return err
 	}
 	_, err = currFile.Write(bytes)
+	currFile.Close()
 	return err
 }
 func (s LocalOpLocStore) ListOperationLocations(projectId uint64, ownerId string, pathHash uint64, changeId uint64) (opLocs *pb.OperationLocations, err error) {

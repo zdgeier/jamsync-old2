@@ -124,7 +124,7 @@ func (s JamsyncServer) regenFile(projectId uint64, userId string, pathHash uint6
 	rs := rsync.RSync{UniqueHasher: xxhash.New()}
 	targetBuffer := bytes.NewBuffer([]byte{})
 	result := new(bytes.Buffer)
-	for i := uint64(0); i < changeId; i++ {
+	for i := uint64(1); i <= changeId; i++ {
 		operationLocations, err := s.oplocstore.ListOperationLocations(projectId, userId, pathHash, i)
 		if err != nil {
 			return nil, err

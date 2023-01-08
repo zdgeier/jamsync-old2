@@ -135,3 +135,51 @@ func GetFileHandler() gin.HandlerFunc {
 		client.DownloadFile(ctx, ctx.Param("path")[1:], bytes.NewReader([]byte{}), ctx.Writer)
 	}
 }
+
+func PutFileHandler() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		accessToken := sessions.Default(ctx).Get("access_token").(string)
+		tempClient, closer, err := server.Connect(&oauth2.Token{AccessToken: accessToken})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		defer closer()
+
+		config, err := tempClient.GetProjectConfig(ctx, &pb.GetProjectConfigRequest{
+			ProjectName: ctx.Param("projectName"),
+		})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		client := client.NewClient(tempClient, config.GetProjectId(), config.GetCurrentChange())
+
+		err = client.CreateChange()
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		err = client.UploadFile(ctx, ctx.Param("path")[1:], ctx.Request.Body)
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		err = client.CommitChange()
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		type PutFileResponse struct {
+			CommitId uint64 `json:"commitId"`
+		}
+
+		ctx.JSON(http.StatusCreated, PutFileResponse{
+			CommitId: client.ProjectConfig().CurrentChange,
+		})
+	}
+}

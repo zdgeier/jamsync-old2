@@ -146,7 +146,7 @@
             color: var(--secondary);
             border: 2px solid var(--bright-pink);
             background-color: var(--primary);
-            margin-left: 10px;
+            margin-left: 5px;
             display: flex;
             align-items: center;
         }
@@ -180,6 +180,9 @@
         }
         .Files a:hover {
             text-decoration: underline;
+        }
+        .Files-table--dragging {
+            opacity: 0.2;
         }
         .Files-directory a {
             color: var(--bright-pink);
@@ -281,7 +284,19 @@
 
         pre {
             border: 1px solid rgba(255,255,255,0.1);
+            padding: 32px;
             overflow: scroll;
+        }
+        pre:focus-within {
+            border: 1px solid white; 
+        }
+
+        code {
+            outline: none;
+        }
+
+        .Error {
+            color: red;
         }
     </style>
     <script defer data-domain="jamsync.dev" src="https://plausible.io/js/script.js"></script>

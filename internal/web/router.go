@@ -108,6 +108,7 @@ func New(auth *authenticator.Authenticator) *gin.Engine {
 	router.GET("/api/committedchanges/:projectName", api.ListCommittedChanges())
 	router.GET("/api/projects/:projectName", api.ProjectBrowseHandler())
 	router.GET("/api/projects/:projectName/files/*path", api.ProjectBrowseHandler())
+	router.PUT("/api/projects/:projectName/file/*path", api.PutFileHandler())
 	router.GET("/api/projects/:projectName/file/*path", api.GetFileHandler())
 
 	router.POST("/:username/projects", middleware.IsAuthenticated, middleware.Reauthenticate, userprojects.CreateHandler)

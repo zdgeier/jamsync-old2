@@ -7,11 +7,11 @@
         </div>
         <section class="Files" id="filescontainer">
             <div class="slidecontainer">
-                <input class="slider is-hidden" type="range" min="1" max="10" value="1" id="commitIdInput" step="1" list="steplist">
+                <input class="slider is-hidden" type="range" min="1" max="10" id="commitIdInput" step="1" list="steplist">
                 <datalist class="slider-steps" id="steplist">
                 </datalist>                
             </div>
-            <pre><code id="js-file-location"></code></pre>
+            <pre><code id="js-file-location" contenteditable="true"></code></pre>
             </ol>
         </section>
     </main>
@@ -23,13 +23,37 @@
         let projectNameEl = document.getElementById("projectname");
         projectNameEl.innerHTML = "$ " + projectName + "/" + currentPath;
 
+        function debounce(func, timeout = 1000){
+            let timer;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => { func.apply(this, args); }, timeout);
+            };
+        }
+        let putNewFile = debounce(async(event) => {
+            let outerDiv = document.getElementById("js-file-location");
+            let fileResp = await fetch(`/api/projects/${projectName}/file/${currentPath}`, {method: 'PUT', body: outerDiv.innerText});
+            let fileRespJson = await fileResp.json();
+            const queryParams = new URLSearchParams(window.location.search);
+            const commitIdInput = document.getElementById("commitIdInput");
+            commitIdInput.min = 1;
+            commitIdInput.max = fileRespJson.commitId;
+            commitIdInput.value = fileRespJson.commitId;
+            queryParams.set("commitId", fileRespJson.commitId);
+            history.replaceState(null, null, "?"+queryParams.toString());
+            // await setupSlider();
+        })
+
         async function updateFile(commitId) {
             let fileResp = await fetch(`/api/projects/${projectName}/file/${currentPath}?commitId=${commitId}`);
             let fileText = await fileResp.text();
 
+            
             let outerDiv = document.getElementById("js-file-location");
+            outerDiv.removeEventListener('input', putNewFile);
             outerDiv.data = `/api/projects/${projectName}/file/${currentPath}`;
-            outerDiv.innerHTML = fileText
+            outerDiv.innerText = fileText
+            outerDiv.addEventListener('input', putNewFile);
         }
 
         async function setupSlider() {
@@ -60,13 +84,12 @@
                     temp.innerHTML = i;
                     stepListEl.appendChild(temp);
                 }
-                var event = document.createEvent('Event');
-                event.initEvent('input', true, true);
-                commitIdInput.dispatchEvent(event);
+                // var event = document.createEvent('Event');
+                // event.initEvent('input', true, true);
+                // commitIdInput.dispatchEvent(event);
+                await updateFile(parseInt(commitIdInput.value))
             }
         }
-
-
         setupSlider();
     </script>
     {{template "footer.html"}}

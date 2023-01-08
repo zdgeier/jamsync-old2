@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 
@@ -32,6 +33,9 @@ func (c *Client) CreateChange() error {
 	resp, err := c.api.CreateChange(context.Background(), &pb.CreateChangeRequest{
 		ProjectId: c.projectId,
 	})
+	if err != nil {
+		return err
+	}
 	c.changeId = resp.GetChangeId()
 	return err
 }
@@ -41,8 +45,11 @@ func (c *Client) CommitChange() error {
 		ProjectId: c.projectId,
 		ChangeId:  c.changeId,
 	})
+	if err != nil {
+		return err
+	}
 	c.committed = true
-	return err
+	return nil
 }
 
 func (c *Client) UploadFile(ctx context.Context, filePath string, sourceReader io.Reader) error {
@@ -118,6 +125,7 @@ func (c *Client) UploadFile(ctx context.Context, filePath string, sourceReader i
 	}
 	// We have to send a tombstone if we have not generated any ops (empty file)
 	if sent == 0 {
+		fmt.Println("noen")
 		writeStream.Send(&pb.Operation{
 			ProjectId:     c.projectId,
 			ChangeId:      c.changeId,

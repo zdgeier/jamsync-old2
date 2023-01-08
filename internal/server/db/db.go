@@ -47,7 +47,6 @@ type Project struct {
 
 func (j JamsyncDb) AddProject(projectName string, owner string) (uint64, error) {
 	_, err := j.GetProjectId(projectName, owner)
-	fmt.Println("asdf", err)
 	if !errors.Is(sql.ErrNoRows, err) {
 		return 0, fmt.Errorf("project already exists")
 	}
@@ -77,7 +76,6 @@ func (j JamsyncDb) GetProjectOwner(projectId uint64) (string, error) {
 }
 
 func (j JamsyncDb) GetProjectId(projectName string, owner string) (uint64, error) {
-	fmt.Println("PRoject", projectName, owner)
 	row := j.db.QueryRow("SELECT rowid FROM projects WHERE name = ? AND owner = ?", projectName, owner)
 	if row.Err() != nil {
 		return 0, row.Err()
@@ -108,7 +106,7 @@ func (j JamsyncDb) ListUserProjects(owner string) ([]Project, error) {
 }
 
 func (j JamsyncDb) ListProjects() ([]Project, error) {
-	rows, err := j.db.Query("SELECT rowid, name FROM projects WHERE owner = auth0|63b5ad0c396bd87d2aff62df")
+	rows, err := j.db.Query("SELECT rowid, name FROM projects WHERE owner = ?", "auth0|63b5ad0c396bd87d2aff62df")
 	if err != nil {
 		return nil, err
 	}
