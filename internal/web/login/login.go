@@ -1,5 +1,3 @@
-// web/app/login/login.go
-
 package login
 
 import (
@@ -13,7 +11,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Handler for our login.
 func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		state, err := generateRandomState()
@@ -22,7 +19,6 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 			return
 		}
 
-		// Save the state inside the session.
 		session := sessions.Default(ctx)
 		session.Set("state", state)
 		if err := session.Save(); err != nil {
@@ -31,7 +27,6 @@ func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 		}
 
 		ctx.Redirect(http.StatusTemporaryRedirect, auth.AuthCodeURL(state, oauth2.SetAuthURLParam("audience", "api.jamsync.dev")))
-		// ctx.Redirect(http.StatusTemporaryRedirect, authorizationURL)
 	}
 }
 

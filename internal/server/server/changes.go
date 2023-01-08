@@ -180,7 +180,6 @@ func (s JamsyncServer) ReadFile(in *pb.ReadFileRequest, srv pb.JamsyncAPI_ReadFi
 			case rsync.OpBlock:
 				blockCt++
 			case rsync.OpData:
-				// Copy data buffer so it may be reused in internal buffer.
 				b := make([]byte, len(op.Data))
 				copy(b, op.Data)
 				op.Data = b

@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Handler for our logged-in user page.
 func Handler(ctx *gin.Context) {
 	session := sessions.Default(ctx)
 	type templateParams struct {

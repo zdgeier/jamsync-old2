@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"embed"
-	"fmt"
 	"log"
 	"net"
 
@@ -124,12 +123,6 @@ func Connect(accessToken *oauth2.Token) (client pb.JamsyncAPIClient, closer func
 				if err != nil {
 					return nil, err
 				}
-
-				file, err := conn.File()
-				if err != nil {
-					return nil, err
-				}
-				fmt.Println("Connection", file.Name())
 
 				return conn, err
 			}),

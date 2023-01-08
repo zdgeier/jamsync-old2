@@ -1,5 +1,3 @@
-// web/app/logout/logout.go
-
 package logout
 
 import (
@@ -10,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Handler for our logout.
 func Handler(ctx *gin.Context) {
 	logoutUrl, err := url.Parse("https://" + os.Getenv("AUTH0_DOMAIN") + "/v2/logout")
 	if err != nil {

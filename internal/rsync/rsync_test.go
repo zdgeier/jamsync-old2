@@ -62,9 +62,6 @@ func (c *content) Fill() {
 }
 
 func Test_GenData(t *testing.T) {
-	// Use a seeded generator to get consistent results.
-	// This allows testing the package without bundling many test files.
-
 	var pairs = []pair{
 		{
 			Source:      content{Len: 512*1024 + 89, Seed: 42, Alter: 0},
@@ -140,7 +137,6 @@ func Test_GenData(t *testing.T) {
 				case OpBlock:
 					blockCt++
 				case OpData:
-					// Copy data buffer so it may be reused in internal buffer.
 					b := make([]byte, len(op.Data))
 					copy(b, op.Data)
 					op.Data = b

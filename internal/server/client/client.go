@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 
@@ -75,7 +74,6 @@ func (c *Client) UploadFile(ctx context.Context, filePath string, sourceReader i
 			case rsync.OpBlock:
 				blockCt++
 			case rsync.OpData:
-				// Copy data buffer so it may be reused in internal buffer.
 				b := make([]byte, len(op.Data))
 				copy(b, op.Data)
 				op.Data = b
@@ -85,7 +83,6 @@ func (c *Client) UploadFile(ctx context.Context, filePath string, sourceReader i
 			opsOut <- &op
 			return nil
 		})
-		// log.Printf("%s: Range Ops:%5d, Block Ops:%5d, Data Ops: %5d, Data Len: %5dB", filePath, blockRangeCt, blockCt, dataCt, bytes)
 		if err != nil {
 			panic(err)
 		}
@@ -125,7 +122,6 @@ func (c *Client) UploadFile(ctx context.Context, filePath string, sourceReader i
 	}
 	// We have to send a tombstone if we have not generated any ops (empty file)
 	if sent == 0 {
-		fmt.Println("noen")
 		writeStream.Send(&pb.Operation{
 			ProjectId:     c.projectId,
 			ChangeId:      c.changeId,

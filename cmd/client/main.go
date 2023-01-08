@@ -112,7 +112,6 @@ func findJamsyncConfig() *pb.ProjectConfig {
 	}
 	for {
 		filePath := fmt.Sprintf("%v/%v", currentPath, ".jamsync")
-		fmt.Println("Looking for config in ", filePath)
 		_, err := os.Stat(filePath)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			panic(err)
@@ -121,8 +120,7 @@ func findJamsyncConfig() *pb.ProjectConfig {
 				config := &pb.ProjectConfig{}
 				err = proto.Unmarshal(configBytes, config)
 				if err != nil {
-					fmt.Println("Could not parse config file")
-					return nil
+					panic(err)
 				}
 				return config
 			}
@@ -297,8 +295,6 @@ func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client
 		}
 	}
 
-	// This starts up 3 workers, initially blocked
-	// because there are no jobs yet.
 	for w := 1; w <= 10; w++ {
 		go worker(w, paths, results)
 	}
@@ -315,7 +311,7 @@ func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client
 			<-results
 			done += 1
 			if done > 1000 {
-				fmt.Println("Done: ", batchesDone*1000)
+				log.Println("Done: ", batchesDone*1000)
 				batchesDone += 1
 				done = 0
 			}
@@ -331,9 +327,9 @@ func currentDirectoryEmpty() (bool, error) {
 	}
 	defer f.Close()
 
-	_, err = f.Readdirnames(1) // Or f.Readdir(1)
+	_, err = f.Readdirnames(1)
 	if err == io.EOF {
 		return true, nil
 	}
-	return false, err // Either not empty or error, suits both cases
+	return false, err
 }

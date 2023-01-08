@@ -27,7 +27,6 @@ type templateParams struct {
 	Email interface{}
 }
 
-// New registers the routes and returns the router.
 func New(auth *authenticator.Authenticator) *gin.Engine {
 	if jamenv.Env() == jamenv.Prod {
 		gin.SetMode(gin.ReleaseMode)

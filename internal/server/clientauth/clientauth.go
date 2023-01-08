@@ -166,7 +166,7 @@ func AuthorizeUser() {
 			</body>
 		</html>`)
 
-		fmt.Println("Successfully logged into snapmaster API.")
+		log.Println("Successfully logged into Jamsync!")
 
 		// close the HTTP server
 		cleanup(server)
@@ -175,7 +175,7 @@ func AuthorizeUser() {
 	// parse the redirect URL for the port number
 	u, err := url.Parse(redirectUrl)
 	if err != nil {
-		fmt.Printf("snap: bad redirect URL: %s\n", err)
+		log.Printf("bad redirect URL: %s\n", err)
 		os.Exit(1)
 	}
 
@@ -183,14 +183,14 @@ func AuthorizeUser() {
 	port := fmt.Sprintf(":%s", u.Port())
 	l, err := net.Listen("tcp", port)
 	if err != nil {
-		fmt.Printf("snap: can't listen to port %s: %s\n", port, err)
+		log.Printf("can't listen to port %s: %s\n", port, err)
 		os.Exit(1)
 	}
 
 	// open a browser window to the authorizationURL
 	err = open.Start(authorizationURL)
 	if err != nil {
-		fmt.Printf("snap: can't open browser to URL %s: %s\n", authorizationURL, err)
+		log.Printf("can't open browser to URL %s: %s\n", authorizationURL, err)
 		os.Exit(1)
 	}
 
@@ -216,7 +216,7 @@ func getAccessToken(clientID string, codeVerifier string, authorizationCode stri
 	req.Header.Add("content-type", "application/x-www-form-urlencoded")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Printf("snap: HTTP error: %s", err)
+		fmt.Printf("HTTP error: %s", err)
 		return "", err
 	}
 
@@ -228,7 +228,7 @@ func getAccessToken(clientID string, codeVerifier string, authorizationCode stri
 	// unmarshal the json into a string map
 	err = json.Unmarshal(body, &responseData)
 	if err != nil {
-		fmt.Printf("snap: JSON error: %s", err)
+		fmt.Printf("JSON error: %s", err)
 		return "", err
 	}
 
@@ -265,9 +265,9 @@ func InitConfig() (string, error) {
 				return "", err
 			}
 
-			fmt.Println("Wrote config")
+			log.Println("Wrote config")
 		} else {
-			fmt.Println("$HOME/.jamsyncauth.json could not be read correctly. Try deleting this file and retrying.")
+			log.Println("$HOME/.jamsyncauth.json could not be read correctly. Try deleting this file and retrying.")
 		}
 	}
 	return viper.Get("AccessToken").(string), nil

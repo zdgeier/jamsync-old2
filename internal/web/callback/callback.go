@@ -1,5 +1,3 @@
-// web/app/callback/callback.go
-
 package callback
 
 import (
@@ -12,7 +10,6 @@ import (
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 )
 
-// Handler for our callback.
 func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		session := sessions.Default(ctx)

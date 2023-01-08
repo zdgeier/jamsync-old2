@@ -1,5 +1,3 @@
-// web/app/user/user.go
-
 package userprojects
 
 import (
@@ -12,7 +10,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Handler for our logged-in user page.
 func Handler(ctx *gin.Context) {
 	session := sessions.Default(ctx)
 

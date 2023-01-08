@@ -31,7 +31,10 @@ buildclients:
 installclient:
 	cp build/jam ~/bin/jam
 
-build: clean buildserver buildclients buildweb
+zipself:
+	zip -r jamsync-source.zip .
+
+build: clean buildserver buildclients buildweb zipself 
 
 test:
 	go test ./...
