@@ -21,7 +21,6 @@ var provider *jwks.CachingProvider
 var (
 	errMissingMetadata = status.Errorf(codes.InvalidArgument, "missing metadata")
 	errInvalidToken    = status.Errorf(codes.Unauthenticated, "invalid token")
-	errUnauthorized    = status.Errorf(codes.Unauthenticated, "unauthorized")
 )
 
 func EnsureValidToken(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {

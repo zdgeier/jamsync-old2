@@ -33,11 +33,11 @@
             <p class="About-description">
                 The idea behind Jamsync is the same as <a href="https://github.com/WayneD/rsync">rsync</a>. In fact, Jamsync uses <a href="https://github.com/jbreiding/rsync-go">jbreiding/rsync-go</a> under the hood.
                 If you havent read the <a href="https://www.andrew.cmu.edu/course/15-749/READINGS/required/cas/tridgell96.pdf">rsync algorithm</a> paper, 
-                I highly recommend it -- it's very approachable for anyone with a computer science background and has some great information.
+                it's highly recommended -- it's very approachable for anyone with a computer science background and has some great information.
             </p>
             <h3>Rsync</h3>
             <p class="About-description">
-                Essentially, rsync allow a file on two separate computers, a sender and receiver, to be synced efficiently over a network. 
+                Essentially, rsync allows a file on two separate computers, a sender and receiver, to be synced efficiently over a network. 
                 It does this by chopping a file into blocks and reusing existing blocks on the receiver to regenerate a file.
                 A <a href="https://en.wikipedia.org/wiki/Rolling_hash#:~:text=A%20rolling%20hash%20(also%20known,that%20moves%20through%20the%20input.">rolling hash</a> is used to scan over the file on the sender and 
                 operations are sent to the receiver to either reuse a block (if the rolling hash matches) or to use new data.
@@ -60,16 +60,24 @@
             <p class="About-description">
                 The main idea behind Jamsync is that we can store the operations sent by the sender to track changes to a file. This means we treat
                 rsync operations like a delta chain that we can use later to regenerate the file. The storage of deltas and their usage to regenerate a file
-                is similar to the Mercurial concept of a <a href="https://www.mercurial-scm.org/wiki/Revlog">Revlog</a>; however, we can use the rsync blocks to 
+                is similar to the Mercurial concept of a <a href="https://www.mercurial-scm.org/wiki/Revlog">Revlog</a>. However, the advantage of using rsync blocks is that we can  
                 efficiently store changes to, and regenerate, arbitrarily large files since these blocks can be streamed and regenerated independently.
             </p>
+            <video class="About-video" controls autoplay muted loop playsinline height="300px">
+                <source src="/public/jamsync-hello.mp4" type="video/mp4">
+            </video>
             <h3>Implementation</h3>
             <p class="About-description">
-                Jamsync is implemented in <a href="https://go.dev/">Go</a> and uses <a href="https://github.com/mattn/go-sqlite3">mattn/go-sqlite3</a> to store projects and change information. <a href="https://grpc.io/">gRPC</a> and <a href="https://developers.google.com/protocol-buffers">Protocol buffers</a> 
+                Jamsync written from scratch in <a href="https://go.dev/">Go</a> and uses <a href="https://github.com/mattn/go-sqlite3">mattn/go-sqlite3</a> to store projects and change information. <a href="https://grpc.io/">gRPC</a> and <a href="https://developers.google.com/protocol-buffers">Protocol buffers</a> 
                 are used for service definitions and data serialization.
             </p>
+            <h2>Current state</h2>
             <p class="About-description">
-                Thanks to <a href="https://twitter.com/panr">@panr</a> for his awesome <a href="https://hugo-terminal.vercel.app/about">terminal theme</a>!
+                This is an alpha version of the full system and is under development. The features <a href="/">here</a> will available over the next few months.
+            </p>
+            <h3>Developers</h3>
+            <p class="About-description">
+                Jamsync is being developed by <a href="https://www.linkedin.com/in/zdgeier/">Zachary Geier</a>. Please send me an email if you have any thoughts at <a href="mailto:zach@jamsync.dev">zach@jamsync.dev</a>.
             </p>
         </section>
     </main>

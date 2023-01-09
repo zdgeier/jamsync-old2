@@ -306,6 +306,29 @@
         .Error {
             color: red;
         }
+
+        .Hero-content {
+            font-size: 24px;
+        }
+
+        .About-video {
+            border: 10px solid var(--bright-pink);
+            padding: 32px;
+        }
+
+        @media only screen and (max-width: 1024px) {
+            .About-video {
+                border: 5px solid var(--bright-pink);
+                padding: 4px;
+                height: 125px;
+            }
+        }
+        @media only screen and (max-width: 500px) {
+            .About-video {
+                display: none;
+            }
+        }
+
     </style>
     <script defer data-domain="jamsync.dev" src="https://plausible.io/js/script.js"></script>
 </head>

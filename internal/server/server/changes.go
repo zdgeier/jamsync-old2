@@ -97,7 +97,9 @@ func (s JamsyncServer) WriteOperationStream(srv pb.JamsyncAPI_WriteOperationStre
 func (s JamsyncServer) ReadBlockHashes(ctx context.Context, in *pb.ReadBlockHashesRequest) (*pb.ReadBlockHashesResponse, error) {
 	userId, err := serverauth.ParseIdFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		if in.GetProjectId() != 1 {
+			return nil, err
+		}
 	}
 
 	targetBuffer, err := s.regenFile(in.GetProjectId(), userId, in.GetPathHash(), in.GetChangeId())
@@ -160,7 +162,10 @@ func (s JamsyncServer) regenFile(projectId uint64, userId string, pathHash uint6
 func (s JamsyncServer) ReadFile(in *pb.ReadFileRequest, srv pb.JamsyncAPI_ReadFileServer) error {
 	userId, err := serverauth.ParseIdFromCtx(srv.Context())
 	if err != nil {
-		return err
+		// jamsync
+		if in.GetProjectId() != 1 {
+			return err
+		}
 	}
 
 	sourceBuffer, err := s.regenFile(in.GetProjectId(), userId, in.GetPathHash(), in.GetChangeId())
@@ -239,7 +244,9 @@ func (s JamsyncServer) CommitChange(ctx context.Context, in *pb.CommitChangeRequ
 func (s JamsyncServer) ListCommittedChanges(ctx context.Context, in *pb.ListCommittedChangesRequest) (*pb.ListCommittedChangesResponse, error) {
 	userId, err := serverauth.ParseIdFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		if in.GetProjectName() != "jamsync" {
+			return nil, err
+		}
 	}
 
 	projectId, err := s.db.GetProjectId(in.GetProjectName(), userId)

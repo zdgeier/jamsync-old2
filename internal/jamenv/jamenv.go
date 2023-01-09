@@ -44,22 +44,13 @@ func Env() JamEnv {
 }
 
 func PublicAPIAddress() string {
-	if Env() == Prod {
-		return "18.188.17.102:14357"
-	}
 	return os.Getenv("JAM_SERVER_IP")
 }
 
 func Auth0ClientID() string {
-	if Env() == Prod {
-		return "287nBofX8C9oAm08ysKXcms0PKf9lns7"
-	}
-	return os.Getenv("AUTH0_CLIENT_ID")
+	return os.Getenv("AUTH0_CLI_CLIENT_ID")
 }
 
 func Auth0Domain() string {
-	if Env() == Prod {
-		return "jamsync.us.auth0.com"
-	}
 	return os.Getenv("AUTH0_DOMAIN")
 }
