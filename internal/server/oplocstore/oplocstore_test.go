@@ -83,7 +83,7 @@ func TestOpLocStore(t *testing.T) {
 
 			m := NewLocalOpLocStore(tt.fields.directory)
 			if err := m.InsertOperationLocations(tt.args.opLocs); (err != nil) != tt.wantErr {
-				t.Errorf("MemoryOpLocStore.InsertOperationLocations() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("LocalOpLocStore.InsertOperationLocations() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			got, err = m.ListOperationLocations(tt.args.opLocs.GetProjectId(), tt.args.opLocs.GetOwnerId(), tt.args.opLocs.GetPathHash(), tt.args.opLocs.GetChangeId())

@@ -87,10 +87,7 @@ func min(a, b int) int {
 var serverRunning = false
 
 func setup() (pb.JamsyncAPIClient, func(), error) {
-	err := jamenv.LoadFile()
-	if err != nil {
-		return nil, nil, err
-	}
+	jamenv.LoadFile()
 	if !serverRunning {
 		if jamenv.Env() == jamenv.Local {
 			err := os.RemoveAll("jb/")
@@ -324,8 +321,8 @@ func benchmarkUpload(b *testing.B, client *Client, projectName string, filePath 
 			err = client.UploadFile(ctx, filePath+fmt.Sprint(n), bytes.NewReader(data))
 			require.NoError(b, err)
 
-			err = client.CommitChange()
-			require.NoError(b, err)
+			// err = client.CommitChange()
+			// require.NoError(b, err)
 		}
 
 		content.Fill()
@@ -353,12 +350,12 @@ func benchmarkUpload(b *testing.B, client *Client, projectName string, filePath 
 // 	}
 // }
 
-func BenchmarkRandUploadDownload(b *testing.B) {
+func BenchmarkRandUpload(b *testing.B) {
 	apiClient, closer, err := setup()
 	require.NoError(b, err)
 	defer closer()
 
-	projectName := "bench_randuploaddownload"
+	projectName := "bench_randupload"
 
 	content := content{Len: 1, Seed: 42, Alter: 0}
 	var pairs = []struct {

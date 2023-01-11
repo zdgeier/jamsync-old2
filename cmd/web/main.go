@@ -10,10 +10,7 @@ import (
 )
 
 func main() {
-	err := jamenv.LoadFile()
-	if err != nil {
-		log.Panic(err)
-	}
+	jamenv.LoadFile()
 
 	auth, err := authenticator.New()
 	if err != nil {

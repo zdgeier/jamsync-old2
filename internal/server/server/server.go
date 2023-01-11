@@ -18,14 +18,15 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/reflection"
-	"google.golang.org/grpc/test/bufconn"
 )
 
-//go:embed publickey.cer
-var f embed.FS
+//go:embed prodkey.pem
+var prodF embed.FS
+
+//go:embed devkey.cer
+var devF embed.FS
 
 type JamsyncServer struct {
 	db          db.JamsyncDb
@@ -35,10 +36,6 @@ type JamsyncServer struct {
 	pb.UnimplementedJamsyncAPIServer
 }
 
-var (
-	memBuffer *bufconn.Listener
-)
-
 func New() (closer func(), err error) {
 	jamsyncServer := JamsyncServer{
 		db:          db.New(),
@@ -47,95 +44,78 @@ func New() (closer func(), err error) {
 		changestore: changestore.NewLocalChangeStore(),
 	}
 
-	cert, err := tls.LoadX509KeyPair("/etc/jamsync/x509/publickey.cer", "/etc/jamsync/x509/private.key")
-	if err != nil {
-		log.Fatalf("failed to load key pair: %s", err)
+	var cert tls.Certificate
+	if jamenv.Env() == jamenv.Prod {
+		cert, err = tls.LoadX509KeyPair("/etc/letsencrypt/live/jamsync.dev/fullchain.pem", "/etc/letsencrypt/live/jamsync.dev/privkey.pem")
+	} else {
+		cert, err = tls.LoadX509KeyPair("/etc/jamsync/x509/publickey.cer", "/etc/jamsync/x509/private.key")
 	}
+	if err != nil {
+		return nil, err
+	}
+
 	opts := []grpc.ServerOption{
 		grpc.UnaryInterceptor(serverauth.EnsureValidToken),
 		grpc.Creds(credentials.NewServerTLSFromCert(&cert)),
 	}
+
 	server := grpc.NewServer(opts...)
 	reflection.Register(server)
 	pb.RegisterJamsyncAPIServer(server, jamsyncServer)
 
-	switch jamenv.Env() {
-	case jamenv.Prod, jamenv.Dev, jamenv.Local:
-		tcplis, err := net.Listen("tcp", "0.0.0.0:14357")
-		if err != nil {
-			return nil, err
-		}
-		go func() {
-			if err := server.Serve(tcplis); err != nil {
-				log.Printf("error serving server: %v", err)
-			}
-		}()
-	case jamenv.Memory:
-		buffer := 101024 * 1024
-		memBuffer = bufconn.Listen(buffer)
-		go func() {
-			if err := server.Serve(memBuffer); err != nil {
-				log.Printf("error serving server: %v", err)
-			}
-		}()
+	tcplis, err := net.Listen("tcp", "0.0.0.0:14357")
+	if err != nil {
+		return nil, err
 	}
+	go func() {
+		if err := server.Serve(tcplis); err != nil {
+			log.Printf("error serving server: %v", err)
+		}
+	}()
 
 	return func() { server.Stop() }, nil
 }
 
 func Connect(accessToken *oauth2.Token) (client pb.JamsyncAPIClient, closer func(), err error) {
-	switch jamenv.Env() {
-	case jamenv.Memory:
-		conn, err := grpc.DialContext(context.Background(), "",
-			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-				return memBuffer.Dial()
-			}), grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			log.Printf("error connecting to server: %v", err)
-		}
-		client = pb.NewJamsyncAPIClient(conn)
-		closer = func() {
-			if err := conn.Close(); err != nil {
-				log.Panic("could not close server connection")
+	perRPC := oauth.TokenSource{TokenSource: oauth2.StaticTokenSource(accessToken)}
+	opts := []grpc.DialOption{
+		grpc.WithPerRPCCredentials(perRPC),
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			raddr, err := net.ResolveTCPAddr("tcp", jamenv.PublicAPIAddress())
+			if err != nil {
+				return nil, err
 			}
-		}
-	default:
-		perRPC := oauth.TokenSource{TokenSource: oauth2.StaticTokenSource(accessToken)}
 
-		data, _ := f.ReadFile("publickey.crt")
+			conn, err := net.DialTCP("tcp", nil, raddr)
+			if err != nil {
+				return nil, err
+			}
+
+			return conn, err
+		}),
+	}
+	var creds credentials.TransportCredentials
+	if jamenv.Env() == jamenv.Prod {
 		cp := x509.NewCertPool()
-		cp.AppendCertsFromPEM(data)
-		credentials.NewClientTLSFromCert(cp, "jamsync.dev")
-		creds, err := credentials.NewClientTLSFromFile("/etc/jamsync/x509/publickey.cer", "jamsync.dev")
+		certData, _ := prodF.ReadFile("prodkey.pem")
+		cp.AppendCertsFromPEM(certData)
+		creds = credentials.NewClientTLSFromCert(cp, "jamsync.dev")
+	} else {
+		creds, err = credentials.NewClientTLSFromFile("/etc/jamsync/x509/publickey.cer", "jamsync.dev")
 		if err != nil {
 			log.Fatalf("failed to load credentials: %v", err)
 		}
-		opts := []grpc.DialOption{
-			grpc.WithPerRPCCredentials(perRPC),
-			grpc.WithTransportCredentials(creds),
-			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-				raddr, err := net.ResolveTCPAddr("tcp", jamenv.PublicAPIAddress())
-				if err != nil {
-					return nil, err
-				}
+	}
+	opts = append(opts, grpc.WithTransportCredentials(creds))
 
-				conn, err := net.DialTCP("tcp", nil, raddr)
-				if err != nil {
-					return nil, err
-				}
-
-				return conn, err
-			}),
-		}
-		conn, err := grpc.Dial(jamenv.PublicAPIAddress(), opts...)
-		if err != nil {
-			log.Panicf("could not connect to jamsync server: %s", err)
-		}
-		client = pb.NewJamsyncAPIClient(conn)
-		closer = func() {
-			if err := conn.Close(); err != nil {
-				log.Panic("could not close server connection")
-			}
+	conn, err := grpc.Dial(jamenv.PublicAPIAddress(), opts...)
+	if err != nil {
+		log.Panicf("could not connect to jamsync server: %s", err)
+	}
+	client = pb.NewJamsyncAPIClient(conn)
+	closer = func() {
+		if err := conn.Close(); err != nil {
+			log.Panic("could not close server connection")
 		}
 	}
 

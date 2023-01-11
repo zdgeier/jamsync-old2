@@ -12,11 +12,10 @@ const (
 	Prod JamEnv = iota
 	Dev
 	Local
-	Memory
 )
 
-func LoadFile() error {
-	return godotenv.Load("/etc/jamsync/.env")
+func LoadFile() {
+	godotenv.Load("/etc/jamsync/.env")
 }
 
 func (e JamEnv) String() string {

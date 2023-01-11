@@ -12,10 +12,7 @@ import (
 )
 
 func main() {
-	err := jamenv.LoadFile()
-	if err != nil {
-		log.Panic(err)
-	}
+	jamenv.LoadFile()
 	closer, err := server.New()
 	if err != nil {
 		log.Fatal(err)

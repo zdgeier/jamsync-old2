@@ -25,10 +25,7 @@ import (
 )
 
 func main() {
-	err := jamenv.LoadFile()
-	if err != nil {
-		log.Panic(err)
-	}
+	jamenv.LoadFile()
 
 	accessToken, err := clientauth.InitConfig()
 	if err != nil {

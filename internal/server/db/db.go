@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-
-	"github.com/zdgeier/jamsync/internal/jamenv"
 )
 
 type JamsyncDb struct {
@@ -14,26 +12,17 @@ type JamsyncDb struct {
 
 func New() (jamsyncDB JamsyncDb) {
 	var db *sql.DB
-	switch jamenv.Env() {
-	case jamenv.Prod, jamenv.Dev, jamenv.Local:
-		conn, err := sql.Open("sqlite3", "./jamsync.db")
-		if err != nil {
-			panic(err)
-		}
-		db = conn
-	case jamenv.Memory:
-		conn, err := sql.Open("sqlite3", "file:foobar?mode=memory&cache=shared")
-		if err != nil {
-			panic(err)
-		}
-		db = conn
+	conn, err := sql.Open("sqlite3", "./jamsync.db")
+	if err != nil {
+		panic(err)
 	}
+	db = conn
 
 	sqlStmt := `
 	CREATE TABLE IF NOT EXISTS users (username TEXT, user_id TEXT, UNIQUE(username, user_id));
 	CREATE TABLE IF NOT EXISTS projects (name TEXT, owner TEXT);
 	`
-	_, err := db.Exec(sqlStmt)
+	_, err = db.Exec(sqlStmt)
 	if err != nil {
 		panic(err)
 	}
