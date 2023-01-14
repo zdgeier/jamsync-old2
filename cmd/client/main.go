@@ -15,7 +15,6 @@ import (
 
 	"github.com/cespare/xxhash"
 	"github.com/zdgeier/jamsync/gen/pb"
-	"github.com/zdgeier/jamsync/internal/jamenv"
 	jam "github.com/zdgeier/jamsync/internal/server/client"
 	"github.com/zdgeier/jamsync/internal/server/clientauth"
 	"github.com/zdgeier/jamsync/internal/server/server"
@@ -25,8 +24,6 @@ import (
 )
 
 func main() {
-	jamenv.LoadFile()
-
 	accessToken, err := clientauth.InitConfig()
 	if err != nil {
 		log.Panic(err)
@@ -43,7 +40,6 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	log.Println("Initializing a project at " + currentPath)
 
 	empty, err := currentDirectoryEmpty()
 	if err != nil {
@@ -83,6 +79,7 @@ func main() {
 		if err != nil {
 			log.Panic(err)
 		}
+		log.Println("Initializing a project at " + currentPath)
 
 		client = jam.NewClient(apiClient, resp.ProjectId, 0)
 		err = uploadNewProject(client)
@@ -225,11 +222,11 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 	log.Println("Uploading files...")
 	for path, diff := range fileMetadataDiff.GetDiffs() {
 		if diff.GetType() != pb.FileMetadataDiff_NoOp && diff.GetType() != pb.FileMetadataDiff_Delete && !diff.GetFile().GetDir() {
-			//log.Println("Uploading " + path)
 			file, err := os.OpenFile(path, os.O_RDONLY, 0755)
 			if err != nil {
 				return err
 			}
+			log.Println("Uploading", path)
 			err = client.UploadFile(ctx, path, file)
 			if err != nil {
 				return err

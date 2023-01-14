@@ -4,14 +4,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/zdgeier/jamsync/internal/jamenv"
 	"github.com/zdgeier/jamsync/internal/web"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 )
 
 func main() {
-	jamenv.LoadFile()
-
 	auth, err := authenticator.New()
 	if err != nil {
 		log.Fatalf("Failed to initialize the authenticator: %v", err)

@@ -87,7 +87,6 @@ func min(a, b int) int {
 var serverRunning = false
 
 func setup() (pb.JamsyncAPIClient, func(), error) {
-	jamenv.LoadFile()
 	if !serverRunning {
 		if jamenv.Env() == jamenv.Local {
 			err := os.RemoveAll("jb/")

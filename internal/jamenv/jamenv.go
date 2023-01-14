@@ -2,8 +2,6 @@ package jamenv
 
 import (
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 type JamEnv int
@@ -13,10 +11,6 @@ const (
 	Dev
 	Local
 )
-
-func LoadFile() {
-	godotenv.Load("/etc/jamsync/.env")
-}
 
 func (e JamEnv) String() string {
 	switch e {

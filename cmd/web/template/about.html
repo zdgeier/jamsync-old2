@@ -27,11 +27,11 @@
             </div>
             <h1>About</h1>
             <p class="About-description">
-                Jamsync is an open-source version control system that enables software engineers to develop and deploy faster. We're currently in the alpha stages of development but the AGPL-licensed source and client binaries are available to download <a href="/download">here</a>.
+                Jamsync is an open-source version control system that enables software engineers to develop and deploy faster. We're currently under development but feel free to preview the system on this site. The AGPL-licensed source and client binaries are available to download <a href="/download">here</a>.
             </p>
             <h2>Algorithm</h2>
             <p class="About-description">
-                The idea behind Jamsync is the same as <a href="https://github.com/WayneD/rsync">rsync</a>. In fact, Jamsync uses <a href="https://github.com/jbreiding/rsync-go">jbreiding/rsync-go</a> under the hood.
+                The idea behind Jamsync is the same as <a href="https://github.com/WayneD/rsync">rsync</a>. In fact, Jamsync uses <a href="https://github.com/jbreiding/rsync-go">jbreiding/rsync-go</a> for now under the hood.
                 If you havent read the <a href="https://www.andrew.cmu.edu/course/15-749/READINGS/required/cas/tridgell96.pdf">rsync algorithm</a> paper, 
                 it's highly recommended -- it's very approachable for anyone with a computer science background and has some great information.
             </p>
@@ -66,14 +66,24 @@
             <video class="About-video" controls autoplay muted loop playsinline height="300px">
                 <source src="/public/jamsync-hello.mp4" type="video/mp4">
             </video>
+            <h3>Changes and Conflicts</h3>
+            <p class="About-description">
+                A chain of changes, formed by the process above, can be used to regerate every file in a project. Branches off of the main chain can be used to prevent
+                conflicts from occuring when editing the same part of a file; however, whenever a branch is merged in, every other branch is automatically rebased on top.
+                This means that every branch will always be up-to-date. If conflicts occur during the rebase, a branch will be marked as "stale" and will need manual merging.
+            </p>
+            <h3>Limitations</h3>
+            <p class="About-description">
+                The goal of this project is to be able to handle over 10M files with files over 1TB, efficiently. 
+            </p>
             <h3>Implementation</h3>
             <p class="About-description">
-                Jamsync written from scratch in <a href="https://go.dev/">Go</a> and uses <a href="https://github.com/mattn/go-sqlite3">mattn/go-sqlite3</a> to store projects and change information. <a href="https://grpc.io/">gRPC</a> and <a href="https://developers.google.com/protocol-buffers">Protocol buffers</a> 
+                Jamsync is being written from scratch in <a href="https://go.dev/">Go</a> and uses <a href="https://github.com/mattn/go-sqlite3">mattn/go-sqlite3</a> to store projects and change information. <a href="https://grpc.io/">gRPC</a> and <a href="https://developers.google.com/protocol-buffers">Protocol buffers</a> 
                 are used for service definitions and data serialization.
             </p>
             <h2>Current state</h2>
             <p class="About-description">
-                This is an alpha version of the full system and is under development. The features <a href="/">here</a> will available over the next few months.
+                This site is a preview version of the system. The features <a href="/">here</a> will be available over the next few months.
             </p>
             <h3>Developers</h3>
             <p class="About-description">
