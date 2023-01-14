@@ -20,7 +20,7 @@ buildserver:
 	GOOS=linux GOARCH=arm64 go build -o build/jamserver cmd/server/main.go 
 
 client:
-	JAM_ENV=local go run cmd/client/main.go 
+	JAM_ENV=prod go run cmd/client/main.go 
 
 buildclient:
 	go build -o build/jam cmd/client/main.go 
