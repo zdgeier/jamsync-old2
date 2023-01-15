@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 
@@ -169,8 +168,12 @@ func (c *Client) UpdateFile(ctx context.Context, path string, sourceReader io.Re
 		return err
 	}
 
-	fmt.Println("new file", newFile.String())
 	remoteFileMetadata.GetFiles()[path] = newFile
+
+	err = c.UploadFile(ctx, path, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
 
 	metadataBytes, err := proto.Marshal(remoteFileMetadata)
 	if err != nil {
@@ -202,21 +205,21 @@ func PbBlockHashesToRsync(pbBlockHashes []*pb.BlockHash) []rsync.BlockHash {
 	return blockHashes
 }
 
-func (c *Client) UploadFileList(ctx context.Context, fileMetadata *pb.FileMetadata) error {
-	err := c.CreateChange()
-	if err != nil {
-		return err
-	}
-	metadataBytes, err := proto.Marshal(fileMetadata)
-	if err != nil {
-		return err
-	}
-	err = c.UploadFile(ctx, ".jamsyncfilelist", bytes.NewReader(metadataBytes))
-	if err != nil {
-		return err
-	}
-	return c.CommitChange()
-}
+// func (c *Client) UploadFileList(ctx context.Context, fileMetadata *pb.FileMetadata) error {
+// 	err := c.CreateChange()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	metadataBytes, err := proto.Marshal(fileMetadata)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	err = c.UploadFile(ctx, ".jamsyncfilelist", bytes.NewReader(metadataBytes))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return c.CommitChange()
+// }
 
 func (c *Client) DiffLocalToRemote(ctx context.Context, fileMetadata *pb.FileMetadata) (*pb.FileMetadataDiff, error) {
 	metadataBytes, err := proto.Marshal(fileMetadata)
@@ -285,7 +288,6 @@ func (c *Client) DiffRemoteToLocal(ctx context.Context, fileMetadata *pb.FileMet
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(remoteFileMetadata, fileMetadata)
 
 	fileMetadataDiff := make(map[string]*pb.FileMetadataDiff_FileDiff, len(fileMetadata.GetFiles()))
 	for filePath := range fileMetadata.GetFiles() {
@@ -307,7 +309,6 @@ func (c *Client) DiffRemoteToLocal(ctx context.Context, fileMetadata *pb.FileMet
 			diffFile = file
 			diffType = pb.FileMetadataDiff_Create
 		}
-		fmt.Println("remote to local", filePath, file, diffType, diffFile)
 
 		fileMetadataDiff[filePath] = &pb.FileMetadataDiff_FileDiff{
 			Type: diffType,

@@ -101,9 +101,8 @@ func main() {
 		if err != nil {
 			log.Panic(err)
 		}
+		return
 	}
-
-	fmt.Println("Starting", client.ProjectConfig())
 
 	// Get what has changed locally since last push
 	fileMetadata := readLocalFileList()
@@ -112,80 +111,102 @@ func main() {
 		log.Panic(err)
 	}
 
-	resp, err := apiClient.GetProjectConfig(context.Background(), &pb.GetProjectConfigRequest{
+	remoteConfig, err := apiClient.GetProjectConfig(context.Background(), &pb.GetProjectConfigRequest{
 		ProjectId: client.ProjectConfig().GetProjectId(),
 	})
 	if err != nil {
 		log.Panic(err)
 	}
-	client = jam.NewClient(apiClient, resp.ProjectId, resp.CurrentChange)
-	remoteToLocalDiff, err := client.DiffRemoteToLocal(context.Background(), fileMetadata)
-	if err != nil {
-		log.Panic(err)
-	}
 
-	pull(client, localToRemoteDiff, remoteToLocalDiff)
+	if client.ProjectConfig().CurrentChange == remoteConfig.CurrentChange {
+		if diffHasChanges(localToRemoteDiff) {
+			err = pushFileListDiff(fileMetadata, localToRemoteDiff, client)
+			if err != nil {
+				log.Panic(err)
+			}
+			writeJamsyncFile(client.ProjectConfig())
+		} else {
+			log.Println("No changes.")
+		}
+	} else {
+		client = jam.NewClient(apiClient, remoteConfig.ProjectId, remoteConfig.CurrentChange)
+		remoteToLocalDiff, err := client.DiffRemoteToLocal(context.Background(), fileMetadata)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		pull(client, localToRemoteDiff, remoteToLocalDiff)
+	}
+}
+
+func diffHasChanges(diff *pb.FileMetadataDiff) bool {
+	for _, diff := range diff.GetDiffs() {
+		if diff.Type != pb.FileMetadataDiff_NoOp {
+			return true
+		}
+	}
+	return false
 }
 
 func pull(client *jam.Client, localToRemoteDiff *pb.FileMetadataDiff, remoteToLocalDiff *pb.FileMetadataDiff) {
-	fmt.Println("pulling", client.ProjectConfig())
-	fmt.Println(remoteToLocalDiff)
-	for path, localFileDiff := range localToRemoteDiff.GetDiffs() {
-		fmt.Println(path, localFileDiff.String())
-		if localFileDiff.GetType() != pb.FileMetadataDiff_NoOp {
-			fmt.Println(path)
+	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
+		if !d.IsDir() {
+			if strings.HasSuffix(path, ".jamdiff") {
+				return fmt.Errorf(".jamdiff file found at %s", path)
+			}
+		}
+		return nil
+	}); err != nil {
+		log.Println(err)
+		return
+	}
+
+	dirty := false
+	for path, remoteDiff := range remoteToLocalDiff.GetDiffs() {
+		if remoteDiff.GetType() != pb.FileMetadataDiff_NoOp {
 			// Local has changed
-			if remoteFileDiff, found := remoteToLocalDiff.GetDiffs()[path]; found && remoteFileDiff.GetType() != pb.FileMetadataDiff_NoOp {
-				// FileMetadataDiff_Create FileMetadataDiff_Type = 1
-				// FileMetadataDiff_Update FileMetadataDiff_Type = 2
-				// FileMetadataDiff_Delete FileMetadataDiff_Type = 3
-				// both local and remote have changed
-				fmt.Println("Diffing ", path, localFileDiff.String(), remoteFileDiff.String())
+			if localDiff, found := localToRemoteDiff.GetDiffs()[path]; found && localDiff.GetType() != pb.FileMetadataDiff_NoOp {
+				if localDiff.GetFile().Hash == remoteDiff.GetFile().Hash {
+					newModTime := remoteDiff.File.GetModTime().AsTime()
+					err := os.Chtimes(path, newModTime, newModTime)
+					if err != nil {
+						log.Panic(err)
+					}
+					continue
+				}
 				file, err := os.OpenFile(path+".jamdiff", os.O_RDWR|os.O_CREATE, 0755)
 				if err != nil {
 					log.Panic(err)
 				}
 
-				fileContents, err := os.ReadFile(path)
+				reader, err := os.Open(path)
 				if err != nil {
 					log.Panic(err)
 				}
 
-				err = client.DownloadFile(context.Background(), path, bytes.NewReader(fileContents), file)
+				err = client.DownloadFile(context.Background(), path, reader, file)
 				if err != nil {
 					log.Panic(err)
 				}
+				newModTime := remoteDiff.File.GetModTime().AsTime()
+				err = os.Chtimes(path, newModTime, newModTime)
+				if err != nil {
+					log.Panic(err)
+				}
+				dirty = true
 			}
 		}
 	}
 
-	for path, localFileDiff := range remoteToLocalDiff.GetDiffs() {
-		fmt.Println(path, localFileDiff.String())
-		if localFileDiff.GetType() != pb.FileMetadataDiff_NoOp {
-			fmt.Println(path)
-			// Local has changed
-			if remoteFileDiff, found := localToRemoteDiff.GetDiffs()[path]; found && remoteFileDiff.GetType() != pb.FileMetadataDiff_NoOp {
-				// FileMetadataDiff_Create FileMetadataDiff_Type = 1
-				// FileMetadataDiff_Update FileMetadataDiff_Type = 2
-				// FileMetadataDiff_Delete FileMetadataDiff_Type = 3
-				// both local and remote have changed
-				fmt.Println("Diffing ", path, localFileDiff.String(), remoteFileDiff.String())
-				file, err := os.OpenFile(path+".jamdiff", os.O_RDWR|os.O_CREATE, 0755)
-				if err != nil {
-					log.Panic(err)
-				}
+	if dirty {
+		writeJamsyncFile(client.ProjectConfig())
+		log.Println("merge .jamdiff files to continue")
+		return
+	}
 
-				fileContents, err := os.ReadFile(path)
-				if err != nil {
-					log.Panic(err)
-				}
-
-				err = client.DownloadFile(context.Background(), path, bytes.NewReader(fileContents), file)
-				if err != nil {
-					log.Panic(err)
-				}
-			}
-		}
+	err := downloadExistingProject(client)
+	if err != nil {
+		log.Panic(err)
 	}
 }
 
@@ -309,7 +330,6 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 		return err
 	}
 
-	log.Println("Uploading files...")
 	for path, diff := range fileMetadataDiff.GetDiffs() {
 		if diff.GetType() != pb.FileMetadataDiff_NoOp && diff.GetType() != pb.FileMetadataDiff_Delete && !diff.GetFile().GetDir() {
 			file, err := os.OpenFile(path, os.O_RDONLY, 0755)
@@ -325,16 +345,21 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 		}
 	}
 	log.Println("Uploading file list...")
-	err = client.CommitChange()
+
+	metadataBytes, err := proto.Marshal(fileMetadata)
+	if err != nil {
+		return err
+	}
+	err = client.UploadFile(ctx, ".jamsyncfilelist", bytes.NewReader(metadataBytes))
 	if err != nil {
 		return err
 	}
 
-	err = client.UploadFileList(ctx, fileMetadata)
+	err = client.CommitChange()
 	if err != nil {
 		return err
 	}
-	log.Println("Done")
+	log.Println("Committed changes.")
 
 	return nil
 }
@@ -373,6 +398,12 @@ func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client
 			if err != nil {
 				results <- err
 				return
+			}
+
+			newModTime := fileMetadataDiff.GetDiffs()[path].File.GetModTime().AsTime()
+			err = os.Chtimes(path, newModTime, newModTime)
+			if err != nil {
+				results <- err
 			}
 
 			results <- file.Close()

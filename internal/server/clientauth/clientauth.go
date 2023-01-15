@@ -62,7 +62,6 @@ func AuthorizeUser() {
 			cleanup(server)
 			return
 		}
-		fmt.Println("settings", token)
 		viper.Set("AccessToken", token)
 		//_, err = config.WriteConfigFile("auth.json", token)
 		if err != nil {

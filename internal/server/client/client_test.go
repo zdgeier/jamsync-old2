@@ -596,7 +596,17 @@ func TestGetFileListDiff(t *testing.T) {
 				t.Errorf("GetFileListDiff() = %v, want %v", got, tt.want)
 			}
 
-			require.NoError(t, client.UploadFileList(ctx, tt.args.fileMetadata))
+			err = client.CreateChange()
+			require.NoError(t, err)
+
+			metadataBytes, err := proto.Marshal(tt.args.fileMetadata)
+			require.NoError(t, err)
+
+			err = client.UploadFile(ctx, ".jamsyncfilelist", bytes.NewReader(metadataBytes))
+			require.NoError(t, err)
+
+			err = client.CommitChange()
+			require.NoError(t, err)
 		})
 	}
 }

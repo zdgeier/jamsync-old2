@@ -155,7 +155,7 @@ func PutFileHandler() gin.HandlerFunc {
 		}
 
 		client := client.NewClient(tempClient, config.GetProjectId(), config.GetCurrentChange())
-		client.UpdateFile(ctx, ctx.Param("path")[1:], ctx.Request.Body)
+		err = client.UpdateFile(ctx, ctx.Param("path")[1:], ctx.Request.Body)
 		if err != nil {
 			ctx.String(http.StatusInternalServerError, err.Error())
 			return
