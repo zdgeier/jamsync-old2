@@ -23,7 +23,7 @@
         let projectNameEl = document.getElementById("projectname");
         projectNameEl.innerHTML = "$ " + projectName + "/" + currentPath;
 
-        function debounce(func, timeout = 2000){
+        function debounce(func, timeout = 1000){
             let timer;
             return (...args) => {
                 let wrapper = document.getElementById("js-file-location-wrapper");

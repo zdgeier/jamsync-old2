@@ -19,6 +19,7 @@ service JamsyncAPI {
 
     rpc UserInfo(UserInfoRequest) returns (UserInfoResponse);
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+    rpc Ping(PingRequest) returns (PingResponse);
 }
 
 message WriteOperationStreamResponse {}
@@ -171,6 +172,7 @@ message GetCurrentChangeResponse {
 
 message GetProjectConfigRequest {
     string project_name = 1;
+    uint64 project_id = 2;
 }
 
 message ProjectConfig {
@@ -185,3 +187,6 @@ message ListCommittedChangesRequest {
 message ListCommittedChangesResponse {
     repeated uint64 change_ids = 1;
 }
+
+message PingRequest {}
+message PingResponse {}

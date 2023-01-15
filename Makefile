@@ -17,19 +17,16 @@ server:
 	JAM_ENV=local go run cmd/server/main.go
 
 buildserver:
-	GOOS=linux GOARCH=arm64 go build -o build/jamserver cmd/server/main.go 
+	go build -o build/jamserver cmd/server/main.go 
 
 client:
-	JAM_ENV=prod go run cmd/client/main.go 
+	JAM_ENV=local go run cmd/client/main.go 
 
 buildclient:
-	go build -o build/jam cmd/client/main.go 
+	go build -o build/jam cmd/client/main.go && cp build/jam ~/bin/jam
 
 buildclients:
 	./allclients.sh
-
-installclient:
-	cp build/jam ~/bin/jam
 
 zipself:
 	mkdir -p ./build/static && zip -r build/static/jamsync-source.zip . -x .git/\*

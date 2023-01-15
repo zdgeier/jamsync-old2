@@ -9,7 +9,6 @@ require (
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/gin-contrib/sessions v0.0.3
 	github.com/gin-gonic/gin v1.7.4
-	github.com/joho/godotenv v1.4.0
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/nirasan/go-oauth-pkce-code-verifier v0.0.0-20220510032225-4f9f17eaec4c
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966

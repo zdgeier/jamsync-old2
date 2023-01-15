@@ -62,6 +62,7 @@ func AuthorizeUser() {
 			cleanup(server)
 			return
 		}
+		fmt.Println("settings", token)
 		viper.Set("AccessToken", token)
 		//_, err = config.WriteConfigFile("auth.json", token)
 		if err != nil {
@@ -270,5 +271,27 @@ func InitConfig() (string, error) {
 			log.Println("$HOME/.jamsyncauth.json could not be read correctly. Try deleting this file and retrying.")
 		}
 	}
+	return viper.Get("AccessToken").(string), nil
+}
+
+func ReauthConfig() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	viper.SetConfigName(".jamsyncauth")
+	viper.SetConfigType("json")
+	viper.AddConfigPath(home)
+
+	configPath := home + "/.jamsyncauth"
+
+	AuthorizeUser()
+	err = viper.WriteConfigAs(configPath)
+	if err != nil {
+		return "", err
+	}
+
+	log.Println("Wrote config")
 	return viper.Get("AccessToken").(string), nil
 }

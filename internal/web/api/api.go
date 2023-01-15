@@ -155,24 +155,29 @@ func PutFileHandler() gin.HandlerFunc {
 		}
 
 		client := client.NewClient(tempClient, config.GetProjectId(), config.GetCurrentChange())
-
-		err = client.CreateChange()
+		client.UpdateFile(ctx, ctx.Param("path")[1:], ctx.Request.Body)
 		if err != nil {
 			ctx.String(http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		err = client.UploadFile(ctx, ctx.Param("path")[1:], ctx.Request.Body)
-		if err != nil {
-			ctx.String(http.StatusInternalServerError, err.Error())
-			return
-		}
+		// err = client.CreateChange()
+		// if err != nil {
+		// 	ctx.String(http.StatusInternalServerError, err.Error())
+		// 	return
+		// }
 
-		err = client.CommitChange()
-		if err != nil {
-			ctx.String(http.StatusInternalServerError, err.Error())
-			return
-		}
+		// err = client.UploadFile(ctx, ctx.Param("path")[1:], ctx.Request.Body)
+		// if err != nil {
+		// 	ctx.String(http.StatusInternalServerError, err.Error())
+		// 	return
+		// }
+
+		// err = client.CommitChange()
+		// if err != nil {
+		// 	ctx.String(http.StatusInternalServerError, err.Error())
+		// 	return
+		// }
 
 		type PutFileResponse struct {
 			CommitId uint64 `json:"commitId"`

@@ -19,3 +19,7 @@ func (s JamsyncServer) CreateUser(ctx context.Context, in *pb.CreateUserRequest)
 	}
 	return &pb.CreateUserResponse{}, nil
 }
+
+func (s JamsyncServer) Ping(ctx context.Context, in *pb.PingRequest) (*pb.PingResponse, error) {
+	return &pb.PingResponse{}, nil
+}

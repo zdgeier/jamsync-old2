@@ -36,6 +36,21 @@ func main() {
 	}
 	defer closer()
 
+	_, err = apiClient.Ping(context.Background(), &pb.PingRequest{})
+	if err != nil {
+		accessToken, err := clientauth.ReauthConfig()
+		if err != nil {
+			log.Panic(err)
+		}
+		apiClient, closer, err = server.Connect(&oauth2.Token{
+			AccessToken: accessToken,
+		})
+		if err != nil {
+			log.Panic(err)
+		}
+		defer closer()
+	}
+
 	currentPath, err := os.Getwd()
 	if err != nil {
 		log.Panic(err)
@@ -88,14 +103,89 @@ func main() {
 		}
 	}
 
+	fmt.Println("Starting", client.ProjectConfig())
+
+	// Get what has changed locally since last push
 	fileMetadata := readLocalFileList()
-	fileMetadataDiff, err := client.DiffLocalToRemote(context.Background(), fileMetadata)
+	localToRemoteDiff, err := client.DiffLocalToRemote(context.Background(), fileMetadata)
 	if err != nil {
 		log.Panic(err)
 	}
-	err = pushFileListDiff(fileMetadata, fileMetadataDiff, client)
+
+	resp, err := apiClient.GetProjectConfig(context.Background(), &pb.GetProjectConfigRequest{
+		ProjectId: client.ProjectConfig().GetProjectId(),
+	})
 	if err != nil {
 		log.Panic(err)
+	}
+	client = jam.NewClient(apiClient, resp.ProjectId, resp.CurrentChange)
+	remoteToLocalDiff, err := client.DiffRemoteToLocal(context.Background(), fileMetadata)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	pull(client, localToRemoteDiff, remoteToLocalDiff)
+}
+
+func pull(client *jam.Client, localToRemoteDiff *pb.FileMetadataDiff, remoteToLocalDiff *pb.FileMetadataDiff) {
+	fmt.Println("pulling", client.ProjectConfig())
+	fmt.Println(remoteToLocalDiff)
+	for path, localFileDiff := range localToRemoteDiff.GetDiffs() {
+		fmt.Println(path, localFileDiff.String())
+		if localFileDiff.GetType() != pb.FileMetadataDiff_NoOp {
+			fmt.Println(path)
+			// Local has changed
+			if remoteFileDiff, found := remoteToLocalDiff.GetDiffs()[path]; found && remoteFileDiff.GetType() != pb.FileMetadataDiff_NoOp {
+				// FileMetadataDiff_Create FileMetadataDiff_Type = 1
+				// FileMetadataDiff_Update FileMetadataDiff_Type = 2
+				// FileMetadataDiff_Delete FileMetadataDiff_Type = 3
+				// both local and remote have changed
+				fmt.Println("Diffing ", path, localFileDiff.String(), remoteFileDiff.String())
+				file, err := os.OpenFile(path+".jamdiff", os.O_RDWR|os.O_CREATE, 0755)
+				if err != nil {
+					log.Panic(err)
+				}
+
+				fileContents, err := os.ReadFile(path)
+				if err != nil {
+					log.Panic(err)
+				}
+
+				err = client.DownloadFile(context.Background(), path, bytes.NewReader(fileContents), file)
+				if err != nil {
+					log.Panic(err)
+				}
+			}
+		}
+	}
+
+	for path, localFileDiff := range remoteToLocalDiff.GetDiffs() {
+		fmt.Println(path, localFileDiff.String())
+		if localFileDiff.GetType() != pb.FileMetadataDiff_NoOp {
+			fmt.Println(path)
+			// Local has changed
+			if remoteFileDiff, found := localToRemoteDiff.GetDiffs()[path]; found && remoteFileDiff.GetType() != pb.FileMetadataDiff_NoOp {
+				// FileMetadataDiff_Create FileMetadataDiff_Type = 1
+				// FileMetadataDiff_Update FileMetadataDiff_Type = 2
+				// FileMetadataDiff_Delete FileMetadataDiff_Type = 3
+				// both local and remote have changed
+				fmt.Println("Diffing ", path, localFileDiff.String(), remoteFileDiff.String())
+				file, err := os.OpenFile(path+".jamdiff", os.O_RDWR|os.O_CREATE, 0755)
+				if err != nil {
+					log.Panic(err)
+				}
+
+				fileContents, err := os.ReadFile(path)
+				if err != nil {
+					log.Panic(err)
+				}
+
+				err = client.DownloadFile(context.Background(), path, bytes.NewReader(fileContents), file)
+				if err != nil {
+					log.Panic(err)
+				}
+			}
+		}
 	}
 }
 
@@ -234,11 +324,11 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 			file.Close()
 		}
 	}
+	log.Println("Uploading file list...")
 	err = client.CommitChange()
 	if err != nil {
 		return err
 	}
-	log.Println("Uploading file list...")
 
 	err = client.UploadFileList(ctx, fileMetadata)
 	if err != nil {

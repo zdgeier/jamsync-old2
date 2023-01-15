@@ -34,6 +34,7 @@ type JamsyncAPIClient interface {
 	GetProjectConfig(ctx context.Context, in *GetProjectConfigRequest, opts ...grpc.CallOption) (*ProjectConfig, error)
 	UserInfo(ctx context.Context, in *UserInfoRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
 	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error)
+	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 }
 
 type jamsyncAPIClient struct {
@@ -200,6 +201,15 @@ func (c *jamsyncAPIClient) CreateUser(ctx context.Context, in *CreateUserRequest
 	return out, nil
 }
 
+func (c *jamsyncAPIClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
+	out := new(PingResponse)
+	err := c.cc.Invoke(ctx, "/pb.JamsyncAPI/Ping", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // JamsyncAPIServer is the server API for JamsyncAPI service.
 // All implementations must embed UnimplementedJamsyncAPIServer
 // for forward compatibility
@@ -216,6 +226,7 @@ type JamsyncAPIServer interface {
 	GetProjectConfig(context.Context, *GetProjectConfigRequest) (*ProjectConfig, error)
 	UserInfo(context.Context, *UserInfoRequest) (*UserInfoResponse, error)
 	CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error)
+	Ping(context.Context, *PingRequest) (*PingResponse, error)
 	mustEmbedUnimplementedJamsyncAPIServer()
 }
 
@@ -258,6 +269,9 @@ func (UnimplementedJamsyncAPIServer) UserInfo(context.Context, *UserInfoRequest)
 }
 func (UnimplementedJamsyncAPIServer) CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateUser not implemented")
+}
+func (UnimplementedJamsyncAPIServer) Ping(context.Context, *PingRequest) (*PingResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
 func (UnimplementedJamsyncAPIServer) mustEmbedUnimplementedJamsyncAPIServer() {}
 
@@ -499,6 +513,24 @@ func _JamsyncAPI_CreateUser_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _JamsyncAPI_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(JamsyncAPIServer).Ping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.JamsyncAPI/Ping",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(JamsyncAPIServer).Ping(ctx, req.(*PingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // JamsyncAPI_ServiceDesc is the grpc.ServiceDesc for JamsyncAPI service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -545,6 +577,10 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateUser",
 			Handler:    _JamsyncAPI_CreateUser_Handler,
+		},
+		{
+			MethodName: "Ping",
+			Handler:    _JamsyncAPI_Ping_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
