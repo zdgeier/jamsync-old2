@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 
@@ -41,7 +40,6 @@ func (c *Client) CreateChange() error {
 }
 
 func (c *Client) CommitChange() error {
-	fmt.Println("commiting")
 	_, err := c.api.CommitChange(context.Background(), &pb.CommitChangeRequest{
 		ProjectId: c.projectId,
 		ChangeId:  c.changeId,
@@ -49,7 +47,6 @@ func (c *Client) CommitChange() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("done")
 	c.committed = true
 	return nil
 }

@@ -2,11 +2,14 @@ package api
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/zdgeier/jamsync/gen/pb"
 	"github.com/zdgeier/jamsync/internal/server/client"
 	"github.com/zdgeier/jamsync/internal/server/server"
@@ -161,24 +164,6 @@ func PutFileHandler() gin.HandlerFunc {
 			return
 		}
 
-		// err = client.CreateChange()
-		// if err != nil {
-		// 	ctx.String(http.StatusInternalServerError, err.Error())
-		// 	return
-		// }
-
-		// err = client.UploadFile(ctx, ctx.Param("path")[1:], ctx.Request.Body)
-		// if err != nil {
-		// 	ctx.String(http.StatusInternalServerError, err.Error())
-		// 	return
-		// }
-
-		// err = client.CommitChange()
-		// if err != nil {
-		// 	ctx.String(http.StatusInternalServerError, err.Error())
-		// 	return
-		// }
-
 		type PutFileResponse struct {
 			CommitId uint64 `json:"commitId"`
 		}
@@ -187,4 +172,63 @@ func PutFileHandler() gin.HandlerFunc {
 			CommitId: client.ProjectConfig().CurrentChange,
 		})
 	}
+}
+
+var wsupgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func CommitChangeWSHandler() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		accessToken := sessions.Default(ctx).Get("access_token").(string)
+		tempClient, closer, err := server.Connect(&oauth2.Token{AccessToken: accessToken})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		defer closer()
+
+		config, err := tempClient.GetProjectConfig(ctx, &pb.GetProjectConfigRequest{
+			ProjectName: ctx.Param("projectName"),
+		})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		conn, err := wsupgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		changeStream, err := tempClient.ChangeStream(ctx, &pb.ChangeStreamRequest{ProjectId: config.ProjectId})
+		if err != nil {
+			ctx.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		defer changeStream.CloseSend()
+
+		for {
+			_, err := changeStream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				ctx.String(http.StatusInternalServerError, err.Error())
+				break
+			}
+
+			config, err := tempClient.GetProjectConfig(ctx, &pb.GetProjectConfigRequest{
+				ProjectName: ctx.Param("projectName"),
+			})
+			if err != nil {
+				ctx.String(http.StatusInternalServerError, err.Error())
+				return
+			}
+			conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprint(config.CurrentChange)))
+		}
+	}
+
 }

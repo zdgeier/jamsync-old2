@@ -93,6 +93,18 @@
             }
         }
         setupSlider();
+
+        let url = `ws:/\/${window.location.host}/api/ws/committedchanges/${projectName}`;
+        let c = new WebSocket(url);
+
+        c.addEventListener('message', async (event) => {
+            console.log(event.data)
+            const queryParams = new URLSearchParams(window.location.search);
+            queryParams.set("commitId", event.data);
+            history.replaceState(null, null, "?"+queryParams.toString());
+            //window.location.search = searchParams.toString();
+            setupSlider()
+        });
     </script>
     {{template "footer.html"}}
 </body>
