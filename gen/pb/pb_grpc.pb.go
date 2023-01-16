@@ -27,6 +27,7 @@ type JamsyncAPIClient interface {
 	CommitChange(ctx context.Context, in *CommitChangeRequest, opts ...grpc.CallOption) (*CommitChangeResponse, error)
 	ReadBlockHashes(ctx context.Context, in *ReadBlockHashesRequest, opts ...grpc.CallOption) (*ReadBlockHashesResponse, error)
 	ReadFile(ctx context.Context, in *ReadFileRequest, opts ...grpc.CallOption) (JamsyncAPI_ReadFileClient, error)
+	ChangeStream(ctx context.Context, in *ChangeStreamRequest, opts ...grpc.CallOption) (JamsyncAPI_ChangeStreamClient, error)
 	AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error)
 	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
 	ListUserProjects(ctx context.Context, in *ListUserProjectsRequest, opts ...grpc.CallOption) (*ListUserProjectsResponse, error)
@@ -138,6 +139,38 @@ func (x *jamsyncAPIReadFileClient) Recv() (*Operation, error) {
 	return m, nil
 }
 
+func (c *jamsyncAPIClient) ChangeStream(ctx context.Context, in *ChangeStreamRequest, opts ...grpc.CallOption) (JamsyncAPI_ChangeStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &JamsyncAPI_ServiceDesc.Streams[2], "/pb.JamsyncAPI/ChangeStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &jamsyncAPIChangeStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type JamsyncAPI_ChangeStreamClient interface {
+	Recv() (*ChangeStreamMessage, error)
+	grpc.ClientStream
+}
+
+type jamsyncAPIChangeStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *jamsyncAPIChangeStreamClient) Recv() (*ChangeStreamMessage, error) {
+	m := new(ChangeStreamMessage)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *jamsyncAPIClient) AddProject(ctx context.Context, in *AddProjectRequest, opts ...grpc.CallOption) (*AddProjectResponse, error) {
 	out := new(AddProjectResponse)
 	err := c.cc.Invoke(ctx, "/pb.JamsyncAPI/AddProject", in, out, opts...)
@@ -219,6 +252,7 @@ type JamsyncAPIServer interface {
 	CommitChange(context.Context, *CommitChangeRequest) (*CommitChangeResponse, error)
 	ReadBlockHashes(context.Context, *ReadBlockHashesRequest) (*ReadBlockHashesResponse, error)
 	ReadFile(*ReadFileRequest, JamsyncAPI_ReadFileServer) error
+	ChangeStream(*ChangeStreamRequest, JamsyncAPI_ChangeStreamServer) error
 	AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error)
 	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
 	ListUserProjects(context.Context, *ListUserProjectsRequest) (*ListUserProjectsResponse, error)
@@ -248,6 +282,9 @@ func (UnimplementedJamsyncAPIServer) ReadBlockHashes(context.Context, *ReadBlock
 }
 func (UnimplementedJamsyncAPIServer) ReadFile(*ReadFileRequest, JamsyncAPI_ReadFileServer) error {
 	return status.Errorf(codes.Unimplemented, "method ReadFile not implemented")
+}
+func (UnimplementedJamsyncAPIServer) ChangeStream(*ChangeStreamRequest, JamsyncAPI_ChangeStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ChangeStream not implemented")
 }
 func (UnimplementedJamsyncAPIServer) AddProject(context.Context, *AddProjectRequest) (*AddProjectResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddProject not implemented")
@@ -384,6 +421,27 @@ type jamsyncAPIReadFileServer struct {
 }
 
 func (x *jamsyncAPIReadFileServer) Send(m *Operation) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _JamsyncAPI_ChangeStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ChangeStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(JamsyncAPIServer).ChangeStream(m, &jamsyncAPIChangeStreamServer{stream})
+}
+
+type JamsyncAPI_ChangeStreamServer interface {
+	Send(*ChangeStreamMessage) error
+	grpc.ServerStream
+}
+
+type jamsyncAPIChangeStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *jamsyncAPIChangeStreamServer) Send(m *ChangeStreamMessage) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -592,6 +650,11 @@ var JamsyncAPI_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ReadFile",
 			Handler:       _JamsyncAPI_ReadFile_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ChangeStream",
+			Handler:       _JamsyncAPI_ChangeStream_Handler,
 			ServerStreams: true,
 		},
 	},

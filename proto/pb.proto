@@ -10,6 +10,7 @@ service JamsyncAPI {
     rpc CommitChange(CommitChangeRequest) returns (CommitChangeResponse);
     rpc ReadBlockHashes(ReadBlockHashesRequest) returns (ReadBlockHashesResponse);
     rpc ReadFile(ReadFileRequest) returns (stream Operation);
+    rpc ChangeStream(ChangeStreamRequest) returns (stream ChangeStreamMessage);
 
     rpc AddProject(AddProjectRequest) returns (AddProjectResponse);
     rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
@@ -20,6 +21,14 @@ service JamsyncAPI {
     rpc UserInfo(UserInfoRequest) returns (UserInfoResponse);
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
     rpc Ping(PingRequest) returns (PingResponse);
+}
+
+message ChangeStreamRequest{
+    uint64 project_id = 1;
+}
+message ChangeStreamMessage{
+    uint64 project_id = 1;
+    string userId = 2;
 }
 
 message WriteOperationStreamResponse {}

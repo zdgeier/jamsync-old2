@@ -238,6 +238,12 @@ func (s JamsyncServer) CommitChange(ctx context.Context, in *pb.CommitChangeRequ
 	if err != nil {
 		return nil, err
 	}
+
+	s.hub.Broadcast(&pb.ChangeStreamMessage{
+		ProjectId: in.GetProjectId(),
+		UserId:    userId,
+	})
+
 	return &pb.CommitChangeResponse{}, nil
 }
 
@@ -262,4 +268,22 @@ func (s JamsyncServer) ListCommittedChanges(ctx context.Context, in *pb.ListComm
 	return &pb.ListCommittedChangesResponse{
 		ChangeIds: changeIds,
 	}, nil
+}
+
+func (s JamsyncServer) ChangeStream(in *pb.ChangeStreamRequest, srv pb.JamsyncAPI_ChangeStreamServer) error {
+	userId, err := serverauth.ParseIdFromCtx(srv.Context())
+	if err != nil {
+		return err
+	}
+
+	client := s.hub.Register(in.ProjectId, userId)
+
+	for changeStreamMessage := range client.Send {
+		err = srv.Send(changeStreamMessage)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

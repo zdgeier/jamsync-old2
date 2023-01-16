@@ -12,6 +12,7 @@ import (
 	"github.com/zdgeier/jamsync/internal/jamenv"
 	"github.com/zdgeier/jamsync/internal/server/changestore"
 	"github.com/zdgeier/jamsync/internal/server/db"
+	"github.com/zdgeier/jamsync/internal/server/hub"
 	"github.com/zdgeier/jamsync/internal/server/oplocstore"
 	"github.com/zdgeier/jamsync/internal/server/opstore"
 	"github.com/zdgeier/jamsync/internal/server/serverauth"
@@ -25,14 +26,12 @@ import (
 //go:embed prodkey.pem
 var prodF embed.FS
 
-//go:embed devkey.cer
-var devF embed.FS
-
 type JamsyncServer struct {
 	db          db.JamsyncDb
 	opstore     opstore.LocalStore
 	oplocstore  oplocstore.LocalOpLocStore
 	changestore changestore.LocalChangeStore
+	hub         hub.Hub
 	pb.UnimplementedJamsyncAPIServer
 }
 
@@ -42,6 +41,7 @@ func New() (closer func(), err error) {
 		opstore:     opstore.NewLocalStore("jb"),
 		oplocstore:  oplocstore.NewLocalOpLocStore("jb"),
 		changestore: changestore.NewLocalChangeStore(),
+		hub:         *hub.NewHub(),
 	}
 
 	var cert tls.Certificate
@@ -72,6 +72,8 @@ func New() (closer func(), err error) {
 			log.Printf("error serving server: %v", err)
 		}
 	}()
+
+	go jamsyncServer.hub.Run()
 
 	return func() { server.Stop() }, nil
 }

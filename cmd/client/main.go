@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/cespare/xxhash"
+	"github.com/fsnotify/fsnotify"
 	"github.com/zdgeier/jamsync/gen/pb"
 	jam "github.com/zdgeier/jamsync/internal/server/client"
 	"github.com/zdgeier/jamsync/internal/server/clientauth"
@@ -125,8 +126,111 @@ func main() {
 				log.Panic(err)
 			}
 			writeJamsyncFile(client.ProjectConfig())
-		} else {
-			log.Println("No changes.")
+		}
+
+		stream, err := apiClient.ChangeStream(context.Background(), &pb.ChangeStreamRequest{
+			ProjectId: client.ProjectConfig().GetProjectId(),
+		})
+		if err != nil {
+			log.Panic(err)
+		}
+		changes := make(chan *pb.ChangeStreamMessage)
+		go func() {
+			for {
+				in, err := stream.Recv()
+				if err == io.EOF {
+					log.Println("Stopped change stream")
+					return
+				}
+				if err != nil {
+					log.Fatalf("Failed to receive a change stream message: %v", err)
+				}
+				changes <- in
+			}
+		}()
+
+		watcher, _ := fsnotify.NewWatcher()
+		defer watcher.Close()
+
+		if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
+			log.Println("Watching", path)
+			return watcher.Add(path)
+		}); err != nil {
+			log.Panic("Could not walk directory tree to watch files", err)
+		}
+
+		for {
+			select {
+			case <-changes:
+				fileMetadata := readLocalFileList()
+				localToRemoteDiff, err := client.DiffLocalToRemote(context.Background(), fileMetadata)
+				if err != nil {
+					log.Panic(err)
+				}
+
+				remoteConfig, err := apiClient.GetProjectConfig(context.Background(), &pb.GetProjectConfigRequest{
+					ProjectId: client.ProjectConfig().GetProjectId(),
+				})
+				if err != nil {
+					log.Panic(err)
+				}
+				client = jam.NewClient(apiClient, remoteConfig.ProjectId, remoteConfig.CurrentChange)
+				remoteToLocalDiff, err := client.DiffRemoteToLocal(context.Background(), fileMetadata)
+				if err != nil {
+					log.Panic(err)
+				}
+
+				pull(client, localToRemoteDiff, remoteToLocalDiff)
+			case event := <-watcher.Events:
+				if event.Op == fsnotify.Chmod {
+					continue
+				}
+
+				path := event.Name
+
+				if stat, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+					log.Println(path + " deleted")
+					err := watcher.Remove(path)
+					if err != nil {
+						log.Fatal(err)
+					}
+				} else if stat.IsDir() {
+					if err := filepath.WalkDir(path, func(path string, d fs.DirEntry, _ error) error {
+						if d.IsDir() {
+							log.Println(path + " directory changed")
+						} else {
+							log.Println(path + " changed")
+						}
+
+						return watcher.Add(path)
+					}); err != nil {
+						log.Panic("Could not walk directory tree to watch files")
+					}
+				} else {
+					log.Println(path + " changed ")
+					err := watcher.Add(path)
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+				fileMetadata := readLocalFileList()
+				localToRemoteDiff, err := client.DiffLocalToRemote(context.Background(), fileMetadata)
+				if err != nil {
+					log.Panic(err)
+				}
+				if diffHasChanges(localToRemoteDiff) {
+					err = pushFileListDiff(fileMetadata, localToRemoteDiff, client)
+					if err != nil {
+						log.Panic(err)
+					}
+					writeJamsyncFile(client.ProjectConfig())
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Println("error:", err)
+			}
 		}
 	} else {
 		client = jam.NewClient(apiClient, remoteConfig.ProjectId, remoteConfig.CurrentChange)
@@ -262,8 +366,6 @@ func uploadNewProject(client *jam.Client) error {
 	if err != nil {
 		return err
 	}
-
-	log.Println("Done adding project.")
 	return writeJamsyncFile(client.ProjectConfig())
 }
 
