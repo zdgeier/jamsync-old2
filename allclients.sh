@@ -3,9 +3,7 @@ echo "Starting build process"
 ARRAY=( "linux:amd64"
         "linux:arm64"
         "darwin:amd64"
-        "darwin:arm64"
-        "windows:amd64"
-        "windows:arm64" )
+        "darwin:arm64" )
 
 for kv in "${ARRAY[@]}" ; do
     KEY=${kv%%:*}
