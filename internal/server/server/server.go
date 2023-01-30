@@ -26,6 +26,9 @@ import (
 //go:embed prodkey.pem
 var prodF embed.FS
 
+//go:embed devkey.cer
+var devF embed.FS
+
 type JamsyncServer struct {
 	db          db.JamsyncDb
 	opstore     opstore.LocalStore
@@ -103,10 +106,10 @@ func Connect(accessToken *oauth2.Token) (client pb.JamsyncAPIClient, closer func
 		cp.AppendCertsFromPEM(certData)
 		creds = credentials.NewClientTLSFromCert(cp, "jamsync.dev")
 	} else {
-		creds, err = credentials.NewClientTLSFromFile("/etc/jamsync/x509/publickey.cer", "jamsync.dev")
-		if err != nil {
-			log.Fatalf("failed to load credentials: %v", err)
-		}
+		cp := x509.NewCertPool()
+		certData, _ := prodF.ReadFile("devkey.pem")
+		cp.AppendCertsFromPEM(certData)
+		creds = credentials.NewClientTLSFromCert(cp, "jamsync.dev")
 	}
 	opts = append(opts, grpc.WithTransportCredentials(creds))
 

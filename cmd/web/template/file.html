@@ -67,7 +67,7 @@
             const queryParams = new URLSearchParams(window.location.search);
             let maxCommitId = Math.max(...projectMetadataJson.change_ids);
             let selectedCommitId = queryParams.get("commitId") ? queryParams.get("commitId") : maxCommitId;
-            if (maxCommitId > 1) {
+            if (maxCommitId >= 1) {
                 const commitIdInput = document.getElementById("commitIdInput");
                 commitIdInput.min = 1;
                 commitIdInput.max = maxCommitId;
