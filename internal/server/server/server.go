@@ -82,9 +82,7 @@ func New() (closer func(), err error) {
 }
 
 func Connect(accessToken *oauth2.Token) (client pb.JamsyncAPIClient, closer func(), err error) {
-	perRPC := oauth.TokenSource{TokenSource: oauth2.StaticTokenSource(accessToken)}
 	opts := []grpc.DialOption{
-		grpc.WithPerRPCCredentials(perRPC),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 			raddr, err := net.ResolveTCPAddr("tcp", addr)
 			if err != nil {
@@ -99,15 +97,25 @@ func Connect(accessToken *oauth2.Token) (client pb.JamsyncAPIClient, closer func
 			return conn, err
 		}),
 	}
+	if jamenv.Env() != jamenv.Local {
+		perRPC := oauth.TokenSource{TokenSource: oauth2.StaticTokenSource(accessToken)}
+		opts = append(opts, grpc.WithPerRPCCredentials(perRPC))
+	}
 	var creds credentials.TransportCredentials
 	if jamenv.Env() == jamenv.Prod {
 		cp := x509.NewCertPool()
-		certData, _ := prodF.ReadFile("prodkey.pem")
+		certData, err := prodF.ReadFile("prodkey.pem")
+		if err != nil {
+			return nil, nil, err
+		}
 		cp.AppendCertsFromPEM(certData)
 		creds = credentials.NewClientTLSFromCert(cp, "jamsync.dev")
 	} else {
 		cp := x509.NewCertPool()
-		certData, _ := prodF.ReadFile("devkey.pem")
+		certData, err := devF.ReadFile("devkey.cer")
+		if err != nil {
+			return nil, nil, err
+		}
 		cp.AppendCertsFromPEM(certData)
 		creds = credentials.NewClientTLSFromCert(cp, "jamsync.dev")
 	}

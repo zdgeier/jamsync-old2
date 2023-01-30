@@ -6,12 +6,40 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/zdgeier/jamsync/gen/pb"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	"github.com/zdgeier/jamsync/internal/server/server"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 )
 
 func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		if jamenv.Env() == jamenv.Local {
+			session := sessions.Default(ctx)
+			session.Set("access_token", "localtoken")
+			session.Set("email", "test@jamsync.dev")
+			if err := session.Save(); err != nil {
+				ctx.String(http.StatusInternalServerError, err.Error())
+				return
+			}
+			tempClient, closer, err := server.Connect(nil)
+			if err != nil {
+				ctx.String(http.StatusInternalServerError, err.Error())
+				return
+			}
+			defer closer()
+
+			_, err = tempClient.CreateUser(ctx, &pb.CreateUserRequest{
+				Username: "test@jamsync.dev",
+			})
+			if err != nil {
+				ctx.String(http.StatusInternalServerError, err.Error())
+				return
+			}
+
+			ctx.Redirect(http.StatusTemporaryRedirect, "/test@jamsync.dev/projects")
+			return
+		}
+
 		session := sessions.Default(ctx)
 		if ctx.Query("state") != session.Get("state") {
 			ctx.String(http.StatusBadRequest, "Invalid state parameter.")

@@ -102,7 +102,6 @@ func main() {
 		if err != nil {
 			log.Panic(err)
 		}
-		return
 	}
 
 	// Get what has changed locally since last push
@@ -153,6 +152,9 @@ func main() {
 		defer watcher.Close()
 
 		if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
+			if d.Name() == ".jamsync" || path == "." || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") {
+				return nil
+			}
 			log.Println("Watching", path)
 			return watcher.Add(path)
 		}); err != nil {

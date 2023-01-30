@@ -10,6 +10,7 @@ import (
 
 	"github.com/auth0/go-jwt-middleware/v2/jwks"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -24,6 +25,10 @@ var (
 )
 
 func EnsureValidToken(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	if jamenv.Env() == jamenv.Local {
+		return handler(ctx, req)
+	}
+
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, errMissingMetadata
@@ -100,6 +105,9 @@ func (c CustomClaims) HasScope(expectedScope string) bool {
 }
 
 func ParseIdFromCtx(ctx context.Context) (string, error) {
+	if jamenv.Env() == jamenv.Local {
+		return "test@jamsync.dev", nil
+	}
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return "", errMissingMetadata

@@ -7,12 +7,18 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	"github.com/zdgeier/jamsync/internal/web/authenticator"
 	"golang.org/x/oauth2"
 )
 
 func Handler(auth *authenticator.Authenticator) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		if jamenv.Env() == jamenv.Local {
+			ctx.Redirect(http.StatusTemporaryRedirect, "/callback")
+			return
+		}
+
 		state, err := generateRandomState()
 		if err != nil {
 			ctx.String(http.StatusInternalServerError, err.Error())

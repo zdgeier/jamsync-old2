@@ -7,6 +7,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	cv "github.com/nirasan/go-oauth-pkce-code-verifier"
+	"github.com/zdgeier/jamsync/internal/jamenv"
 	"golang.org/x/oauth2"
 )
 
@@ -17,6 +18,9 @@ type Authenticator struct {
 }
 
 func New() (*Authenticator, error) {
+	if jamenv.Env() == jamenv.Local {
+		return nil, nil
+	}
 	provider, err := oidc.NewProvider(
 		context.Background(),
 		"https://"+os.Getenv("AUTH0_DOMAIN")+"/",
