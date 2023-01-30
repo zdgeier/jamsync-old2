@@ -28,6 +28,9 @@ buildclient:
 buildclients:
 	./allclients.sh
 
+backup:
+	mkdir -p ./build/static && zip -r build/static/jamsync-source.zip . -x .git/\* && cp build/static/jamsync-source.zip ~/Documents/temp
+
 zipself:
 	mkdir -p ./build/static && zip -r build/static/jamsync-source.zip . -x .git/\*
 

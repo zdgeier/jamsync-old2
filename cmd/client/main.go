@@ -77,7 +77,19 @@ func main() {
 		}
 
 		client = jam.NewClient(apiClient, resp.ProjectId, resp.CurrentChange)
-		err = downloadExistingProject(client)
+
+		diffRemoteToLocalResp, err := client.DiffRemoteToLocal(context.Background(), &pb.FileMetadata{})
+		if err != nil {
+			log.Panic(err)
+		}
+
+		err = applyFileListDiff(diffRemoteToLocalResp, client)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		log.Println("Done downloading.")
+		err = writeJamsyncFile(client.ProjectConfig())
 		if err != nil {
 			log.Panic(err)
 		}
@@ -152,7 +164,7 @@ func main() {
 		defer watcher.Close()
 
 		if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-			if d.Name() == ".jamsync" || path == "." || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") {
+			if d.Name() == ".jamsync" || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") {
 				return nil
 			}
 			log.Println("Watching", path)
@@ -164,6 +176,7 @@ func main() {
 		for {
 			select {
 			case <-changes:
+				log.Println("Got remote change")
 				fileMetadata := readLocalFileList()
 				localToRemoteDiff, err := client.DiffLocalToRemote(context.Background(), fileMetadata)
 				if err != nil {
@@ -209,7 +222,7 @@ func main() {
 						log.Panic("Could not walk directory tree to watch files")
 					}
 				} else {
-					log.Println(path + " changed ")
+					log.Println(path + " file changed")
 					err := watcher.Add(path)
 					if err != nil {
 						log.Fatal(err)
@@ -310,10 +323,12 @@ func pull(client *jam.Client, localToRemoteDiff *pb.FileMetadataDiff, remoteToLo
 		return
 	}
 
-	err := downloadExistingProject(client)
+	err := applyFileListDiff(remoteToLocalDiff, client)
 	if err != nil {
 		log.Panic(err)
 	}
+
+	log.Println("Done downloading.")
 }
 
 func findJamsyncConfig() *pb.ProjectConfig {
@@ -411,8 +426,8 @@ func readLocalFileList() *pb.FileMetadata {
 	}
 }
 
-func downloadExistingProject(client *jam.Client) error {
-	resp, err := client.DiffRemoteToLocal(context.Background(), &pb.FileMetadata{})
+func downloadExistingProject(client *jam.Client, currentFileMetaData *pb.FileMetadata) error {
+	resp, err := client.DiffRemoteToLocal(context.Background(), currentFileMetaData)
 	if err != nil {
 		return err
 	}
@@ -470,9 +485,9 @@ func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMe
 
 func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client) error {
 	ctx := context.Background()
-	log.Println("Creating directories...")
 	for path, diff := range fileMetadataDiff.GetDiffs() {
 		if diff.GetType() != pb.FileMetadataDiff_NoOp && diff.GetFile().GetDir() {
+			log.Println("Creating ", diff.GetFile().GetDir())
 			err := os.MkdirAll(path, os.ModePerm)
 			if err != nil {
 				return err
@@ -480,7 +495,6 @@ func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client
 		}
 	}
 
-	log.Println("Downloading files...")
 	paths := make(chan string, len(fileMetadataDiff.GetDiffs()))
 	results := make(chan error, len(fileMetadataDiff.GetDiffs()))
 
@@ -498,6 +512,7 @@ func applyFileListDiff(fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client
 				return
 			}
 
+			log.Println("Downloading ", path)
 			err = client.DownloadFile(ctx, path, bytes.NewReader(fileContents), file)
 			if err != nil {
 				results <- err
