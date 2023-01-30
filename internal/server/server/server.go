@@ -85,8 +85,8 @@ func Connect(accessToken *oauth2.Token) (client pb.JamsyncAPIClient, closer func
 	perRPC := oauth.TokenSource{TokenSource: oauth2.StaticTokenSource(accessToken)}
 	opts := []grpc.DialOption{
 		grpc.WithPerRPCCredentials(perRPC),
-		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr("tcp", jamenv.PublicAPIAddress())
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			raddr, err := net.ResolveTCPAddr("tcp", addr)
 			if err != nil {
 				return nil, err
 			}
@@ -113,7 +113,11 @@ func Connect(accessToken *oauth2.Token) (client pb.JamsyncAPIClient, closer func
 	}
 	opts = append(opts, grpc.WithTransportCredentials(creds))
 
-	conn, err := grpc.Dial(jamenv.PublicAPIAddress(), opts...)
+	addr := "0.0.0.0:14357"
+	if jamenv.Env() == jamenv.Prod {
+		addr = "18.188.17.102:14357"
+	}
+	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
 		log.Panicf("could not connect to jamsync server: %s", err)
 	}

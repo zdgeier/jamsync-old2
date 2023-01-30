@@ -15,7 +15,6 @@ import (
 	cv "github.com/nirasan/go-oauth-pkce-code-verifier"
 	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/viper"
-	"github.com/zdgeier/jamsync/internal/jamenv"
 )
 
 // TODO: fix error output in this file
@@ -33,7 +32,7 @@ func AuthorizeUser() {
 			"&response_type=code&client_id=%s"+
 			"&code_challenge=%s"+
 			"&code_challenge_method=S256&redirect_uri=%s",
-		jamenv.Auth0Domain(), jamenv.Auth0ClientID(), CodeVerifier.CodeChallengeS256(), redirectUrl)
+		os.Getenv("AUTH0_DOMAIN"), os.Getenv("AUTH0_CLIENT_ID"), CodeVerifier.CodeChallengeS256(), redirectUrl)
 
 	// start a web server to listen on a callback URL
 	server := &http.Server{Addr: redirectUrl}
@@ -53,7 +52,7 @@ func AuthorizeUser() {
 
 		// trade the authorization code and the code verifier for an access token
 		codeVerifier := CodeVerifier.String()
-		token, err := getAccessToken(jamenv.Auth0ClientID(), codeVerifier, code, redirectUrl)
+		token, err := getAccessToken(os.Getenv("AUTH0_CLIENT_ID"), codeVerifier, code, redirectUrl)
 		if err != nil {
 			log.Println("could not get access token")
 			io.WriteString(w, "Error: could not retrieve access token\n")
@@ -202,7 +201,7 @@ func AuthorizeUser() {
 // getAccessToken trades the authorization code retrieved from the first OAuth2 leg for an access token
 func getAccessToken(clientID string, codeVerifier string, authorizationCode string, callbackURL string) (string, error) {
 	// set the url and form-encoded data for the POST to the access token endpoint
-	url := fmt.Sprintf("https://%s/oauth/token", jamenv.Auth0Domain())
+	url := fmt.Sprintf("https://%s/oauth/token", os.Getenv("AUTH0_DOMAIN"))
 	data := fmt.Sprintf(
 		"grant_type=authorization_code&client_id=%s"+
 			"&code_verifier=%s"+
