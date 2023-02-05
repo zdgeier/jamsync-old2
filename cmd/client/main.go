@@ -164,7 +164,7 @@ func main() {
 		defer watcher.Close()
 
 		if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-			if d.Name() == ".jamsync" || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") {
+			if shouldExclude(path) {
 				return nil
 			}
 			log.Println("Watching", path)
@@ -389,7 +389,7 @@ func uploadNewProject(client *jam.Client) error {
 func readLocalFileList() *pb.FileMetadata {
 	files := map[string]*pb.File{}
 	if err := filepath.WalkDir(".", func(path string, d fs.DirEntry, _ error) error {
-		if d.Name() == ".jamsync" || path == "." || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb") {
+		if shouldExclude(path) {
 			return nil
 		}
 		info, err := d.Info()
@@ -424,21 +424,6 @@ func readLocalFileList() *pb.FileMetadata {
 	return &pb.FileMetadata{
 		Files: files,
 	}
-}
-
-func downloadExistingProject(client *jam.Client, currentFileMetaData *pb.FileMetadata) error {
-	resp, err := client.DiffRemoteToLocal(context.Background(), currentFileMetaData)
-	if err != nil {
-		return err
-	}
-
-	err = applyFileListDiff(resp, client)
-	if err != nil {
-		return err
-	}
-
-	log.Println("Done downloading.")
-	return writeJamsyncFile(client.ProjectConfig())
 }
 
 func pushFileListDiff(fileMetadata *pb.FileMetadata, fileMetadataDiff *pb.FileMetadataDiff, client *jam.Client) error {
@@ -566,4 +551,8 @@ func currentDirectoryEmpty() (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+func shouldExclude(path string) bool {
+	return strings.HasPrefix(path, ".next") || strings.HasPrefix(path, "node_modules") || strings.HasSuffix(path, ".jamsync") || strings.HasPrefix(path, ".git") || strings.HasPrefix(path, "jb")
 }
