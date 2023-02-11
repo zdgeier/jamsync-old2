@@ -205,22 +205,6 @@ func PbBlockHashesToRsync(pbBlockHashes []*pb.BlockHash) []rsync.BlockHash {
 	return blockHashes
 }
 
-// func (c *Client) UploadFileList(ctx context.Context, fileMetadata *pb.FileMetadata) error {
-// 	err := c.CreateChange()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	metadataBytes, err := proto.Marshal(fileMetadata)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	err = c.UploadFile(ctx, ".jamsyncfilelist", bytes.NewReader(metadataBytes))
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return c.CommitChange()
-// }
-
 func (c *Client) DiffLocalToRemote(ctx context.Context, fileMetadata *pb.FileMetadata) (*pb.FileMetadataDiff, error) {
 	metadataBytes, err := proto.Marshal(fileMetadata)
 	if err != nil {

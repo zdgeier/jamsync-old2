@@ -313,19 +313,11 @@ func benchmarkUpload(b *testing.B, client *Client, projectName string, filePath 
 	for n := 0; n < b.N; n++ {
 		ctx := context.Background()
 
-		uploadFile := func(data []byte) {
-			err := client.CreateChange()
-			require.NoError(b, err)
+		err := client.CreateChange()
+		require.NoError(b, err)
 
-			err = client.UploadFile(ctx, filePath+fmt.Sprint(n), bytes.NewReader(data))
-			require.NoError(b, err)
-
-			// err = client.CommitChange()
-			// require.NoError(b, err)
-		}
-
-		content.Fill()
-		uploadFile(content.Data)
+		err = client.UploadFile(ctx, filePath+fmt.Sprint(rand.Int()), bytes.NewReader(content.Data))
+		require.NoError(b, err)
 	}
 }
 
@@ -405,10 +397,12 @@ func BenchmarkRandUpload(b *testing.B) {
 		require.NoError(b, err)
 		client := NewClient(apiClient, addProjResp.ProjectId, 0)
 
+		content.Len *= pair.Multi
+		content.Fill()
+		fmt.Println(content.Len)
+
 		b.Run(pair.Description, func(b *testing.B) {
-			testContent := content
-			testContent.Len *= pair.Multi
-			benchmarkUpload(b, client, projectName, pair.FilePath, testContent)
+			benchmarkUpload(b, client, projectName, pair.FilePath, content)
 		})
 
 		// b.Run(pair.Description+"DL", func(b *testing.B) {

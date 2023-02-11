@@ -1,4 +1,8 @@
-{{template "head.html"}}
+{{template "head.html" args
+    "title" "Home" 
+    "canonical" "" 
+    "description" "Jamsync is a open-source version control system that enables software engineers to develop and deploy faster."
+}}
 <body>
     {{template "header.html" args "email" .Email}}
     <main>

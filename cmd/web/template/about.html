@@ -1,11 +1,11 @@
 {{template "head.html" args 
     "title" "About" 
     "canonical" "about" 
+    "description" "Jamsync uses the rsync algorithm to track changes to large files efficiently and share changes live with other developers."
 }}
 <body>
     {{template "header.html" args "email" .Email}}
     <main>
-        
         <section class="About">
             <div class="About-header">
                 <span class="About-headerLeft">Jamsync</span>
@@ -27,7 +27,7 @@
             </div>
             <h1>About</h1>
             <p class="About-description">
-                Jamsync is an open-source version control system that enables software engineers to develop and deploy faster. We're currently under development but feel free to preview the system on this site. The AGPL-licensed source and client binaries are available to download <a href="/download">here</a>.
+                Jamsync is an open-source version control system that enables software engineers to develop and deploy faster. We're currently under development but feel free to preview the system on this site. The AGPL-licensed source and client binaries are available to <a href="/download">download</a>.
             </p>
             <h2>Algorithm</h2>
             <p class="About-description">
@@ -80,12 +80,12 @@
             </p>
             <h3>Implementation</h3>
             <p class="About-description">
-                Jamsync is being written from scratch in <a href="https://go.dev/">Go</a> and uses <a href="https://github.com/mattn/go-sqlite3">mattn/go-sqlite3</a> to store projects and change information. <a href="https://grpc.io/">gRPC</a> and <a href="https://developers.google.com/protocol-buffers">Protocol buffers</a> 
+                Jamsync is being written from scratch in <a href="https://go.dev/">Golang</a> and uses <a href="https://github.com/mattn/go-sqlite3">mattn/go-sqlite3</a> to store projects and change information. <a href="https://grpc.io/">gRPC</a> and <a href="https://developers.google.com/protocol-buffers">Protocol buffers</a> 
                 are used for service definitions and data serialization.
             </p>
             <h2>Current state</h2>
             <p class="About-description">
-                This site is a preview version of the system. The features <a href="/">here</a> will be available over the next few months.
+                This site is a preview version of the system. The features on the <a href="/">homepage</a> will be available over the next few months.
             </p>
             <h3>Developers</h3>
             <p class="About-description">

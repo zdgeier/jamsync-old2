@@ -3,23 +3,23 @@
     <div class="Header-top">
         <div class="Header-topLeft">
             <a class="Header-homeLink" href="/">
-                <span class="Header-homeText">jamsync.v0</span>
+                <span class="Header-homeText">Jamsync</span>
             </a>
         </div>
         {{if $.email}}
-            <a class="Header-login" href="/logout">logout</a>
+            <a class="Header-login" href="/logout">Logout</a>
         {{else}}
-            <a class="Header-login" href="/login">login</a>
+            <a class="Header-login" href="/login">Login</a>
         {{end}}
     </div>
     <div class="Header-bottom">
         <div class="Header-bottomLeft">
-            <a href="/">Home</a>
-            <a href="/about">About</a>
-            <a href="/download">Download</a>
+            <a class="Header-bottomLink" href="/">Home</a>
+            <a class="Header-bottomLink" href="/about">About</a>
+            <a class="Header-bottomLink" href="/download">Download</a>
         </div>
         <div class="Header-bottomRight">
-            <a href="/{{.email}}/projects">{{$.email}}</a>
+            <a class="Header-bottomLink" href="/{{.email}}/projects">{{$.email}}</a>
         </div>
     </div>
 </header>
