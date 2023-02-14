@@ -23,7 +23,7 @@ for kv in "${ARRAY[@]}" ; do
     fi
 done
 
-mkdir -p ./build/static
-mv jam* ./build/static
+mkdir -p ./jamsync-build/static
+mv jam* ./jamsync-build/static
 
 echo "Done!"

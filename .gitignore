@@ -1,5 +1,5 @@
 jb
 jamsync.db
-build*
+jamsync-build*
 .jamsync
 jamsync-build.zip
