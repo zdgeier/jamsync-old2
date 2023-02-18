@@ -23,10 +23,10 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-//go:embed prodkey.pem
+//go:embed clientkey.pem
 var prodF embed.FS
 
-//go:embed devkey.cer
+//go:embed devclientkey.cer
 var devF embed.FS
 
 type JamsyncServer struct {
@@ -104,7 +104,7 @@ func Connect(accessToken *oauth2.Token) (client pb.JamsyncAPIClient, closer func
 	var creds credentials.TransportCredentials
 	if jamenv.Env() == jamenv.Prod {
 		cp := x509.NewCertPool()
-		certData, err := prodF.ReadFile("prodkey.pem")
+		certData, err := prodF.ReadFile("clientkey.pem")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -112,7 +112,7 @@ func Connect(accessToken *oauth2.Token) (client pb.JamsyncAPIClient, closer func
 		creds = credentials.NewClientTLSFromCert(cp, "jamsync.dev")
 	} else {
 		cp := x509.NewCertPool()
-		certData, err := devF.ReadFile("devkey.cer")
+		certData, err := devF.ReadFile("devclientkey.cer")
 		if err != nil {
 			return nil, nil, err
 		}
