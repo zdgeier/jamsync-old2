@@ -14,7 +14,7 @@ func PbBlockHashesToRsync(pbBlockHashes []*pb.BlockHash) []BlockHash {
 	}
 	return blockHashes
 }
-
+// test
 func PbOperationToRsync(op *pb.Operation) Operation {
 	var opType OpType
 	switch op.Type {
